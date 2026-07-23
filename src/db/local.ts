@@ -10,7 +10,6 @@ import type {
   PersonalRecord,
   Session,
   Split,
-  Units,
 } from "../types";
 import { loadData, saveData } from "../lib/store";
 import type { Persistence } from "./persistence";
@@ -25,11 +24,6 @@ export class LocalStoragePersistence implements Persistence {
   async load(): Promise<AppData> {
     this.cache = loadData();
     return this.cache;
-  }
-
-  async saveUnits(units: Units): Promise<void> {
-    this.cache = { ...this.cache, units };
-    this.flush();
   }
 
   private upsert<T extends { id: string }>(list: T[], item: T): T[] {

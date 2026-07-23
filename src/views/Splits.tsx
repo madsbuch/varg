@@ -3,12 +3,13 @@ import type { Exercise, Split, SplitDay } from "../types";
 import { useApp } from "../lib/app-context";
 import { deleteSplit, uid, upsertSplit } from "../lib/store";
 import ExercisePicker from "../components/ExercisePicker";
-import { Field, Sheet } from "../components/ui";
+import { ConfirmSheet, Field, Sheet } from "../components/ui";
 import { IconLayers, IconPlus, IconTrash } from "../components/icons";
 
 export default function Splits() {
   const { data, update } = useApp();
   const [editing, setEditing] = useState<Split | null>(null);
+  const [deleting, setDeleting] = useState<Split | null>(null);
 
   const newSplit = (): Split => ({
     id: uid("split"),
@@ -46,16 +47,23 @@ export default function Splits() {
             <button
               className="check"
               aria-label="Delete"
-              onClick={() => {
-                if (confirm(`Delete split "${s.name}"?`))
-                  update((d) => deleteSplit(d, s.id));
-              }}
+              onClick={() => setDeleting(s)}
             >
               <IconTrash />
             </button>
           )}
         </div>
       ))}
+
+      {deleting && (
+        <ConfirmSheet
+          title="Delete split"
+          message={`Delete split "${deleting.name}"?`}
+          confirmLabel="Delete"
+          onConfirm={() => update((d) => deleteSplit(d, deleting.id))}
+          onClose={() => setDeleting(null)}
+        />
+      )}
 
       {editing && (
         <SplitEditor

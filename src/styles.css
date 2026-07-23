@@ -1,21 +1,22 @@
 :root {
-  --bg: #0d0f0c;
-  --bg-raised: #15181300;
-  --panel: #171b14;
-  --panel-2: #1e2319;
-  --panel-3: #262c1f;
-  --line: #333a29;
-  --text: #e8ecdf;
-  --muted: #9aa588;
-  --faint: #6c7658;
-  --accent: #a4c639; /* olive lime */
-  --accent-dim: #7d9a29;
-  --danger: #d9584a;
-  --gold: #d9b64e;
+  /* Light "desert field" theme: sand, canvas, olive drab, brass. */
+  --bg: #e8e0c9;
+  --panel: #f2ecd9;
+  --panel-2: #e4dabd;
+  --panel-3: #d8cca8;
+  --line: #c6b98f;
+  --text: #2b2a1c;
+  --muted: #6f6849;
+  --faint: #948b69;
+  --accent: #5c6b33; /* olive drab */
+  --accent-dim: #77883f;
+  --on-accent: #f5f1e0;
+  --danger: #a4392c;
+  --gold: #8a6d1f; /* brass */
   --radius: 14px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 * {
@@ -140,7 +141,7 @@ textarea:focus {
   justify-content: center;
   gap: 4px;
   padding: 8px 8px calc(var(--safe-bottom) + 8px);
-  background: linear-gradient(180deg, #12140f00 0%, #0d0f0c 40%);
+  background: linear-gradient(180deg, rgba(232, 224, 201, 0) 0%, #e8e0c9 40%);
   backdrop-filter: blur(8px);
 }
 
@@ -253,8 +254,12 @@ textarea:focus {
 
 .btn.primary {
   background: var(--accent);
-  color: #10130a;
+  color: var(--on-accent);
   border-color: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.45;
 }
 
 .btn.ghost {
@@ -263,7 +268,7 @@ textarea:focus {
 
 .btn.danger {
   color: var(--danger);
-  border-color: #4a2a26;
+  border-color: #cf9a8b;
 }
 
 .btn.sm {
@@ -301,7 +306,7 @@ textarea:focus {
 
 .chip.gold {
   color: var(--gold);
-  border-color: #5a4c22;
+  border-color: #c0a95e;
 }
 
 /* --- Lists --- */
@@ -365,7 +370,7 @@ textarea:focus {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(59, 53, 33, 0.45);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -463,7 +468,7 @@ textarea:focus {
 .check.on {
   background: var(--accent);
   border-color: var(--accent);
-  color: #10130a;
+  color: var(--on-accent);
 }
 
 .check svg {
@@ -504,7 +509,7 @@ textarea:focus {
 
 .segmented button.on {
   background: var(--accent);
-  color: #10130a;
+  color: var(--on-accent);
 }
 
 .pr-badge {
@@ -550,4 +555,76 @@ textarea:focus {
 
 .grow {
   flex: 1;
+}
+
+/* --- Brand mark --- */
+.brand .mark,
+.splash-mark {
+  color: var(--accent);
+}
+
+/* --- Exercise animations --- */
+.ex-anim {
+  color: var(--accent);
+  display: block;
+}
+
+.ex-anim .ex-limb {
+  stroke: currentColor;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.ex-anim .ex-head {
+  fill: currentColor;
+}
+
+.ex-anim .ex-gear {
+  stroke: var(--faint);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.ex-anim .ex-gear.ex-fill,
+.ex-anim .ex-fill {
+  fill: var(--faint);
+}
+
+.ex-anim .ex-ground {
+  stroke: var(--line);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.anim-thumb {
+  flex-shrink: 0;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 2px;
+}
+
+.anim-stage {
+  display: grid;
+  place-items: center;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.cues {
+  margin: 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 8px;
+}
+
+.cues li {
+  line-height: 1.45;
 }

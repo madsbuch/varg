@@ -92,6 +92,48 @@ export function EmptyState({
   );
 }
 
+/**
+ * In-app confirmation dialog. Android WebViews often swallow
+ * window.confirm(), so destructive actions must use this instead.
+ */
+export function ConfirmSheet({
+  title,
+  message,
+  confirmLabel = "Confirm",
+  danger = true,
+  onConfirm,
+  onClose,
+}: {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Sheet title={title} onClose={onClose}>
+      <p className="muted" style={{ marginTop: 0 }}>
+        {message}
+      </p>
+      <div className="btn-row" style={{ marginTop: 16 }}>
+        <button className="btn ghost" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          className={`btn ${danger ? "danger" : "primary"}`}
+          onClick={() => {
+            onConfirm();
+            onClose();
+          }}
+        >
+          {confirmLabel}
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
 export function Stat({ n, l }: { n: ReactNode; l: string }) {
   return (
     <div className="stat">

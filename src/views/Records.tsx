@@ -1,36 +1,30 @@
 import { useMemo, useState } from "react";
-import type { Exercise, PersonalRecord, PRKind, Units } from "../types";
+import type { Exercise, PersonalRecord, PRKind } from "../types";
 import { useApp } from "../lib/app-context";
 import { addManualPR, deletePR, uid } from "../lib/store";
 import { prKindLabel, prKindsFor } from "../lib/prs";
-import { Field, Sheet } from "../components/ui";
+import { ConfirmSheet, Field, Sheet } from "../components/ui";
 import { IconPlus, IconTrash, IconTrophy } from "../components/icons";
 import {
-  displayToKg,
-  displayToMeters,
-  distanceLabel,
   formatDate,
   formatSeconds,
-  kgToDisplay,
-  metersToDisplay,
+  kmFromMeters,
+  metersFromKm,
   parseTime,
   roundW,
-  weightLabel,
 } from "../lib/units";
 
-function formatPR(pr: PersonalRecord, units: Units): string {
+function formatPR(pr: PersonalRecord): string {
   switch (pr.kind) {
     case "1rm":
     case "weight":
-      return `${roundW(kgToDisplay(pr.value, units))} ${weightLabel(units)}${
-        pr.reps ? ` × ${pr.reps}` : ""
-      }`;
+      return `${roundW(pr.value)} kg${pr.reps ? ` × ${pr.reps}` : ""}`;
     case "reps":
       return `${pr.value} reps`;
     case "time":
       return formatSeconds(pr.value);
     case "distance":
-      return `${roundW(metersToDisplay(pr.value, units))} ${distanceLabel(units)}`;
+      return `${kmFromMeters(pr.value)} km`;
   }
 }
 
@@ -96,7 +90,8 @@ function PRGroup({
   exercise: Exercise;
   prs: PersonalRecord[];
 }) {
-  const { data, update } = useApp();
+  const { update } = useApp();
+  const [deleting, setDeleting] = useState<PersonalRecord | null>(null);
   return (
     <div className="card" style={{ marginBottom: 10 }}>
       <div className="row">
@@ -107,7 +102,7 @@ function PRGroup({
           <div key={pr.id} className="row" style={{ padding: "8px 0" }}>
             <div>
               <div style={{ fontWeight: 700, color: "var(--gold)" }}>
-                {formatPR(pr, data.units)}
+                {formatPR(pr)}
               </div>
               <div className="faint" style={{ fontSize: 12 }}>
                 {prKindLabel(pr.kind)} · {formatDate(pr.date)}
@@ -118,7 +113,7 @@ function PRGroup({
               <button
                 className="check"
                 aria-label="Delete PR"
-                onClick={() => update((d) => deletePR(d, pr.id))}
+                onClick={() => setDeleting(pr)}
               >
                 <IconTrash />
               </button>
@@ -126,6 +121,15 @@ function PRGroup({
           </div>
         ))}
       </div>
+      {deleting && (
+        <ConfirmSheet
+          title="Delete record"
+          message={`Delete ${formatPR(deleting)} (${prKindLabel(deleting.kind)})?`}
+          confirmLabel="Delete"
+          onConfirm={() => update((d) => deletePR(d, deleting.id))}
+          onClose={() => setDeleting(null)}
+        />
+      )}
     </div>
   );
 }
@@ -151,20 +155,12 @@ function AddPRSheet({ onClose }: { onClose: () => void }) {
   const submit = () => {
     if (!exercise) return;
     let canonical: number | undefined;
-    if (kind === "1rm" || kind === "weight") {
-      const n = Number(value);
-      if (!Number.isFinite(n) || n <= 0) return;
-      canonical = displayToKg(n, data.units);
-    } else if (kind === "reps") {
-      const n = Number(value);
-      if (!Number.isFinite(n) || n <= 0) return;
-      canonical = n;
-    } else if (kind === "time") {
+    if (kind === "time") {
       canonical = parseTime(value);
-    } else if (kind === "distance") {
+    } else {
       const n = Number(value);
       if (!Number.isFinite(n) || n <= 0) return;
-      canonical = displayToMeters(n, data.units);
+      canonical = kind === "distance" ? metersFromKm(n) : n;
     }
     if (canonical == null || canonical <= 0) return;
 
@@ -185,10 +181,10 @@ function AddPRSheet({ onClose }: { onClose: () => void }) {
     kind === "time"
       ? "mm:ss"
       : kind === "distance"
-        ? distanceLabel(data.units)
+        ? "km"
         : kind === "reps"
           ? "reps"
-          : weightLabel(data.units);
+          : "kg";
 
   return (
     <Sheet title="Log a PR" onClose={onClose}>

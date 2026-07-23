@@ -1,34 +1,4 @@
-import type { Units } from "../types";
-
-const KG_PER_LB = 0.45359237;
-
-export function kgToDisplay(kg: number, units: Units): number {
-  if (units === "imperial") return kg / KG_PER_LB;
-  return kg;
-}
-
-export function displayToKg(value: number, units: Units): number {
-  if (units === "imperial") return value * KG_PER_LB;
-  return value;
-}
-
-export function weightLabel(units: Units): string {
-  return units === "imperial" ? "lb" : "kg";
-}
-
-export function metersToDisplay(m: number, units: Units): number {
-  if (units === "imperial") return m / 1609.344; // miles
-  return m / 1000; // km
-}
-
-export function displayToMeters(value: number, units: Units): number {
-  if (units === "imperial") return value * 1609.344;
-  return value * 1000;
-}
-
-export function distanceLabel(units: Units): string {
-  return units === "imperial" ? "mi" : "km";
-}
+// Varg is metric-only: weights in kg, distances in meters (shown as km).
 
 export function roundW(n: number): number {
   return Math.round(n * 100) / 100;
@@ -39,6 +9,14 @@ export function estimate1RM(weightKg: number, reps: number): number {
   if (reps <= 0) return 0;
   if (reps === 1) return weightKg;
   return weightKg * (1 + reps / 30);
+}
+
+export function kmFromMeters(m: number): number {
+  return roundW(m / 1000);
+}
+
+export function metersFromKm(km: number): number {
+  return km * 1000;
 }
 
 export function formatSeconds(total: number): string {

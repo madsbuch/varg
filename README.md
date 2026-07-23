@@ -24,8 +24,12 @@ Built with **Tauri 2 · Bun · TypeScript · React**, targeting **Android**.
 - **Military templates** — Murph, ACFT, USMC PFT, Navy PRT, Cindy, DT, Chad
   1000x, standard ruck, and more. Load one and log it.
 - **Live session logging** — per-set weight×reps / reps / time / distance,
-  with metric or imperial units, and live "on pace for a PR" hints.
+  with live "on pace for a PR" hints. Strictly metric: kg and km, always.
+- **Exercise library ("Manual")** — every exercise with an animated
+  stick-figure demonstration (pure SVG/SMIL, fully offline) and concise
+  execution cues.
 - **Offline-first** — all data lives in an on-device SQLite database.
+- **Desert field theme** — light sand/canvas palette with olive-drab accents.
 
 ## Data & migrations
 

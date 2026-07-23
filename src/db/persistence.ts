@@ -14,12 +14,10 @@ import type {
   PersonalRecord,
   Session,
   Split,
-  Units,
 } from "../types";
 
 export interface Persistence {
   load(): Promise<AppData>;
-  saveUnits(units: Units): Promise<void>;
   saveExercise(ex: Exercise): Promise<void>;
   deleteExercise(id: string): Promise<void>;
   saveSplit(split: Split): Promise<void>;
@@ -70,7 +68,6 @@ export async function persistDiff(
   next: AppData,
 ): Promise<void> {
   if (prev === next) return;
-  if (prev.units !== next.units) await p.saveUnits(next.units);
   await diffById(prev.exercises, next.exercises, (e) => p.saveExercise(e), (id) => p.deleteExercise(id));
   await diffById(prev.splits, next.splits, (s) => p.saveSplit(s), (id) => p.deleteSplit(id));
   await diffById(prev.sessions, next.sessions, (s) => p.saveSession(s), (id) => p.deleteSession(id));

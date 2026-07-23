@@ -20,7 +20,6 @@ import type {
   PersonalRecord,
   Session,
   Split,
-  Units,
 } from "../types";
 import { loadData, STORAGE_KEY } from "../lib/store";
 import type { Persistence } from "./persistence";
@@ -121,7 +120,7 @@ export class SqlitePersistence implements Persistence {
       return initial;
     }
 
-    const [splitRows, dayRows, dayExRows, sessionRows, entryRows, setRows, prRows, settingRows] =
+    const [splitRows, dayRows, dayExRows, sessionRows, entryRows, setRows, prRows] =
       await Promise.all([
         this.all<{ id: string; name: string; description?: string; builtIn: boolean }>(t.splits),
         this.all<{ id: string; splitId: string; name: string; position: number }>(t.splitDays),
@@ -140,7 +139,6 @@ export class SqlitePersistence implements Persistence {
           id: string; exerciseId: string; kind: string; value: number; reps?: number;
           date: string; sessionId?: string; note?: string; manual: boolean;
         }>(t.personalRecords),
-        this.all<{ key: string; value: string }>(t.settings),
       ]);
 
     const byPos = <X extends { position: number }>(a: X, b: X) => a.position - b.position;
@@ -162,12 +160,8 @@ export class SqlitePersistence implements Persistence {
       (setsByEntry.get(s.entryId) ?? setsByEntry.set(s.entryId, []).get(s.entryId)!).push(s);
     }
 
-    const unitsRow = settingRows.find((s) => s.key === "units");
-    const units: Units = unitsRow?.value === "imperial" ? "imperial" : "metric";
-
     const data: AppData = {
       version: 1,
-      units,
       exercises: exerciseRows.map((e) => ({
         id: e.id,
         name: e.name,
@@ -231,18 +225,10 @@ export class SqlitePersistence implements Persistence {
 
   /** Used when seeding a fresh DB (or importing legacy data). */
   private async persistAll(data: AppData): Promise<void> {
-    await this.saveUnits(data.units);
     for (const ex of data.exercises) await this.saveExercise(ex);
     for (const sp of data.splits) await this.saveSplit(sp);
     for (const s of data.sessions) await this.saveSession(s);
     await this.replacePRs(data.prs);
-  }
-
-  async saveUnits(units: Units): Promise<void> {
-    await this.db
-      .insert(t.settings)
-      .values({ key: "units", value: units })
-      .onConflictDoUpdate({ target: t.settings.key, set: { value: units } });
   }
 
   async saveExercise(ex: Exercise): Promise<void> {

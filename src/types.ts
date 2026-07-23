@@ -1,6 +1,5 @@
 // Core domain types for Varg.
-
-export type Units = "metric" | "imperial";
+// Weights are always kilograms, distances always meters — kg or death.
 
 /**
  * How an exercise is measured. This drives which inputs a set shows.
@@ -31,7 +30,7 @@ export interface Exercise {
 /** A single logged set inside a session entry. */
 export interface WorkoutSet {
   id: string;
-  weight?: number; // in kg (canonical), converted for display
+  weight?: number; // kg
   reps?: number;
   seconds?: number;
   meters?: number;
@@ -105,7 +104,6 @@ export interface Template {
 
 export interface AppData {
   version: number;
-  units: Units;
   exercises: Exercise[];
   splits: Split[];
   sessions: Session[];

@@ -103,7 +103,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           background: "var(--bg)",
         }}
       >
-        <Mark style={{ width: 64, height: 64, opacity: 0.6 }} />
+        <Mark className="splash-mark" style={{ width: 64, height: 64, opacity: 0.7 }} />
       </div>
     );
   }

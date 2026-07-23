@@ -10,7 +10,7 @@ import {
 } from "../lib/store";
 import { seedTemplates } from "../lib/seed";
 import ExercisePicker from "../components/ExercisePicker";
-import { EmptyState, Sheet } from "../components/ui";
+import { ConfirmSheet, EmptyState, Sheet } from "../components/ui";
 import {
   IconCheck,
   IconDumbbell,
@@ -19,17 +19,20 @@ import {
   IconTrash,
 } from "../components/icons";
 import {
-  displayToKg,
-  displayToMeters,
-  distanceLabel,
   estimate1RM,
   formatRelative,
-  kgToDisplay,
-  metersToDisplay,
+  kmFromMeters,
+  metersFromKm,
   parseTime,
   roundW,
-  weightLabel,
 } from "../lib/units";
+
+/** A set counts as "filled" when the athlete entered any data for it. */
+function setHasData(s: WorkoutSet): boolean {
+  return (
+    s.weight != null || s.reps != null || s.seconds != null || s.meters != null
+  );
+}
 
 export default function Train() {
   const { data } = useApp();
@@ -51,9 +54,7 @@ function StartScreen() {
   const history = data.sessions.filter((s) => s.finishedAt);
 
   const startBlank = () => {
-    update((d) =>
-      upsertSession(d, newSession(defaultSessionName())),
-    );
+    update((d) => upsertSession(d, newSession(defaultSessionName())));
   };
 
   const startFromTemplate = (templateId: string) => {
@@ -70,7 +71,7 @@ function StartScreen() {
 
   return (
     <div className="screen">
-      <div className="eyebrow">The hunt</div>
+      <div className="eyebrow">Hunt</div>
       <h2 className="screen-title">Start a session</h2>
 
       <button className="btn primary" onClick={startBlank}>
@@ -187,6 +188,7 @@ function SplitPicker({ onClose }: { onClose: () => void }) {
 
 function HistoryRow({ session }: { session: Session }) {
   const { update } = useApp();
+  const [confirming, setConfirming] = useState(false);
   const totalSets = session.entries.reduce((a, e) => a + e.sets.length, 0);
   return (
     <div className="list-item">
@@ -200,14 +202,19 @@ function HistoryRow({ session }: { session: Session }) {
       <button
         className="check"
         aria-label="Delete session"
-        onClick={() => {
-          if (confirm(`Delete "${session.name}"?`)) {
-            update((d) => deleteSession(d, session.id));
-          }
-        }}
+        onClick={() => setConfirming(true)}
       >
         <IconTrash />
       </button>
+      {confirming && (
+        <ConfirmSheet
+          title="Delete session"
+          message={`Delete "${session.name}"? PRs will be recalculated.`}
+          confirmLabel="Delete"
+          onConfirm={() => update((d) => deleteSession(d, session.id))}
+          onClose={() => setConfirming(false)}
+        />
+      )}
     </div>
   );
 }
@@ -215,8 +222,7 @@ function HistoryRow({ session }: { session: Session }) {
 function defaultSessionName(): string {
   const now = new Date();
   const hour = now.getHours();
-  const part =
-    hour < 11 ? "Morning" : hour < 17 ? "Midday" : "Evening";
+  const part = hour < 11 ? "Morning" : hour < 17 ? "Midday" : "Evening";
   return `${part} PT`;
 }
 
@@ -224,7 +230,9 @@ function defaultSessionName(): string {
 
 function ActiveSession({ session }: { session: Session }) {
   const { data, update } = useApp();
-  const [pickerFor, setPickerFor] = useState<"session" | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirmEmptyFinish, setConfirmEmptyFinish] = useState(false);
   const exById = useMemo(
     () => new Map(data.exercises.map((e) => [e.id, e])),
     [data.exercises],
@@ -236,28 +244,45 @@ function ActiveSession({ session }: { session: Session }) {
 
   const addExercise = (ex: Exercise) => {
     patch((s) => {
-      s.entries = [...s.entries, newEntry(ex.id, ex.metric === "weight_reps" ? 3 : 1)];
+      s.entries = [
+        ...s.entries,
+        newEntry(ex.id, ex.metric === "weight_reps" ? 3 : 1),
+      ];
       return s;
     });
-    setPickerFor(null);
+    setPicking(false);
   };
 
-  const finish = () => {
-    update((d) =>
-      upsertSession(d, { ...structuredClone(session), finishedAt: new Date().toISOString() }),
-    );
-  };
-
-  const discard = () => {
-    if (confirm("Discard this session? Nothing will be saved.")) {
-      update((d) => deleteSession(d, session.id));
-    }
-  };
-
+  const filledSets = session.entries.reduce(
+    (a, e) => a + e.sets.filter((s) => s.done || setHasData(s)).length,
+    0,
+  );
   const doneSets = session.entries.reduce(
     (a, e) => a + e.sets.filter((s) => s.done).length,
     0,
   );
+
+  /** Finish: any set with data counts — mark them done, then close out. */
+  const finish = () => {
+    if (filledSets === 0) {
+      setConfirmEmptyFinish(true);
+      return;
+    }
+    doFinish();
+  };
+
+  const doFinish = () => {
+    update((d) => {
+      const s = structuredClone(session);
+      for (const entry of s.entries) {
+        for (const set of entry.sets) {
+          if (setHasData(set)) set.done = true;
+        }
+      }
+      s.finishedAt = new Date().toISOString();
+      return upsertSession(d, s);
+    });
+  };
 
   return (
     <div className="screen">
@@ -274,9 +299,7 @@ function ActiveSession({ session }: { session: Session }) {
             fontWeight: 800,
           }}
           value={session.name}
-          onChange={(e) =>
-            patch((s) => ({ ...s, name: e.target.value }))
-          }
+          onChange={(e) => patch((s) => ({ ...s, name: e.target.value }))}
         />
       </div>
       {session.note && (
@@ -285,7 +308,8 @@ function ActiveSession({ session }: { session: Session }) {
         </div>
       )}
       <div className="chip accent">
-        <IconCheck style={{ width: 14, height: 14 }} /> {doneSets} sets done
+        <IconCheck style={{ width: 14, height: 14 }} /> {doneSets} done ·{" "}
+        {filledSets} logged
       </div>
 
       <div style={{ marginTop: 14 }}>
@@ -297,7 +321,6 @@ function ActiveSession({ session }: { session: Session }) {
               key={entry.id}
               entry={entry}
               exercise={ex}
-              units={data.units}
               bestPr={bestOneRm(data, ex.id)}
               onChange={(fn) =>
                 patch((s) => {
@@ -318,26 +341,42 @@ function ActiveSession({ session }: { session: Session }) {
         })}
       </div>
 
-      <button
-        className="btn"
-        style={{ marginTop: 12 }}
-        onClick={() => setPickerFor("session")}
-      >
+      <button className="btn" style={{ marginTop: 12 }} onClick={() => setPicking(true)}>
         <IconPlus /> Add exercise
       </button>
 
       <div className="divider" />
-      <button className="btn primary" onClick={finish} disabled={doneSets === 0}>
+      <button className="btn primary" onClick={finish}>
         <IconFlag /> Finish session
       </button>
-      <button className="btn danger ghost" style={{ marginTop: 10 }} onClick={discard}>
+      <button
+        className="btn danger ghost"
+        style={{ marginTop: 10 }}
+        onClick={() => setConfirmDiscard(true)}
+      >
         <IconTrash /> Discard
       </button>
 
-      {pickerFor && (
-        <ExercisePicker
-          onPick={addExercise}
-          onClose={() => setPickerFor(null)}
+      {picking && (
+        <ExercisePicker onPick={addExercise} onClose={() => setPicking(false)} />
+      )}
+      {confirmDiscard && (
+        <ConfirmSheet
+          title="Discard session"
+          message="Discard this session? Nothing will be saved."
+          confirmLabel="Discard"
+          onConfirm={() => update((d) => deleteSession(d, session.id))}
+          onClose={() => setConfirmDiscard(false)}
+        />
+      )}
+      {confirmEmptyFinish && (
+        <ConfirmSheet
+          title="Finish empty session"
+          message="No sets have any data. Finish anyway?"
+          confirmLabel="Finish"
+          danger={false}
+          onConfirm={doFinish}
+          onClose={() => setConfirmEmptyFinish(false)}
         />
       )}
     </div>
@@ -357,19 +396,17 @@ function bestOneRm(
 function EntryCard({
   entry,
   exercise,
-  units,
   bestPr,
   onChange,
   onRemove,
 }: {
   entry: SessionEntry;
   exercise: Exercise;
-  units: import("../types").Units;
   bestPr: number;
   onChange: (fn: (e: SessionEntry) => SessionEntry) => void;
   onRemove: () => void;
 }) {
-  const cols = columnsFor(exercise.metric, units);
+  const cols = columnsFor(exercise.metric);
 
   const setField = (setId: string, field: Partial<WorkoutSet>) =>
     onChange((e) => {
@@ -426,7 +463,7 @@ function EntryCard({
             estimate1RM(s.weight, s.reps) > bestPr;
           return (
             <div
-              key={`${s.id}-${units}`}
+              key={s.id}
               className="set-row"
               style={{ gridTemplateColumns: gridTemplate(cols.length) }}
             >
@@ -434,9 +471,9 @@ function EntryCard({
               {cols.map((c) => (
                 <NumInput
                   key={c.key}
-                  initial={c.get(s, units)}
+                  initial={c.get(s)}
                   placeholder={c.placeholder}
-                  onChange={(v) => setField(s.id, c.set(v, units))}
+                  onChange={(v) => setField(s.id, c.set(v))}
                 />
               ))}
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -482,37 +519,48 @@ interface Col {
   key: string;
   label: string;
   placeholder: string;
-  get: (s: WorkoutSet, units: import("../types").Units) => string;
-  set: (v: number | undefined, units: import("../types").Units) => Partial<WorkoutSet>;
+  get: (s: WorkoutSet) => string;
+  set: (v: number | undefined) => Partial<WorkoutSet>;
 }
 
-function columnsFor(
-  metric: Exercise["metric"],
-  units: import("../types").Units,
-): Col[] {
-  const weightCol: Col = {
-    key: "w",
-    label: weightLabel(units),
-    placeholder: "0",
-    get: (s, u) => (s.weight == null ? "" : String(roundW(kgToDisplay(s.weight, u)))),
-    set: (v, u) => ({ weight: v == null ? undefined : displayToKg(v, u) }),
-  };
-  const repsCol: Col = {
-    key: "r",
-    label: "reps",
-    placeholder: "0",
-    get: (s) => (s.reps == null ? "" : String(s.reps)),
-    set: (v) => ({ reps: v }),
-  };
-  const distCol: Col = {
-    key: "d",
-    label: distanceLabel(units),
-    placeholder: "0",
-    get: (s, u) =>
-      s.meters == null ? "" : String(roundW(metersToDisplay(s.meters, u))),
-    set: (v, u) => ({ meters: v == null ? undefined : displayToMeters(v, u) }),
-  };
+const weightCol: Col = {
+  key: "w",
+  label: "kg",
+  placeholder: "0",
+  get: (s) => (s.weight == null ? "" : String(roundW(s.weight))),
+  set: (v) => ({ weight: v }),
+};
 
+const repsCol: Col = {
+  key: "r",
+  label: "reps",
+  placeholder: "0",
+  get: (s) => (s.reps == null ? "" : String(s.reps)),
+  set: (v) => ({ reps: v }),
+};
+
+const distCol: Col = {
+  key: "d",
+  label: "km",
+  placeholder: "0",
+  get: (s) => (s.meters == null ? "" : String(kmFromMeters(s.meters))),
+  set: (v) => ({ meters: v == null ? undefined : metersFromKm(v) }),
+};
+
+const timeCol: Col = {
+  key: "t",
+  label: "time",
+  placeholder: "mm:ss",
+  get: (s) => {
+    if (s.seconds == null) return "";
+    const m = Math.floor(s.seconds / 60);
+    const sec = Math.round(s.seconds % 60);
+    return `${m}:${String(sec).padStart(2, "0")}`;
+  },
+  set: (v) => ({ seconds: v }), // NumInput parses mm:ss into seconds
+};
+
+function columnsFor(metric: Exercise["metric"]): Col[] {
   switch (metric) {
     case "weight_reps":
       return [weightCol, repsCol];
@@ -524,19 +572,6 @@ function columnsFor(
       return [distCol, timeCol];
   }
 }
-
-const timeCol: Col = {
-  key: "t",
-  label: "time",
-  placeholder: "mm:ss",
-  get: (s) => {
-    if (s.seconds == null) return "";
-    const m = Math.floor(s.seconds / 60);
-    const sec = s.seconds % 60;
-    return `${m}:${String(sec).padStart(2, "0")}`;
-  },
-  set: (v) => ({ seconds: v }), // NumInput parses mm:ss into seconds
-};
 
 function gridTemplate(numCols: number): string {
   // set index + N inputs + check

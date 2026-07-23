@@ -1,9 +1,8 @@
 import { useMemo } from "react";
 import type { Tab } from "../App";
 import { useApp } from "../lib/app-context";
-import { setUnits } from "../lib/store";
 import { Mark, IconFlame, IconClock } from "../components/icons";
-import { Segmented, Stat } from "../components/ui";
+import { Stat } from "../components/ui";
 import { formatRelative } from "../lib/units";
 
 function startOfWeek(): number {
@@ -15,7 +14,7 @@ function startOfWeek(): number {
 }
 
 export default function Home({ goto }: { goto: (t: Tab) => void }) {
-  const { data, update } = useApp();
+  const { data } = useApp();
 
   const finished = useMemo(
     () => data.sessions.filter((s) => s.finishedAt),
@@ -52,16 +51,7 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
           <Mark className="mark" />
           <h1>Varg</h1>
         </div>
-        <div style={{ width: 150 }}>
-          <Segmented
-            value={data.units}
-            options={[
-              { value: "metric", label: "kg" },
-              { value: "imperial", label: "lb" },
-            ]}
-            onChange={(u) => update((d) => setUnits(d, u))}
-          />
-        </div>
+        <span className="chip accent">kg</span>
       </div>
 
       <div className="eyebrow">Varg · Old Norse for wolf</div>

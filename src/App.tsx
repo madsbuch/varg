@@ -3,20 +3,23 @@ import Home from "./views/Home";
 import Train from "./views/Train";
 import Splits from "./views/Splits";
 import Records from "./views/Records";
+import Library from "./views/Library";
 import {
+  IconBook,
   IconDumbbell,
   IconHome,
   IconLayers,
   IconTrophy,
 } from "./components/icons";
 
-export type Tab = "home" | "train" | "splits" | "records";
+export type Tab = "home" | "train" | "splits" | "records" | "library";
 
 const TABS: { id: Tab; label: string; Icon: typeof IconHome }[] = [
   { id: "home", label: "Den", Icon: IconHome },
   { id: "train", label: "Hunt", Icon: IconDumbbell },
   { id: "splits", label: "Splits", Icon: IconLayers },
   { id: "records", label: "Records", Icon: IconTrophy },
+  { id: "library", label: "Manual", Icon: IconBook },
 ];
 
 export default function App() {
@@ -28,6 +31,7 @@ export default function App() {
       {tab === "train" && <Train />}
       {tab === "splits" && <Splits />}
       {tab === "records" && <Records />}
+      {tab === "library" && <Library />}
 
       <nav className="tabbar">
         <div className="inner">

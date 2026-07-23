@@ -91,6 +91,14 @@ export const IconClock = (p: P) => (
   </svg>
 );
 
+export const IconBook = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M4 5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2z" />
+    <path d="M4 21a2 2 0 0 1 2-2h14" />
+    <path d="M9 7h7M9 11h5" />
+  </svg>
+);
+
 export const IconTarget = (p: P) => (
   <svg {...base} {...p}>
     <circle cx="12" cy="12" r="9" />
@@ -108,27 +116,27 @@ export const Mark = (p: P) => (
     {/* head silhouette */}
     <path
       d="M12 4 L18 12 L24 10 L30 12 L36 4 L38 16 L40 25 L32 37 L24 45 L16 37 L8 25 L10 16 Z"
-      fill="#a4c639"
-      opacity="0.12"
+      fill="currentColor"
+      opacity="0.15"
     />
     <path
       d="M12 4 L18 12 L24 10 L30 12 L36 4 L38 16 L40 25 L32 37 L24 45 L16 37 L8 25 L10 16 Z"
-      stroke="#a4c639"
+      stroke="currentColor"
       strokeWidth="2"
       strokeLinejoin="round"
     />
     {/* eyes — angular slits */}
     <path
       d="M15 22 L21 25 M33 22 L27 25"
-      stroke="#a4c639"
+      stroke="currentColor"
       strokeWidth="2"
       strokeLinecap="round"
     />
     {/* nose */}
     <path
       d="M21 33 L27 33 L24 37 Z"
-      fill="#a4c639"
-      stroke="#a4c639"
+      fill="currentColor"
+      stroke="currentColor"
       strokeWidth="1.5"
       strokeLinejoin="round"
     />

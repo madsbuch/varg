@@ -1,7 +1,7 @@
 {
   "name": "varg",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Varg — a rugged, offline-first military-style workout tracker",
   "scripts": {
@@ -25,10 +25,11 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.1.0",
-    "drizzle-kit": "^0.31.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "drizzle-kit": "^0.31.1",
+    "playwright-core": "^1.61.1",
     "sharp": "^0.33.5",
     "typescript": "^5.6.3",
     "vite": "^6.0.3"

@@ -5,7 +5,6 @@ import type {
   Session,
   SessionEntry,
   Split,
-  Units,
   WorkoutSet,
 } from "../types";
 import { seedExercises, seedSplits } from "./seed";
@@ -23,7 +22,6 @@ export function uid(prefix = "id"): string {
 function freshData(): AppData {
   return {
     version: DATA_VERSION,
-    units: "metric",
     exercises: seedExercises(),
     splits: seedSplits(),
     sessions: [],
@@ -55,7 +53,6 @@ export function loadData(): AppData {
     const parsed = JSON.parse(raw) as Partial<AppData>;
     const data: AppData = {
       version: DATA_VERSION,
-      units: parsed.units ?? "metric",
       exercises: parsed.exercises ?? seedExercises(),
       splits: parsed.splits ?? seedSplits(),
       sessions: parsed.sessions ?? [],
@@ -73,10 +70,6 @@ export function saveData(data: AppData): void {
 }
 
 // --- Pure update helpers operating on AppData (immutably) ---
-
-export function setUnits(data: AppData, units: Units): AppData {
-  return { ...data, units };
-}
 
 export function upsertExercise(data: AppData, ex: Exercise): AppData {
   const exists = data.exercises.some((e) => e.id === ex.id);
