@@ -70,7 +70,7 @@ function StartScreen() {
 
   return (
     <div className="screen">
-      <div className="eyebrow">Train</div>
+      <div className="eyebrow">The hunt</div>
       <h2 className="screen-title">Start a session</h2>
 
       <button className="btn primary" onClick={startBlank}>

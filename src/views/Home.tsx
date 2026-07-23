@@ -64,9 +64,9 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
         </div>
       </div>
 
-      <div className="eyebrow">Ready to work</div>
+      <div className="eyebrow">Varg · Old Norse for wolf</div>
       <h2 className="screen-title" style={{ marginTop: 4 }}>
-        Hold the line
+        Feed the wolf
       </h2>
 
       <div className="stat-grid">

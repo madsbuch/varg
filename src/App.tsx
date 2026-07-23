@@ -13,8 +13,8 @@ import {
 export type Tab = "home" | "train" | "splits" | "records";
 
 const TABS: { id: Tab; label: string; Icon: typeof IconHome }[] = [
-  { id: "home", label: "Base", Icon: IconHome },
-  { id: "train", label: "Train", Icon: IconDumbbell },
+  { id: "home", label: "Den", Icon: IconHome },
+  { id: "train", label: "Hunt", Icon: IconDumbbell },
   { id: "splits", label: "Splits", Icon: IconLayers },
   { id: "records", label: "Records", Icon: IconTrophy },
 ];

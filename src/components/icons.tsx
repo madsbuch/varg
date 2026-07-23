@@ -99,20 +99,38 @@ export const IconTarget = (p: P) => (
   </svg>
 );
 
-/** Varg wolf-head mark. */
+/**
+ * Varg wolf-head mark. Varg is Old Norse for "wolf" — the mark is a
+ * front-facing, angular wolf head: ears, brow, cheeks, muzzle.
+ */
 export const Mark = (p: P) => (
   <svg viewBox="0 0 48 48" fill="none" {...p}>
+    {/* head silhouette */}
     <path
-      d="M24 4 8 12l2 10-4 4 8 4 4 8 6-3 6 3 4-8 8-4-4-4 2-10z"
+      d="M12 4 L18 12 L24 10 L30 12 L36 4 L38 16 L40 25 L32 37 L24 45 L16 37 L8 25 L10 16 Z"
       fill="#a4c639"
-      opacity="0.14"
+      opacity="0.12"
     />
     <path
-      d="M24 6 10 13l2 9-4 4 7 3 4 7 5-2.5 5 2.5 4-7 7-3-4-4 2-9z"
+      d="M12 4 L18 12 L24 10 L30 12 L36 4 L38 16 L40 25 L32 37 L24 45 L16 37 L8 25 L10 16 Z"
       stroke="#a4c639"
       strokeWidth="2"
       strokeLinejoin="round"
     />
-    <path d="M18 20l2 3M30 20l-2 3M24 26l-2 3h4z" stroke="#a4c639" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    {/* eyes — angular slits */}
+    <path
+      d="M15 22 L21 25 M33 22 L27 25"
+      stroke="#a4c639"
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+    {/* nose */}
+    <path
+      d="M21 33 L27 33 L24 37 Z"
+      fill="#a4c639"
+      stroke="#a4c639"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
   </svg>
 );

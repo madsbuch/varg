@@ -9,6 +9,8 @@ import { dirname } from "node:path";
 
 const SIZE = 1024;
 
+// Varg = Old Norse for "wolf". Angular front-facing wolf head,
+// same geometry as the in-app <Mark/> (48-unit grid scaled ×18, centered).
 const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 1024 1024">
   <defs>
@@ -19,9 +21,15 @@ const svg = `
   </defs>
   <rect width="1024" height="1024" rx="200" fill="url(#bg)"/>
   <rect x="70" y="70" width="884" height="884" rx="150" fill="none" stroke="#333a29" stroke-width="10"/>
-  <g fill="none" stroke="#a4c639" stroke-width="34" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M512 200 L250 320 l40 190 -80 80 150 60 80 150 100 -55 100 55 80 -150 150 -60 -80 -80 40 -190 Z"/>
-    <path d="M400 470 l55 70 M624 470 l-55 70 M512 590 l-45 70 h90 Z"/>
+  <g transform="translate(80 71) scale(18)">
+    <path d="M12 4 L18 12 L24 10 L30 12 L36 4 L38 16 L40 25 L32 37 L24 45 L16 37 L8 25 L10 16 Z"
+          fill="#a4c639" opacity="0.12"/>
+    <path d="M12 4 L18 12 L24 10 L30 12 L36 4 L38 16 L40 25 L32 37 L24 45 L16 37 L8 25 L10 16 Z"
+          fill="none" stroke="#a4c639" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M15 22 L21 25 M33 22 L27 25"
+          fill="none" stroke="#a4c639" stroke-width="2" stroke-linecap="round"/>
+    <path d="M21 33 L27 33 L24 37 Z"
+          fill="#a4c639" stroke="#a4c639" stroke-width="1.5" stroke-linejoin="round"/>
   </g>
 </svg>`;
 
