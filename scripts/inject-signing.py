@@ -25,7 +25,6 @@ SIGNING_BLOCK = """
     }
 """
 
-IMPORTS = "import java.io.FileInputStream\nimport java.util.Properties\n"
 WIRE = '            signingConfig = signingConfigs.getByName("release")\n'
 
 
@@ -35,7 +34,15 @@ def main() -> int:
         src = fh.read()
 
     if "signingConfigs" not in src:
-        src = IMPORTS + src
+        # The Tauri template already imports Properties/FileInputStream for
+        # its tauri.properties handling — only add what's missing, since
+        # duplicate imports are a hard error in Kotlin scripts.
+        imports = ""
+        if "import java.io.FileInputStream" not in src:
+            imports += "import java.io.FileInputStream\n"
+        if "import java.util.Properties" not in src:
+            imports += "import java.util.Properties\n"
+        src = imports + src
         src = re.sub(r"(android\s*\{\s*\n)", r"\1" + SIGNING_BLOCK, src, count=1)
 
     if 'signingConfig = signingConfigs.getByName("release")' not in src:
