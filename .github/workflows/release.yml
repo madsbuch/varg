@@ -17,14 +17,14 @@ name: Release Android
 
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       tag:
         description: "Release tag to create (e.g. v0.1.0)"
         required: true
         default: "v0.1.0"
+        type: string
 
 permissions:
   contents: write
