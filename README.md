@@ -25,7 +25,30 @@ Built with **Tauri 2 · Bun · TypeScript · React**, targeting **Android**.
   1000x, standard ruck, and more. Load one and log it.
 - **Live session logging** — per-set weight×reps / reps / time / distance,
   with metric or imperial units, and live "on pace for a PR" hints.
-- **Offline-first** — all data persists in local storage on the device.
+- **Offline-first** — all data lives in an on-device SQLite database.
+
+## Data & migrations
+
+Storage is SQLite via [tauri-plugin-sql], with [Drizzle ORM] on top:
+
+- The schema is code: [`src/db/schema.ts`](src/db/schema.ts).
+- Every schema change is a tracked SQL migration in [`/drizzle`](drizzle),
+  generated with `bun run db:generate` and committed — the full history of
+  the database lives in git.
+- Migrations are applied automatically on app startup (recorded in the
+  `__migrations` table on device).
+- `bun run db:smoke` applies all migrations to an in-memory SQLite and runs
+  representative CRUD through the real schema — CI runs it on every push.
+- Data previously stored in localStorage is imported into SQLite on first
+  launch, automatically.
+- In a plain browser (`bun run dev`), the app falls back to localStorage so
+  the UI stays fully usable during frontend development.
+
+To change the schema: edit `src/db/schema.ts` → `bun run db:generate` →
+review the new SQL file in `/drizzle` → commit both.
+
+[tauri-plugin-sql]: https://v2.tauri.app/plugin/sql/
+[Drizzle ORM]: https://orm.drizzle.team/
 
 ## Stack
 
@@ -34,7 +57,8 @@ Built with **Tauri 2 · Bun · TypeScript · React**, targeting **Android**.
 | Shell     | Tauri 2 (Rust)                      |
 | Frontend  | React 18 + Vite + TypeScript        |
 | Package   | Bun                                 |
-| Storage   | Local storage (zero native deps)    |
+| Storage   | SQLite (tauri-plugin-sql) + Drizzle ORM |
+| Migrations | drizzle-kit, SQL files tracked in git |
 | Target    | Android (APK + AAB), desktop-capable |
 
 ## Development
@@ -65,11 +89,17 @@ bun run icons          # writes assets/icon.png, then runs `tauri icon`
 
 ## Signed releases (CI)
 
-Pushing a tag like `v0.1.0` runs
+Pushing a tag like `v0.1.0` (or dispatching the workflow manually) runs
 [`.github/workflows/release.yml`](.github/workflows/release.yml), which builds a
 **signed** APK + AAB and attaches them to a GitHub Release.
 
-The workflow expects these repository secrets
+**No secrets configured?** The workflow still ships: it generates an
+*ephemeral* keystore for that run and signs with it. The APK installs fine,
+but the signature differs between releases, so Android won't apply one
+release as an in-place update over another. Add the secrets below for a
+stable signature.
+
+The workflow prefers these repository secrets
 (**Settings → Secrets and variables → Actions**):
 
 | Secret                      | Meaning                                             |

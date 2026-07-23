@@ -93,17 +93,37 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           set -euo pipefail
-          if [ -z "${ANDROID_KEY_BASE64:-}" ]; then
-            echo "::error::ANDROID_KEY_BASE64 secret is not set — cannot sign the release."
-            echo "::error::Add ANDROID_KEY_BASE64 / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD in repo secrets."
-            exit 1
-          fi
-
           GRADLE_DIR="src-tauri/gen/android"
-          KEYSTORE="$RUNNER_TEMP/varg.keystore"
-          echo "$ANDROID_KEY_BASE64" | base64 -d > "$KEYSTORE"
 
-          STORE_PW="${ANDROID_KEYSTORE_PASSWORD:-$ANDROID_KEY_PASSWORD}"
+          if [ -z "${ANDROID_KEY_BASE64:-}" ]; then
+            # No signing secrets configured: generate an EPHEMERAL keystore so
+            # the release still ships a signed, installable APK. The signature
+            # changes every run, so Android won't in-place update between
+            # releases until real secrets are added (see README "Signed
+            # releases"). Loud, but not fatal.
+            echo "::warning::No ANDROID_KEY_BASE64 secret found — signing with an EPHEMERAL keystore."
+            echo "::warning::Add ANDROID_KEY_BASE64 / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD repo secrets for a stable signature."
+            {
+              echo "### ⚠️ Signed with an ephemeral keystore"
+              echo "No \`ANDROID_KEY_*\` secrets are configured, so this APK is signed"
+              echo "with a one-off key generated during the build. Installs fine, but"
+              echo "the next release won't install as an update over this one."
+              echo "Add the secrets from the README to get a stable signature."
+            } >> "$GITHUB_STEP_SUMMARY"
+            KEYSTORE="$RUNNER_TEMP/varg-ephemeral.keystore"
+            ANDROID_KEY_ALIAS="varg"
+            ANDROID_KEY_PASSWORD="$(openssl rand -hex 16)"
+            echo "::add-mask::$ANDROID_KEY_PASSWORD"
+            STORE_PW="$ANDROID_KEY_PASSWORD"
+            keytool -genkeypair -v -keystore "$KEYSTORE" \
+              -alias "$ANDROID_KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$STORE_PW" -keypass "$ANDROID_KEY_PASSWORD" \
+              -dname "CN=Varg Release, O=Varg"
+          else
+            KEYSTORE="$RUNNER_TEMP/varg.keystore"
+            echo "$ANDROID_KEY_BASE64" | base64 -d > "$KEYSTORE"
+            STORE_PW="${ANDROID_KEYSTORE_PASSWORD:-$ANDROID_KEY_PASSWORD}"
+          fi
           {
             echo "keyAlias=$ANDROID_KEY_ALIAS"
             echo "password=$ANDROID_KEY_PASSWORD"

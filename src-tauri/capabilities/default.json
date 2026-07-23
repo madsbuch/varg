@@ -3,5 +3,10 @@
   "identifier": "default",
   "description": "Capabilities for the main Varg window",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "sql:default",
+    "sql:allow-execute",
+    "sql:allow-select"
+  ]
 }

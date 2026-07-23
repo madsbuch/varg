@@ -11,7 +11,7 @@ import type {
 import { seedExercises, seedSplits } from "./seed";
 import { recomputePRs } from "./prs";
 
-const STORAGE_KEY = "varg.data.v1";
+export const STORAGE_KEY = "varg.data.v1";
 const DATA_VERSION = 1;
 
 export function uid(prefix = "id"): string {
@@ -35,7 +35,7 @@ function freshData(): AppData {
  * Merge freshly-seeded built-ins into stored data so that new built-in
  * exercises/splits shipped in an update appear without wiping user data.
  */
-function mergeBuiltIns(data: AppData): AppData {
+export function mergeBuiltIns(data: AppData): AppData {
   const exIds = new Set(data.exercises.map((e) => e.id));
   for (const ex of seedExercises()) {
     if (!exIds.has(ex.id)) data.exercises.push(ex);

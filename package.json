@@ -1,7 +1,7 @@
 {
   "name": "varg",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Varg — a rugged, offline-first military-style workout tracker",
   "scripts": {
@@ -10,17 +10,22 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "icons": "bun run scripts/make-icon.ts && tauri icon assets/icon.png",
+    "db:generate": "drizzle-kit generate",
+    "db:smoke": "bun run scripts/db-smoke.ts",
     "android:init": "tauri android init",
     "android:dev": "tauri android dev",
     "android:build": "tauri android build --apk"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/plugin-sql": "^2",
+    "drizzle-orm": "^0.44.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.1.0",
+    "drizzle-kit": "^0.31.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
