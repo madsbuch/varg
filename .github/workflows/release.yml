@@ -148,7 +148,7 @@ jobs:
           mkdir -p "$OUT"
           TAG="${{ steps.tag.outputs.value }}"
           find src-tauri/gen/android -path '*/outputs/apk/*/release/*.apk' -exec cp {} "$OUT/varg-${TAG}.apk" \; || true
-          find src-tauri/gen/android -path '*/outputs/bundle/*/release/*.aab' -exec cp {} "$OUT/varg-${TAG}.aab" \; || true
+          find src-tauri/gen/android -path '*/outputs/bundle/*.aab' -exec cp {} "$OUT/varg-${TAG}.aab" \; || true
           echo "Artifacts:"; ls -la "$OUT"
           if [ -z "$(ls -A "$OUT")" ]; then
             echo "::error::No APK/AAB produced."
