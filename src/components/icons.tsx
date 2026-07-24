@@ -91,6 +91,13 @@ export const IconClock = (p: P) => (
   </svg>
 );
 
+export const IconGear = (p: P) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="12" r="3.5" />
+    <path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.5-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.5 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.5-2-1.5c.06-.4.1-.8.1-1.2Z" />
+  </svg>
+);
+
 export const IconMusic = (p: P) => (
   <svg {...base} {...p}>
     <path d="M9 18V5l12-2v13" />

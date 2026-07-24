@@ -11,11 +11,15 @@ import type { MusicProfile } from "../types";
 import { seedTemplates } from "./seed";
 
 export const DEFAULT_BASE_URL = "https://api.sunoapi.org";
+export const DEFAULT_MODEL = "V4_5";
+export const SUNO_MODELS = ["V4", "V4_5", "V4_5PLUS", "V5"];
 const SETTINGS_KEY = "varg.music.v1";
+const PROFILES_KEY = "varg.music.profiles.v1";
 
 export interface MusicSettings {
   apiKey: string;
   baseUrl: string;
+  model: string;
 }
 
 export function loadMusicSettings(): MusicSettings {
@@ -26,12 +30,13 @@ export function loadMusicSettings(): MusicSettings {
       return {
         apiKey: p.apiKey ?? "",
         baseUrl: p.baseUrl?.trim() ? p.baseUrl : DEFAULT_BASE_URL,
+        model: p.model?.trim() ? p.model : DEFAULT_MODEL,
       };
     }
   } catch {
     // fall through to defaults
   }
-  return { apiKey: "", baseUrl: DEFAULT_BASE_URL };
+  return { apiKey: "", baseUrl: DEFAULT_BASE_URL, model: DEFAULT_MODEL };
 }
 
 export function saveMusicSettings(s: MusicSettings): void {
@@ -45,7 +50,68 @@ export const FREESTYLE_PROFILE: MusicProfile = {
   theme: "Wolf on the hunt — raw, relentless training energy",
 };
 
+/* ---------------------- Per-workout profile overrides -------------------- */
+// The shipped profiles are defaults; the settings page lets the user tune
+// bpm/style/theme per workout. Overrides live in localStorage keyed like
+// tracks: template id, or "freestyle".
+
+function loadProfileOverrides(): Record<string, MusicProfile> {
+  try {
+    const raw = localStorage.getItem(PROFILES_KEY);
+    if (raw) return JSON.parse(raw) as Record<string, MusicProfile>;
+  } catch {
+    // fall through
+  }
+  return {};
+}
+
+export function saveProfileOverride(key: string, profile: MusicProfile): void {
+  const all = loadProfileOverrides();
+  all[key] = profile;
+  localStorage.setItem(PROFILES_KEY, JSON.stringify(all));
+}
+
+export function clearProfileOverride(key: string): void {
+  const all = loadProfileOverrides();
+  if (key in all) {
+    const remaining = Object.fromEntries(
+      Object.entries(all).filter(([k]) => k !== key),
+    );
+    localStorage.setItem(PROFILES_KEY, JSON.stringify(remaining));
+  }
+}
+
+/** A workout's music entry: effective profile (override or default). */
+export interface WorkoutMusic {
+  key: string; // template id, or "freestyle"
+  name: string;
+  profile: MusicProfile;
+  defaultProfile: MusicProfile;
+  isCustom: boolean;
+}
+
+export function workoutMusicList(): WorkoutMusic[] {
+  const overrides = loadProfileOverrides();
+  const base = [
+    ...seedTemplates().map((t) => ({ key: t.id, name: t.name, music: t.music })),
+    { key: "freestyle", name: "Freestyle session", music: FREESTYLE_PROFILE },
+  ];
+  return base.map((w) => {
+    const override = overrides[w.key];
+    return {
+      key: w.key,
+      name: w.name,
+      profile: override ?? w.music,
+      defaultProfile: w.music,
+      isCustom: override !== undefined,
+    };
+  });
+}
+
 export function musicProfileFor(templateId?: string): MusicProfile {
+  const key = templateId ?? "freestyle";
+  const override = loadProfileOverrides()[key];
+  if (override) return override;
   const tpl = templateId
     ? seedTemplates().find((t) => t.id === templateId)
     : undefined;
@@ -82,25 +148,18 @@ export function onEnsureStatus(fn: (s: EnsureStatus) => void): () => void {
   return () => listeners.delete(fn);
 }
 
-function allWorkouts(): { key: string; name: string; profile: MusicProfile }[] {
-  return [
-    ...seedTemplates().map((t) => ({
-      key: t.id,
-      name: t.name,
-      profile: t.music,
-    })),
-    { key: "freestyle", name: "Freestyle session", profile: FREESTYLE_PROFILE },
-  ];
-}
-
 /** Generate any missing workout tracks. Safe to call often — no-ops when
- * already running, when no API key is set, or when everything is cached. */
+ * already running, when no API key is set, or when everything is cached.
+ * A failing workout is retried once and then skipped, so one bad request
+ * can't sink the whole run; if nothing succeeds at all, the run bails
+ * early (broken key/credits) instead of burning a request per workout.
+ * Every failure is surfaced through EnsureStatus.error — never silently. */
 export async function ensureAllTracks(): Promise<void> {
   if (ensureRunning) return;
   if (!loadMusicSettings().apiKey) return;
 
-  const workouts = allWorkouts();
-  const missing: typeof workouts = [];
+  const workouts = workoutMusicList();
+  const missing: WorkoutMusic[] = [];
   for (const w of workouts) {
     if (!(await getCachedTrack(w.key))) missing.push(w);
   }
@@ -112,23 +171,49 @@ export async function ensureAllTracks(): Promise<void> {
   }
 
   ensureRunning = true;
-  let error: string | undefined;
+  const anySucceededBefore = ready > 0;
+  let succeeded = 0;
+  let failed = 0;
+  let firstError: string | undefined;
   try {
     for (const w of missing) {
-      emit({ running: true, ready, total, current: w.name });
-      try {
-        await generateTrack(w.key, w.name, w.profile, loadMusicSettings(), () => undefined);
-        ready++;
-      } catch (e) {
-        // Bad key / no credits / offline: stop and retry on next launch
-        // instead of burning a failed request per workout.
-        error = e instanceof Error ? e.message : "Track generation failed.";
-        break;
+      emit({ running: true, ready, total, current: w.name, error: firstError });
+      let ok = false;
+      for (let attempt = 1; attempt <= 2 && !ok; attempt++) {
+        try {
+          await generateTrack(
+            w.key,
+            w.name,
+            w.profile,
+            loadMusicSettings(),
+            () => undefined,
+          );
+          ok = true;
+          succeeded++;
+          ready++;
+        } catch (e) {
+          if (attempt === 2) {
+            failed++;
+            const msg = e instanceof Error ? e.message : "Track generation failed.";
+            firstError ??= `${w.name}: ${msg}`;
+          }
+        }
       }
+      // Two workouts failed both attempts and nothing has ever succeeded:
+      // the key/gateway is almost certainly broken — stop wasting requests.
+      if (failed >= 2 && succeeded === 0 && !anySucceededBefore) break;
     }
   } finally {
     ensureRunning = false;
-    emit({ running: false, ready, total, error });
+    emit({
+      running: false,
+      ready,
+      total,
+      error:
+        failed > 0
+          ? `${failed} track${failed === 1 ? "" : "s"} failed — ${firstError ?? ""}`
+          : undefined,
+    });
   }
 }
 
@@ -180,6 +265,21 @@ export async function deleteCachedTrack(key: string): Promise<void> {
   await withStore("readwrite", (s) => s.delete(key));
 }
 
+/* ------------------------------ HTTP layer ------------------------------- */
+// Inside the Tauri app, webview fetch is subject to CORS and gateways
+// don't reliably send CORS headers (especially on error responses),
+// which surfaces as an opaque "Failed to fetch". The Tauri HTTP plugin
+// performs the request natively and is immune to CORS; plain fetch is
+// the fallback for browser dev.
+
+async function httpFetch(url: string, init?: RequestInit): Promise<Response> {
+  if ("__TAURI_INTERNALS__" in window) {
+    const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
+    return tauriFetch(url, init);
+  }
+  return fetch(url, init);
+}
+
 /* ----------------------------- Suno gateway ------------------------------ */
 
 interface GatewayResponse<T> {
@@ -218,7 +318,7 @@ export async function generateTrack(
     `high energy, no vocals.`;
 
   onStatus("Requesting track…");
-  const createRes = await fetch(`${base}/api/v1/generate`, {
+  const createRes = await httpFetch(`${base}/api/v1/generate`, {
     method: "POST",
     headers,
     body: JSON.stringify({
@@ -247,7 +347,7 @@ export async function generateTrack(
   onStatus("Composing — usually takes 1–3 minutes…");
   while (Date.now() < deadline) {
     await sleep(10_000);
-    const pollRes = await fetch(
+    const pollRes = await httpFetch(
       `${base}/api/v1/generate/record-info?taskId=${encodeURIComponent(taskId)}`,
       { headers },
     );
@@ -265,7 +365,7 @@ export async function generateTrack(
         throw new Error("Track finished but the gateway returned no audio URL.");
       }
       onStatus("Downloading track…");
-      const audio = await fetch(song.audioUrl);
+      const audio = await httpFetch(song.audioUrl);
       if (!audio.ok) throw new Error("Could not download the finished track.");
       const track: CachedTrack = {
         key,

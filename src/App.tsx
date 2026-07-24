@@ -6,6 +6,7 @@ import Train from "./views/Train";
 import Splits from "./views/Splits";
 import Records from "./views/Records";
 import Library from "./views/Library";
+import Settings from "./views/Settings";
 import {
   IconBook,
   IconDumbbell,
@@ -14,7 +15,13 @@ import {
   IconTrophy,
 } from "./components/icons";
 
-export type Tab = "home" | "train" | "splits" | "records" | "library";
+export type Tab =
+  | "home"
+  | "train"
+  | "splits"
+  | "records"
+  | "library"
+  | "settings";
 
 const TABS: { id: Tab; label: string; Icon: typeof IconHome }[] = [
   { id: "home", label: "Den", Icon: IconHome },
@@ -47,6 +54,7 @@ export default function App() {
         {tab === "splits" && <Splits />}
         {tab === "records" && <Records />}
         {tab === "library" && <Library />}
+        {tab === "settings" && <Settings goto={setTab} />}
       </main>
 
       <nav className="tabbar">
