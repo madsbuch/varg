@@ -1,7 +1,7 @@
 {
   "name": "varg",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.5.1",
   "type": "module",
   "description": "Varg — a rugged, offline-first military-style workout tracker",
   "scripts": {

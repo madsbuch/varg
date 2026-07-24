@@ -8,6 +8,7 @@ import { useApp } from "../lib/app-context";
 import { newSession, uid, upsertSession } from "../lib/store";
 import { libraryFor } from "../lib/library";
 import { cueFinish, cueRest, cueTick, cueWork } from "../lib/beep";
+import { getCachedTrack } from "../lib/music";
 import ExerciseAnim from "./ExerciseAnim";
 import { IconCheck, IconClose } from "./icons";
 import { formatSeconds } from "../lib/units";
@@ -17,6 +18,8 @@ export interface WodConfig {
   work: number; // seconds
   rest: number; // seconds
   rounds: number;
+  title?: string; // template name; falls back to "WOD work/rest"
+  trackKey?: string; // battle-track cache key — plays during the WOD if cached
 }
 
 interface Step {
@@ -68,6 +71,41 @@ export default function WodPlayer({
   const done = stepIdx >= steps.length;
   const step = steps[Math.min(stepIdx, steps.length - 1)];
   const exercise = config.exercises[step.exIdx];
+
+  // Battle track: play the workout's cached track under the cues.
+  const [trackUrl, setTrackUrl] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    if (!config.trackKey) return;
+    let url: string | null = null;
+    let alive = true;
+    getCachedTrack(config.trackKey)
+      .then((t) => {
+        if (t && alive) {
+          url = URL.createObjectURL(t.blob);
+          setTrackUrl(url);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [config.trackKey]);
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (paused || done) a.pause();
+    else a.play().catch(() => {});
+  }, [paused, done, trackUrl]);
+
+  // Upcoming station, so "what's next" is always on screen.
+  const nextUp = useMemo(() => {
+    for (let i = stepIdx + 1; i < steps.length; i++) {
+      if (steps[i].kind === "work") return config.exercises[steps[i].exIdx];
+    }
+    return null;
+  }, [stepIdx, steps, config.exercises]);
 
   // Keep the screen awake while the player is open (best effort).
   useEffect(() => {
@@ -130,7 +168,7 @@ export default function WodPlayer({
 
   const logSession = () => {
     update((d) => {
-      const s = newSession(`WOD ${config.work}/${config.rest}`);
+      const s = newSession(config.title ?? `WOD ${config.work}/${config.rest}`);
       s.note = `${config.rounds} rounds · ${config.work}s on / ${config.rest}s off`;
       s.finishedAt = new Date().toISOString();
       s.entries = config.exercises.map((ex) => ({
@@ -190,7 +228,8 @@ export default function WodPlayer({
     <div className="wod">
       <div className="wod-top">
         <span className="chip">
-          Round {step.round}/{config.rounds}
+          {config.title ? `${config.title} · ` : ""}Round {step.round}/
+          {config.rounds}
         </span>
         <button className="check" onClick={onClose} aria-label="Stop">
           <IconClose />
@@ -221,9 +260,16 @@ export default function WodPlayer({
               )}
               {exercise.name}
             </div>
+            {step.kind !== "rest" && (
+              <div className="faint" style={{ fontSize: 13, marginTop: 4 }}>
+                {nextUp ? `Next: ${nextUp.name}` : "Last station — empty the tank"}
+              </div>
+            )}
           </>
         )}
       </div>
+
+      {trackUrl && <audio ref={audioRef} src={trackUrl} loop autoPlay />}
 
       <div className="wod-controls">
         <div className="btn-row">
