@@ -3,6 +3,7 @@ import type { Tab } from "../App";
 import type { MusicProfile } from "../types";
 import {
   SUNO_MODELS,
+  clearMusicLog,
   clearProfileOverride,
   deleteCachedTrack,
   ensureAllTracks,
@@ -10,11 +11,14 @@ import {
   getCachedTrack,
   loadMusicSettings,
   onEnsureStatus,
+  onMusicLog,
+  readMusicLog,
   saveMusicSettings,
   saveProfileOverride,
   workoutMusicList,
   type CachedTrack,
   type EnsureStatus,
+  type MusicLogEntry,
   type WorkoutMusic,
 } from "../lib/music";
 import { ConfirmSheet, Field, Sheet } from "../components/ui";
@@ -93,8 +97,11 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
         </Field>
         <div className="muted" style={{ fontSize: 13, margin: "4px 0 10px" }}>
           Suno has no official public API — generation goes through a gateway
-          (default: sunoapi.org) with your own key. Tracks are composed in the
-          background and cached on this device, one generation per workout.
+          (default: sunoapi.org) with your own key. Composing happens on the
+          gateway's servers: once the requests are sent you can lock your
+          phone or leave the app, and finished tracks are picked up next time
+          Varg is open. Everything is cached on this device, one generation
+          per workout.
         </div>
         <button className="btn primary" onClick={save}>
           Save & compose missing tracks
@@ -130,6 +137,8 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
         </button>
       ))}
 
+      <ComposerLog />
+
       <div className="section-label">Navigation</div>
       <button className="list-item" onClick={() => { goto("home"); }}>
         <div className="title">Back to Den</div>
@@ -158,7 +167,13 @@ function ComposerStatus({ status }: { status: EnsureStatus | null }) {
       <div className="card" style={{ marginTop: 10 }}>
         <div className="muted" style={{ fontSize: 13 }}>
           Composing tracks: {status.ready}/{status.total} ready
-          {status.current ? ` — now: ${status.current}` : ""}…
+          {status.pending ? ` · ${status.pending} composing on the server` : ""}
+          {status.current ? ` — requesting: ${status.current}` : ""}…
+        </div>
+        <div className="faint" style={{ fontSize: 12, marginTop: 6 }}>
+          Composing happens on Suno's servers — locking your phone or leaving
+          the app is fine. Finished tracks are picked up next time Varg is
+          open.
         </div>
         {status.error && <ErrorText text={status.error} />}
       </div>
@@ -171,6 +186,9 @@ function ComposerStatus({ status }: { status: EnsureStatus | null }) {
         style={{ marginTop: 10, borderColor: "var(--danger)" }}
       >
         <ErrorText text={`Composing stopped: ${status.error}`} />
+        <div className="faint" style={{ fontSize: 12, marginTop: 6 }}>
+          Full details are in the composer log below.
+        </div>
         <button
           className="btn sm"
           style={{ marginTop: 10 }}
@@ -183,7 +201,123 @@ function ComposerStatus({ status }: { status: EnsureStatus | null }) {
       </div>
     );
   }
+  if (status.pending) {
+    return (
+      <div className="card" style={{ marginTop: 10 }}>
+        <div className="muted" style={{ fontSize: 13 }}>
+          {status.pending} track{status.pending === 1 ? " is" : "s are"} still
+          composing on Suno's servers. They're picked up automatically while
+          the app is open — or check right now.
+        </div>
+        <button
+          className="btn sm"
+          style={{ marginTop: 10 }}
+          onClick={() => {
+            void ensureAllTracks();
+          }}
+        >
+          Check now
+        </button>
+      </div>
+    );
+  }
   return null;
+}
+
+/** The composer's full activity log — every request, response, poll status
+ * and error body, timestamped — so failures can be diagnosed on-device
+ * instead of guessed at. Newest entries first. */
+function ComposerLog() {
+  const [entries, setEntries] = useState<MusicLogEntry[]>(readMusicLog);
+  const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(
+    () =>
+      onMusicLog(() => {
+        setEntries(readMusicLog());
+      }),
+    [],
+  );
+
+  const copy = () => {
+    const text = entries.map((e) => `${e.at} ${e.msg}`).join("\n");
+    try {
+      void navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          setCopied(true);
+          setTimeout(() => {
+            setCopied(false);
+          }, 1500);
+        })
+        .catch(() => undefined);
+    } catch {
+      // clipboard unavailable (insecure context) — nothing to do
+    }
+  };
+
+  return (
+    <>
+      <div className="section-label">Composer log</div>
+      <div className="card">
+        {entries.length === 0 ? (
+          <div className="muted" style={{ fontSize: 13 }}>
+            Nothing logged yet — the composer records every request, response
+            and error here.
+          </div>
+        ) : (
+          <>
+            <div
+              style={{
+                maxHeight: expanded ? undefined : 200,
+                overflowY: "auto",
+              }}
+            >
+              {[...entries].reverse().map((e, i) => (
+                <div
+                  key={`${e.at}-${String(i)}`}
+                  style={{
+                    fontFamily: "ui-monospace, monospace",
+                    fontSize: 11,
+                    lineHeight: 1.5,
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  <span className="faint">
+                    {new Date(e.at).toLocaleTimeString()}
+                  </span>{" "}
+                  {e.msg}
+                </div>
+              ))}
+            </div>
+            <div className="btn-row" style={{ marginTop: 10 }}>
+              <button className="btn sm" onClick={copy}>
+                {copied ? "Copied" : "Copy log"}
+              </button>
+              <button
+                className="btn sm"
+                onClick={() => {
+                  setExpanded(!expanded);
+                }}
+              >
+                {expanded ? "Collapse" : "Expand"}
+              </button>
+              <button
+                className="link faint"
+                style={{ fontSize: 12 }}
+                onClick={() => {
+                  clearMusicLog();
+                }}
+              >
+                clear
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
 }
 
 function ErrorText({ text }: { text: string }) {
@@ -329,7 +463,8 @@ function WorkoutMusicSheet({
 
       {busy ? (
         <div className="muted" style={{ fontSize: 13, margin: "8px 0" }}>
-          {statusMsg || "Composing — usually takes 1–3 minutes…"}
+          {statusMsg ||
+            "Composing on Suno's servers — usually 1–3 minutes. Locking your phone is fine."}
         </div>
       ) : (
         <div className="btn-row" style={{ marginTop: 8 }}>

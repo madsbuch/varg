@@ -35,9 +35,19 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("home");
 
   // Compose any missing workout tracks in the background (no-op without
-  // an API key; every finished track is cached for good).
+  // an API key; every finished track is cached for good) — and resume
+  // whenever the app returns to the foreground: Android freezes the
+  // WebView in standby, but submitted tracks keep composing on Suno's
+  // servers, so a foreground pass picks up whatever finished meanwhile.
   useEffect(() => {
     void ensureAllTracks();
+    const resume = () => {
+      if (document.visibilityState === "visible") void ensureAllTracks();
+    };
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      document.removeEventListener("visibilitychange", resume);
+    };
   }, []);
 
   // Every tab starts at the top — scroll position must not leak between

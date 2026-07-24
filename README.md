@@ -29,6 +29,11 @@ Built with **Tauri 2 · Bun · TypeScript · React**, targeting **Android**.
   talks to a Suno API gateway (default `api.sunoapi.org`, configurable in
   Music settings) with your own API key. Finished tracks are downloaded and
   cached in IndexedDB, so each workout's track is generated exactly once.
+  Generation is standby-safe: requests are submitted up front and composed
+  on the gateway's servers, in-flight task ids are persisted, and finished
+  tracks are picked up whenever the app is next in the foreground — locking
+  the phone mid-generation loses nothing. A composer log in Settings records
+  every request, response, and error for on-device debugging.
 - **Live session logging** — per-set weight×reps / reps / time / distance,
   with live "on pace for a PR" hints. Strictly metric: kg and km, always.
 - **Exercise library ("Manual")** — every exercise with an animated
