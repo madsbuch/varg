@@ -1,9 +1,9 @@
 {
   "name": "varg",
   "private": true,
-  "version": "0.5.4",
+  "version": "0.5.5",
   "type": "module",
-  "description": "Varg \u2014 a rugged, offline-first military-style workout tracker",
+  "description": "Varg — a rugged, offline-first military-style workout tracker",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && eslint src && vite build",
@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/plugin-http": "^2.5.9",
     "@tauri-apps/plugin-sql": "^2",
     "drizzle-orm": "^0.44.2",
     "react": "^18.3.1",

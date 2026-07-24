@@ -1,8 +1,8 @@
 /**
- * Battle track player card for a workout, and the music settings sheet.
- * All Suno configuration lives in the settings sheet; tracks themselves are
- * composed automatically in the background (see ensureAllTracks) — the card
- * only plays what's cached.
+ * Battle track player card for a workout. Tracks are composed in the
+ * background (see ensureAllTracks); this card plays what's cached and
+ * reports the composer's real state — including failures, loudly.
+ * All Suno configuration lives on the Settings page.
  */
 import { useEffect, useMemo, useState } from "react";
 import type { MusicProfile } from "../types";
@@ -13,11 +13,9 @@ import {
   getCachedTrack,
   loadMusicSettings,
   onEnsureStatus,
-  saveMusicSettings,
   type CachedTrack,
   type EnsureStatus,
 } from "../lib/music";
-import { Field, Sheet } from "./ui";
 
 export function BattleTrack({
   cacheKey,
@@ -29,9 +27,12 @@ export function BattleTrack({
   profile: MusicProfile;
 }) {
   const [track, setTrack] = useState<CachedTrack | null | undefined>(undefined);
+  const [ensure, setEnsure] = useState<EnsureStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const hasKey = !!loadMusicSettings().apiKey;
+
+  useEffect(() => onEnsureStatus(setEnsure), []);
 
   // Load from cache; while the track is still being composed in the
   // background, re-check every 10 s so it appears without a reload.
@@ -84,6 +85,63 @@ export function BattleTrack({
     }
   };
 
+  // What to show while there's no track — the composer's REAL state.
+  const missingBody = (() => {
+    if (!hasKey) {
+      return (
+        <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
+          No music yet — add your Suno API key in Settings (gear on the Den
+          tab).
+        </div>
+      );
+    }
+    if (ensure?.running) {
+      return (
+        <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
+          Composing tracks in the background
+          {ensure.current ? ` — now: ${ensure.current}` : ""}… This one starts
+          playing as soon as it's ready.
+        </div>
+      );
+    }
+    if (ensure?.error) {
+      return (
+        <>
+          <div
+            style={{
+              color: "var(--danger)",
+              fontSize: 13,
+              fontWeight: 700,
+              marginTop: 10,
+            }}
+          >
+            Composing failed: {ensure.error}
+          </div>
+          <button
+            className="btn sm"
+            style={{ marginTop: 8 }}
+            onClick={() => {
+              void ensureAllTracks();
+            }}
+          >
+            Retry
+          </button>
+        </>
+      );
+    }
+    return (
+      <button
+        className="btn sm"
+        style={{ marginTop: 10 }}
+        onClick={() => {
+          void ensureAllTracks();
+        }}
+      >
+        Compose track
+      </button>
+    );
+  })();
+
   return (
     <div className="card" style={{ marginTop: 14 }}>
       <div className="row">
@@ -115,82 +173,27 @@ export function BattleTrack({
           )}
         </>
       ) : track === null ? (
-        <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
-          {busy || hasKey
-            ? "Your battle track is being composed — it will appear here."
-            : "Add your Suno API key in Music settings (Den tab) to get workout music."}
-        </div>
+        busy ? (
+          <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
+            Composing a new track…
+          </div>
+        ) : (
+          missingBody
+        )
       ) : null}
 
       {error && (
-        <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>
+        <div
+          style={{
+            color: "var(--danger)",
+            fontSize: 13,
+            fontWeight: 700,
+            marginTop: 8,
+          }}
+        >
           {error}
         </div>
       )}
     </div>
-  );
-}
-
-export function MusicSettingsSheet({ onClose }: { onClose: () => void }) {
-  const [s, setS] = useState(loadMusicSettings);
-  const [status, setStatus] = useState<EnsureStatus | null>(null);
-
-  useEffect(() => onEnsureStatus(setStatus), []);
-
-  const statusLine = (() => {
-    if (!status || status.total === 0) return null;
-    if (status.running) {
-      return `Composing tracks: ${status.ready}/${status.total} ready — now: ${status.current}`;
-    }
-    if (status.error) {
-      return `Stopped at ${status.ready}/${status.total}: ${status.error}`;
-    }
-    return `Battle tracks ready: ${status.ready}/${status.total}`;
-  })();
-
-  return (
-    <Sheet title="Music settings" onClose={onClose}>
-      <div className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
-        With an API key set, Varg composes an instrumental track matched to
-        every workout's tempo, style, and theme — automatically, in the
-        background, cached on this device so each track is generated once.
-        Suno has no official public API, so generation goes through a gateway
-        (default: sunoapi.org) with your own key.
-      </div>
-      <Field label="API key">
-        <input
-          autoFocus
-          spellCheck={false}
-          value={s.apiKey}
-          placeholder="Your gateway API key"
-          onChange={(e) => { setS({ ...s, apiKey: e.target.value }); }}
-        />
-      </Field>
-      <Field label="Gateway URL">
-        <input
-          spellCheck={false}
-          value={s.baseUrl}
-          onChange={(e) => { setS({ ...s, baseUrl: e.target.value }); }}
-        />
-      </Field>
-
-      {statusLine && (
-        <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
-          {statusLine}
-        </div>
-      )}
-
-      <button
-        className="btn primary"
-        style={{ marginTop: 12 }}
-        onClick={() => {
-          saveMusicSettings(s);
-          void ensureAllTracks();
-          onClose();
-        }}
-      >
-        Save
-      </button>
-    </Sheet>
   );
 }
