@@ -51,7 +51,6 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
           <Mark className="mark" />
           <h1>Varg</h1>
         </div>
-        <span className="chip accent">kg</span>
       </div>
 
       <div className="eyebrow">Varg · Old Norse for wolf</div>
