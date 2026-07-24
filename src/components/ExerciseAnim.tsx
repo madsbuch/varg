@@ -284,6 +284,18 @@ const DEFS = {
       head([48], [37]),
     ],
   },
+  rest: {
+    dur: 3.0,
+    parts: [
+      p([
+        "M40 88 L43 72 L47 58 M56 88 L53 72 L47 58",
+        "M40 88 L43 72 L47 60 M56 88 L53 72 L47 60",
+      ]),
+      p(["M47 58 L59 42", "M47 60 L59 46"]),
+      p(["M59 42 L45 71 M59 42 L55 71", "M59 46 L45 72 M59 46 L55 72"]),
+      head([64, 63], [37, 41]),
+    ],
+  },
 } satisfies Record<string, AnimDef>;
 
 function loopValues(frames: string[] | number[]): string {

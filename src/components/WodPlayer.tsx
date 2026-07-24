@@ -106,12 +106,16 @@ export default function WodPlayer({
     else a.play().catch(() => {});
   }, [paused, done, trackUrl]);
 
-  // Upcoming station, so "what's next" is always on screen.
-  const nextUp = useMemo(() => {
-    for (let i = stepIdx + 1; i < steps.length; i++) {
-      if (steps[i].kind === "work") return config.exercises[steps[i].exIdx];
+  // The next two blocks, so "what's next" is always on screen. Rest is a
+  // block like any other, so it shows up here by name too.
+  const upNext = useMemo(() => {
+    const labels: string[] = [];
+    for (let i = stepIdx + 1; i < steps.length && labels.length < 2; i++) {
+      const s = steps[i];
+      if (s.kind === "work") labels.push(config.exercises[s.exIdx].name);
+      else if (s.kind === "rest") labels.push("Rest");
     }
-    return null;
+    return labels;
   }, [stepIdx, steps, config.exercises]);
 
   // Keep the screen awake while the player is open (best effort).
@@ -257,21 +261,21 @@ export default function WodPlayer({
         {exercise && (
           <>
             <div className="wod-anim">
-              <ExerciseAnim anim={libraryFor(exercise).anim} size={190} />
+              <ExerciseAnim
+                anim={step.kind === "rest" ? "rest" : libraryFor(exercise).anim}
+                size={190}
+              />
             </div>
             <div className="wod-exname">
-              {step.kind === "rest" && (
-                <span className="faint" style={{ fontWeight: 400 }}>
-                  Next:{" "}
-                </span>
-              )}
-              {exercise.name}
+              {step.kind === "rest" ? "Rest" : exercise.name}
             </div>
-            {step.kind !== "rest" && (
-              <div className="faint" style={{ fontSize: 13, marginTop: 4 }}>
-                {nextUp ? `Next: ${nextUp.name}` : "Last station — empty the tank"}
-              </div>
-            )}
+            <div className="faint" style={{ fontSize: 13, marginTop: 4 }}>
+              {upNext.length === 0
+                ? "Last station — empty the tank"
+                : upNext.length === 1
+                  ? `Next: ${upNext[0]}`
+                  : `Next: ${upNext[0]} · Then: ${upNext[1]}`}
+            </div>
           </>
         )}
       </div>
