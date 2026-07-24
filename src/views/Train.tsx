@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Exercise, Session, SessionEntry, WorkoutSet } from "../types";
 import { useApp } from "../lib/app-context";
 import {
@@ -25,6 +25,7 @@ import {
 import {
   estimate1RM,
   formatRelative,
+  formatSeconds,
   kmFromMeters,
   metersFromKm,
   parseTime,
@@ -451,9 +452,12 @@ function ActiveSession({ session }: { session: Session }) {
           {session.note}
         </div>
       )}
-      <div className="chip accent">
-        <IconCheck style={{ width: 14, height: 14 }} /> {doneSets} done ·{" "}
-        {filledSets} logged
+      <div style={{ display: "flex", gap: 8 }}>
+        <SessionTimer start={session.date} />
+        <div className="chip accent">
+          <IconCheck style={{ width: 14, height: 14 }} /> {doneSets} done ·{" "}
+          {filledSets} logged
+        </div>
       </div>
 
       <div style={{ marginTop: 14 }}>
@@ -523,6 +527,20 @@ function ActiveSession({ session }: { session: Session }) {
           onClose={() => setConfirmEmptyFinish(false)}
         />
       )}
+    </div>
+  );
+}
+
+function SessionTimer({ start }: { start: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const elapsed = (now - new Date(start).getTime()) / 1000;
+  return (
+    <div className="chip">
+      <IconClock style={{ width: 14, height: 14 }} /> {formatSeconds(elapsed)}
     </div>
   );
 }
