@@ -56,13 +56,13 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
         <button
           className="check"
           aria-label="Music settings"
-          onClick={() => setShowMusic(true)}
+          onClick={() => { setShowMusic(true); }}
         >
           <IconMusic />
         </button>
       </div>
 
-      {showMusic && <MusicSettingsSheet onClose={() => setShowMusic(false)} />}
+      {showMusic && <MusicSettingsSheet onClose={() => { setShowMusic(false); }} />}
 
       <div className="eyebrow">Varg · Old Norse for wolf</div>
       <h2 className="screen-title" style={{ marginTop: 4 }}>
@@ -86,7 +86,7 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
       <button
         className="btn primary"
         style={{ marginTop: 16 }}
-        onClick={() => goto("train")}
+        onClick={() => { goto("train"); }}
       >
         Start a session
       </button>
@@ -96,7 +96,7 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
         <div className="card">
           <div className="muted">
             No sessions logged yet. Head to{" "}
-            <span className="link" onClick={() => goto("train")}>
+            <span className="link" onClick={() => { goto("train"); }}>
               Train
             </span>{" "}
             to begin.
@@ -121,7 +121,7 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
       )}
 
       <div className="section-label">Records</div>
-      <button className="list-item" onClick={() => goto("records")}>
+      <button className="list-item" onClick={() => { goto("records"); }}>
         <div>
           <div className="title">Personal records</div>
           <div className="sub">{data.prs.length} tracked</div>

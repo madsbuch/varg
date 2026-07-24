@@ -29,7 +29,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const writeQueue = useRef<Promise<void>>(Promise.resolve());
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const latest = useRef<AppData | null>(null);
-  latest.current = data;
+  useEffect(() => {
+    latest.current = data;
+  }, [data]);
 
   // Open the backend (SQLite in Tauri, localStorage in a browser) and load.
   useEffect(() => {
@@ -42,7 +44,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         lastPersisted.current = loaded;
         setData(loaded);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error("Failed to open persistence backend", err);
       });
     return () => {
@@ -59,7 +61,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     lastPersisted.current = next;
     writeQueue.current = writeQueue.current
       .then(() => persistDiff(p, prev, next))
-      .catch((err) => console.error("Persist failed", err));
+      .catch((err: unknown) => { console.error("Persist failed", err); });
   }, []);
 
   // Debounced write-through on every state change.
@@ -67,7 +69,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!data || !backend.current || lastPersisted.current === data) return;
     clearTimeout(timer.current);
     timer.current = setTimeout(flush, PERSIST_DEBOUNCE_MS);
-    return () => clearTimeout(timer.current);
+    return () => { clearTimeout(timer.current); };
   }, [data, flush]);
 
   // Flush immediately when the app is backgrounded or closed —

@@ -47,7 +47,7 @@ export default function ExercisePicker({
       {creating ? (
         <NewExerciseForm
           initialName={q}
-          onCancel={() => setCreating(false)}
+          onCancel={() => { setCreating(false); }}
           onCreate={(ex) => {
             update((d) => upsertExercise(d, ex));
             onPick(ex);
@@ -59,14 +59,14 @@ export default function ExercisePicker({
             autoFocus
             placeholder="Search exercises…"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => { setQ(e.target.value); }}
           />
           <div style={{ marginTop: 12 }}>
             {filtered.map((e) => (
               <button
                 key={e.id}
                 className="list-item"
-                onClick={() => onPick(e)}
+                onClick={() => { onPick(e); }}
               >
                 <div>
                   <div className="title">{e.name}</div>
@@ -83,7 +83,7 @@ export default function ExercisePicker({
           <button
             className="btn"
             style={{ marginTop: 14 }}
-            onClick={() => setCreating(true)}
+            onClick={() => { setCreating(true); }}
           >
             <IconPlus /> Create custom exercise
           </button>
@@ -125,7 +125,7 @@ function NewExerciseForm({
         <input
           autoFocus
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => { setName(e.target.value); }}
           placeholder="e.g. Sandbag Clean"
         />
       </Field>
@@ -135,7 +135,7 @@ function NewExerciseForm({
       <Field label="Category">
         <select
           value={category}
-          onChange={(e) => setCategory(e.target.value as Category)}
+          onChange={(e) => { setCategory(e.target.value as Category); }}
         >
           {CATEGORIES.map((c) => (
             <option key={c} value={c}>

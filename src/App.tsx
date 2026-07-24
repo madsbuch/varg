@@ -52,7 +52,7 @@ export default function App() {
             <button
               key={id}
               className={`tab ${tab === id ? "active" : ""}`}
-              onClick={() => setTab(id)}
+              onClick={() => { setTab(id); }}
             >
               <Icon />
               {label}

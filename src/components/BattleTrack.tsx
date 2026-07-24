@@ -35,21 +35,25 @@ export function BattleTrack({
 
   // Load from cache; while the track is still being composed in the
   // background, re-check every 10 s so it appears without a reload.
+  const trackMissing = track == null;
   useEffect(() => {
     let alive = true;
-    const check = () =>
-      getCachedTrack(cacheKey)
-        .then((t) => alive && setTrack(t ?? null))
-        .catch(() => alive && setTrack(null));
+    const check = () => {
+      void getCachedTrack(cacheKey)
+        .then((t) => {
+          if (alive) setTrack(t ?? null);
+        })
+        .catch(() => {
+          if (alive) setTrack(null);
+        });
+    };
     check();
-    const id = setInterval(() => {
-      if (track == null) check();
-    }, 10_000);
+    const id = trackMissing ? setInterval(check, 10_000) : undefined;
     return () => {
       alive = false;
-      clearInterval(id);
+      if (id !== undefined) clearInterval(id);
     };
-  }, [cacheKey, track == null]);
+  }, [cacheKey, trackMissing]);
 
   const url = useMemo(
     () => (track ? URL.createObjectURL(track.blob) : undefined),
@@ -71,7 +75,7 @@ export function BattleTrack({
       await deleteCachedTrack(cacheKey);
       setTrack(null);
       setTrack(
-        await generateTrack(cacheKey, workoutName, profile, settings, () => {}),
+        await generateTrack(cacheKey, workoutName, profile, settings, () => undefined),
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Track generation failed.");
@@ -102,7 +106,9 @@ export function BattleTrack({
             <button
               className="link faint"
               style={{ fontSize: 12, marginTop: 6 }}
-              onClick={regenerate}
+              onClick={() => {
+                void regenerate();
+              }}
             >
               generate a new track
             </button>
@@ -157,14 +163,14 @@ export function MusicSettingsSheet({ onClose }: { onClose: () => void }) {
           spellCheck={false}
           value={s.apiKey}
           placeholder="Your gateway API key"
-          onChange={(e) => setS({ ...s, apiKey: e.target.value })}
+          onChange={(e) => { setS({ ...s, apiKey: e.target.value }); }}
         />
       </Field>
       <Field label="Gateway URL">
         <input
           spellCheck={false}
           value={s.baseUrl}
-          onChange={(e) => setS({ ...s, baseUrl: e.target.value })}
+          onChange={(e) => { setS({ ...s, baseUrl: e.target.value }); }}
         />
       </Field>
 

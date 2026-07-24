@@ -8,20 +8,20 @@
  * circle whose center moves. Figures live in a 100×100 box, ground ≈ y88.
  */
 
-type PathPart = {
+interface PathPart {
   kind: "path";
   frames: string[]; // 1 = static, 2-3 = keyframes (loops back to first)
   gear?: boolean; // equipment: bar, plates, boxes — rendered muted
   fill?: boolean;
-};
+}
 
-type CirclePart = {
+interface CirclePart {
   kind: "circle";
   cx: number[];
   cy: number[];
   r: number;
   gear?: boolean;
-};
+}
 
 type Part = PathPart | CirclePart;
 

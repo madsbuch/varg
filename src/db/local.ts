@@ -21,9 +21,9 @@ export class LocalStoragePersistence implements Persistence {
     saveData(this.cache);
   }
 
-  async load(): Promise<AppData> {
+  load(): Promise<AppData> {
     this.cache = loadData();
-    return this.cache;
+    return Promise.resolve(this.cache);
   }
 
   private upsert<T extends { id: string }>(list: T[], item: T): T[] {
@@ -34,38 +34,45 @@ export class LocalStoragePersistence implements Persistence {
     return next;
   }
 
-  async saveExercise(ex: Exercise): Promise<void> {
+  saveExercise(ex: Exercise): Promise<void> {
     this.cache = { ...this.cache, exercises: this.upsert(this.cache.exercises, ex) };
     this.flush();
+    return Promise.resolve();
   }
 
-  async deleteExercise(id: string): Promise<void> {
+  deleteExercise(id: string): Promise<void> {
     this.cache = { ...this.cache, exercises: this.cache.exercises.filter((e) => e.id !== id) };
     this.flush();
+    return Promise.resolve();
   }
 
-  async saveSplit(split: Split): Promise<void> {
+  saveSplit(split: Split): Promise<void> {
     this.cache = { ...this.cache, splits: this.upsert(this.cache.splits, split) };
     this.flush();
+    return Promise.resolve();
   }
 
-  async deleteSplit(id: string): Promise<void> {
+  deleteSplit(id: string): Promise<void> {
     this.cache = { ...this.cache, splits: this.cache.splits.filter((s) => s.id !== id) };
     this.flush();
+    return Promise.resolve();
   }
 
-  async saveSession(session: Session): Promise<void> {
+  saveSession(session: Session): Promise<void> {
     this.cache = { ...this.cache, sessions: this.upsert(this.cache.sessions, session) };
     this.flush();
+    return Promise.resolve();
   }
 
-  async deleteSession(id: string): Promise<void> {
+  deleteSession(id: string): Promise<void> {
     this.cache = { ...this.cache, sessions: this.cache.sessions.filter((s) => s.id !== id) };
     this.flush();
+    return Promise.resolve();
   }
 
-  async replacePRs(prs: PersonalRecord[]): Promise<void> {
+  replacePRs(prs: PersonalRecord[]): Promise<void> {
     this.cache = { ...this.cache, prs };
     this.flush();
+    return Promise.resolve();
   }
 }

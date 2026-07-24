@@ -3,6 +3,7 @@ import type {
   PersonalRecord,
   PRKind,
   Session,
+  WorkoutSet,
 } from "../types";
 import { estimate1RM } from "./units";
 
@@ -46,10 +47,7 @@ interface Candidate {
 }
 
 /** Best candidate PRs for a single exercise across a session's sets. */
-function candidatesForEntry(
-  ex: Exercise,
-  sets: { weight?: number; reps?: number; seconds?: number; meters?: number; done: boolean }[],
-): Candidate[] {
+function candidatesForEntry(ex: Exercise, sets: WorkoutSet[]): Candidate[] {
   const done = sets.filter((s) => s.done);
   const out: Candidate[] = [];
   if (ex.metric === "weight_reps") {
@@ -77,7 +75,7 @@ function candidatesForEntry(
   } else if (ex.metric === "time") {
     const best = Math.max(0, ...done.map((s) => s.seconds ?? 0));
     if (best > 0) out.push({ kind: "time", value: best });
-  } else if (ex.metric === "distance_time") {
+  } else {
     const best = Math.max(0, ...done.map((s) => s.meters ?? 0));
     if (best > 0) out.push({ kind: "distance", value: best });
   }
