@@ -72,23 +72,30 @@ export default function WodPlayer({
   const step = steps[Math.min(stepIdx, steps.length - 1)];
   const exercise = config.exercises[step.exIdx];
 
-  // Battle track: play the workout's cached track under the cues.
+  // Battle track: play the workout's cached track under the cues. While
+  // the track is still composing, keep checking so it joins mid-workout.
   const [trackUrl, setTrackUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   useEffect(() => {
     if (!config.trackKey) return;
     let url: string | null = null;
     let alive = true;
-    getCachedTrack(config.trackKey)
-      .then((t) => {
-        if (t && alive) {
-          url = URL.createObjectURL(t.blob);
-          setTrackUrl(url);
-        }
-      })
-      .catch(() => {});
+    const check = () =>
+      getCachedTrack(config.trackKey!)
+        .then((t) => {
+          if (t && alive && !url) {
+            url = URL.createObjectURL(t.blob);
+            setTrackUrl(url);
+          }
+        })
+        .catch(() => {});
+    check();
+    const id = setInterval(() => {
+      if (!url) check();
+    }, 15_000);
     return () => {
       alive = false;
+      clearInterval(id);
       if (url) URL.revokeObjectURL(url);
     };
   }, [config.trackKey]);

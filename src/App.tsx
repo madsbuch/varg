@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ensureAllTracks } from "./lib/music";
 import Home from "./views/Home";
 import Train from "./views/Train";
 import Splits from "./views/Splits";
@@ -24,6 +25,18 @@ const TABS: { id: Tab; label: string; Icon: typeof IconHome }[] = [
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("home");
+
+  // Compose any missing workout tracks in the background (no-op without
+  // an API key; every finished track is cached for good).
+  useEffect(() => {
+    void ensureAllTracks();
+  }, []);
+
+  // Every tab starts at the top — scroll position must not leak between
+  // screens sharing the one scroll container.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [tab]);
 
   return (
     <div className="app">

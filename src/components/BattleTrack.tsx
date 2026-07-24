@@ -1,19 +1,23 @@
 /**
- * Battle track card: generate / play / regenerate the Suno track for a
- * workout, plus the music settings sheet (API key + gateway URL).
+ * Battle track player card for a workout, and the music settings sheet.
+ * All Suno configuration lives in the settings sheet; tracks themselves are
+ * composed automatically in the background (see ensureAllTracks) — the card
+ * only plays what's cached.
  */
 import { useEffect, useMemo, useState } from "react";
 import type { MusicProfile } from "../types";
 import {
   deleteCachedTrack,
+  ensureAllTracks,
   generateTrack,
   getCachedTrack,
   loadMusicSettings,
+  onEnsureStatus,
   saveMusicSettings,
   type CachedTrack,
+  type EnsureStatus,
 } from "../lib/music";
 import { Field, Sheet } from "./ui";
-import { IconMusic } from "./icons";
 
 export function BattleTrack({
   cacheKey,
@@ -26,19 +30,26 @@ export function BattleTrack({
 }) {
   const [track, setTrack] = useState<CachedTrack | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState("");
   const [error, setError] = useState("");
-  const [showSettings, setShowSettings] = useState(false);
+  const hasKey = !!loadMusicSettings().apiKey;
 
+  // Load from cache; while the track is still being composed in the
+  // background, re-check every 10 s so it appears without a reload.
   useEffect(() => {
     let alive = true;
-    getCachedTrack(cacheKey)
-      .then((t) => alive && setTrack(t ?? null))
-      .catch(() => alive && setTrack(null));
+    const check = () =>
+      getCachedTrack(cacheKey)
+        .then((t) => alive && setTrack(t ?? null))
+        .catch(() => alive && setTrack(null));
+    check();
+    const id = setInterval(() => {
+      if (track == null) check();
+    }, 10_000);
     return () => {
       alive = false;
+      clearInterval(id);
     };
-  }, [cacheKey]);
+  }, [cacheKey, track == null]);
 
   const url = useMemo(
     () => (track ? URL.createObjectURL(track.blob) : undefined),
@@ -51,27 +62,21 @@ export function BattleTrack({
     [url],
   );
 
-  const generate = async (fresh = false) => {
+  const regenerate = async () => {
     const settings = loadMusicSettings();
-    if (!settings.apiKey) {
-      setShowSettings(true);
-      return;
-    }
+    if (!settings.apiKey) return;
     setBusy(true);
     setError("");
     try {
-      if (fresh) {
-        await deleteCachedTrack(cacheKey);
-        setTrack(null);
-      }
+      await deleteCachedTrack(cacheKey);
+      setTrack(null);
       setTrack(
-        await generateTrack(cacheKey, workoutName, profile, settings, setStatus),
+        await generateTrack(cacheKey, workoutName, profile, settings, () => {}),
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Track generation failed.");
     } finally {
       setBusy(false);
-      setStatus("");
     }
   };
 
@@ -84,51 +89,37 @@ export function BattleTrack({
             {profile.style} · {profile.bpm} BPM
           </div>
         </div>
-        <button
-          className="link faint"
-          style={{ fontSize: 12 }}
-          onClick={() => setShowSettings(true)}
-        >
-          API key
-        </button>
       </div>
 
-      {track && url && (
-        <audio controls src={url} style={{ width: "100%", marginTop: 10 }} />
-      )}
-
-      {busy ? (
+      {track && url ? (
+        <>
+          <audio controls src={url} style={{ width: "100%", marginTop: 10 }} />
+          {busy ? (
+            <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
+              Composing a new track…
+            </div>
+          ) : (
+            <button
+              className="link faint"
+              style={{ fontSize: 12, marginTop: 6 }}
+              onClick={regenerate}
+            >
+              generate a new track
+            </button>
+          )}
+        </>
+      ) : track === null ? (
         <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
-          {status}
+          {busy || hasKey
+            ? "Your battle track is being composed — it will appear here."
+            : "Add your Suno API key in Music settings (Den tab) to get workout music."}
         </div>
-      ) : track ? (
-        <button
-          className="link faint"
-          style={{ fontSize: 12, marginTop: 6 }}
-          onClick={() => generate(true)}
-        >
-          generate a new track
-        </button>
-      ) : (
-        track === null && (
-          <button
-            className="btn sm"
-            style={{ marginTop: 10 }}
-            onClick={() => generate()}
-          >
-            <IconMusic /> Generate track
-          </button>
-        )
-      )}
+      ) : null}
 
       {error && (
         <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>
           {error}
         </div>
-      )}
-
-      {showSettings && (
-        <MusicSettingsSheet onClose={() => setShowSettings(false)} />
       )}
     </div>
   );
@@ -136,13 +127,29 @@ export function BattleTrack({
 
 export function MusicSettingsSheet({ onClose }: { onClose: () => void }) {
   const [s, setS] = useState(loadMusicSettings);
+  const [status, setStatus] = useState<EnsureStatus | null>(null);
+
+  useEffect(() => onEnsureStatus(setStatus), []);
+
+  const statusLine = (() => {
+    if (!status || status.total === 0) return null;
+    if (status.running) {
+      return `Composing tracks: ${status.ready}/${status.total} ready — now: ${status.current}`;
+    }
+    if (status.error) {
+      return `Stopped at ${status.ready}/${status.total}: ${status.error}`;
+    }
+    return `Battle tracks ready: ${status.ready}/${status.total}`;
+  })();
+
   return (
     <Sheet title="Music settings" onClose={onClose}>
       <div className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
-        Tracks are generated with Suno through an API gateway and cached on
-        this device, so each workout's track is only generated once. Suno has
-        no official public API — get a key from the gateway you use (default:
-        sunoapi.org).
+        With an API key set, Varg composes an instrumental track matched to
+        every workout's tempo, style, and theme — automatically, in the
+        background, cached on this device so each track is generated once.
+        Suno has no official public API, so generation goes through a gateway
+        (default: sunoapi.org) with your own key.
       </div>
       <Field label="API key">
         <input
@@ -160,11 +167,19 @@ export function MusicSettingsSheet({ onClose }: { onClose: () => void }) {
           onChange={(e) => setS({ ...s, baseUrl: e.target.value })}
         />
       </Field>
+
+      {statusLine && (
+        <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
+          {statusLine}
+        </div>
+      )}
+
       <button
         className="btn primary"
-        style={{ marginTop: 8 }}
+        style={{ marginTop: 12 }}
         onClick={() => {
           saveMusicSettings(s);
+          void ensureAllTracks();
           onClose();
         }}
       >

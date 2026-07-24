@@ -49,6 +49,86 @@ export function musicProfileFor(templateId?: string): MusicProfile {
   return tpl?.music ?? FREESTYLE_PROFILE;
 }
 
+/* --------------------------- Auto-generation ----------------------------- */
+// Once an API key is saved, every workout gets its fitting track composed
+// automatically in the background — one at a time, cached forever, so each
+// track costs exactly one generation.
+
+export interface EnsureStatus {
+  running: boolean;
+  ready: number;
+  total: number;
+  current?: string; // workout currently being composed
+  error?: string; // why the run stopped early
+}
+
+let ensureRunning = false;
+let lastStatus: EnsureStatus = { running: false, ready: 0, total: 0 };
+const listeners = new Set<(s: EnsureStatus) => void>();
+
+function emit(s: EnsureStatus): void {
+  lastStatus = s;
+  listeners.forEach((fn) => fn(s));
+}
+
+/** Subscribe to auto-generation progress; fires immediately with the
+ * latest status. Returns an unsubscribe function. */
+export function onEnsureStatus(fn: (s: EnsureStatus) => void): () => void {
+  listeners.add(fn);
+  fn(lastStatus);
+  return () => listeners.delete(fn);
+}
+
+function allWorkouts(): { key: string; name: string; profile: MusicProfile }[] {
+  return [
+    ...seedTemplates().map((t) => ({
+      key: t.id,
+      name: t.name,
+      profile: t.music,
+    })),
+    { key: "freestyle", name: "Freestyle session", profile: FREESTYLE_PROFILE },
+  ];
+}
+
+/** Generate any missing workout tracks. Safe to call often — no-ops when
+ * already running, when no API key is set, or when everything is cached. */
+export async function ensureAllTracks(): Promise<void> {
+  if (ensureRunning) return;
+  if (!loadMusicSettings().apiKey) return;
+
+  const workouts = allWorkouts();
+  const missing: typeof workouts = [];
+  for (const w of workouts) {
+    if (!(await getCachedTrack(w.key))) missing.push(w);
+  }
+  const total = workouts.length;
+  let ready = total - missing.length;
+  if (missing.length === 0) {
+    emit({ running: false, ready, total });
+    return;
+  }
+
+  ensureRunning = true;
+  let error: string | undefined;
+  try {
+    for (const w of missing) {
+      emit({ running: true, ready, total, current: w.name });
+      try {
+        await generateTrack(w.key, w.name, w.profile, loadMusicSettings(), () => {});
+        ready++;
+      } catch (e) {
+        // Bad key / no credits / offline: stop and retry on next launch
+        // instead of burning a failed request per workout.
+        error = e instanceof Error ? e.message : "Track generation failed.";
+        break;
+      }
+    }
+  } finally {
+    ensureRunning = false;
+    emit({ running: false, ready, total, error });
+  }
+}
+
 /* ------------------------------ Track cache ------------------------------ */
 
 export interface CachedTrack {
