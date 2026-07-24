@@ -111,6 +111,46 @@ export function seedSplits(): Split[] {
 export function seedTemplates(): Template[] {
   return [
     {
+      id: "tpl-dk-grund",
+      name: "Grundtræning",
+      branch: "Forsvaret",
+      description:
+        "Basic soldier conditioning circuit, inspired by Træn med Forsvaret.",
+      scheme: "3 rounds: 15 push-ups · 20 air squats · 15 sit-ups · 10 burpees · 400 m run",
+      exerciseIds: [EX.pushUp, EX.airSquat, EX.sitUp, EX.burpee, EX.run],
+      music: {
+        bpm: 155,
+        style: "nordic electronic rock, driving drums, cold synths",
+        theme: "Danish soldier basic training — disciplined, no-nonsense grind",
+      },
+    },
+    {
+      id: "tpl-dk-march",
+      name: "Feltmarch",
+      branch: "Forsvaret",
+      description: "March training under load, inspired by Træn med Forsvaret.",
+      scheme: "10 km march · 10 kg pack · steady pace",
+      exerciseIds: [EX.ruck],
+      music: {
+        bpm: 120,
+        style: "marching drums, nordic folk undertones, hypnotic low drone",
+        theme: "Field march across Danish terrain — endless steady kilometres",
+      },
+    },
+    {
+      id: "tpl-dk-kredsloeb",
+      name: "Kredsløbstræning",
+      branch: "Forsvaret",
+      description: "Cardio circuit intervals, inspired by Træn med Forsvaret.",
+      scheme: "5 rounds: 800 m run · 20 kettlebell swings · 10 burpees",
+      exerciseIds: [EX.run, EX.kettlebellSwing, EX.burpee],
+      music: {
+        bpm: 165,
+        style: "high-energy drum and bass, relentless breakbeats",
+        theme: "Circuit intervals — heart pounding, quick transitions",
+      },
+    },
+    {
       id: "tpl-murph",
       name: "Murph",
       branch: "CrossFit Hero WOD",
@@ -118,6 +158,11 @@ export function seedTemplates(): Template[] {
         "In memory of Lt. Michael Murphy. Traditionally done wearing a 9 kg vest.",
       scheme: "1.6 km run · 100 pull-ups · 200 push-ups · 300 air squats · 1.6 km run — for time",
       exerciseIds: [EX.run, EX.pullUp, EX.pushUp, EX.airSquat, EX.run],
+      music: {
+        bpm: 175,
+        style: "aggressive electronic rock, pounding drums, distorted guitar",
+        theme: "Relentless hero tribute — pain, honor, pushing past the limit",
+      },
     },
     {
       id: "tpl-acft",
@@ -126,6 +171,11 @@ export function seedTemplates(): Template[] {
       description: "Six-event test of combat readiness. Log each event's score.",
       scheme: "3-rep deadlift · power throw · hand-release push-ups · sprint-drag-carry · leg tuck/plank · 3.2 km run",
       exerciseIds: [EX.deadlift, EX.pushUp, EX.plank, EX.run],
+      music: {
+        bpm: 160,
+        style: "hard military trap, heavy 808s, snare cadence",
+        theme: "Combat readiness test — focused aggression under pressure",
+      },
     },
     {
       id: "tpl-usmc-pft",
@@ -134,6 +184,11 @@ export function seedTemplates(): Template[] {
       description: "Physical Fitness Test — max effort on each event.",
       scheme: "Pull-ups (max) · plank (max hold) · 4.8 km run (for time)",
       exerciseIds: [EX.pullUp, EX.plank, EX.run],
+      music: {
+        bpm: 165,
+        style: "hard rock, driving double-time drums",
+        theme: "Max effort test day — no slack, all out",
+      },
     },
     {
       id: "tpl-navy-prt",
@@ -142,6 +197,11 @@ export function seedTemplates(): Template[] {
       description: "Physical Readiness Test.",
       scheme: "Forearm plank (max) · push-ups 2:00 · 2.4 km run",
       exerciseIds: [EX.plank, EX.pushUp, EX.run],
+      music: {
+        bpm: 150,
+        style: "electronic rock, steady pulse",
+        theme: "Disciplined readiness — steady grind to the finish",
+      },
     },
     {
       id: "tpl-cindy",
@@ -150,6 +210,11 @@ export function seedTemplates(): Template[] {
       description: "AMRAP in 20 minutes.",
       scheme: "20 min AMRAP: 5 pull-ups · 10 push-ups · 15 air squats",
       exerciseIds: [EX.pullUp, EX.pushUp, EX.airSquat],
+      music: {
+        bpm: 170,
+        style: "fast punk rock, upbeat and raw",
+        theme: "Twenty minutes of relentless rounds — keep moving",
+      },
     },
     {
       id: "tpl-ruck-standard",
@@ -158,6 +223,11 @@ export function seedTemplates(): Template[] {
       description: "Foot-march standard: 19.3 km with a 16 kg dry pack.",
       scheme: "19.3 km ruck · 16 kg load · target sub-3:00",
       exerciseIds: [EX.ruck],
+      music: {
+        bpm: 130,
+        style: "dark folk percussion, marching cadence, low drone",
+        theme: "Long ruck under load — one step after another for hours",
+      },
     },
     {
       id: "tpl-dt",
@@ -166,6 +236,11 @@ export function seedTemplates(): Template[] {
       description: "In memory of USAF SSgt Timothy Davis.",
       scheme: "5 rounds: 12 deadlifts · 9 hang power cleans · 6 push press @ 70/48 kg — for time",
       exerciseIds: [EX.deadlift, EX.powerClean, EX.overheadPress],
+      music: {
+        bpm: 172,
+        style: "heavy metal, barbell-slamming riffs",
+        theme: "Five brutal barbell rounds in tribute — heavy and fast",
+      },
     },
     {
       id: "tpl-chad",
@@ -174,6 +249,11 @@ export function seedTemplates(): Template[] {
       description: "1,000 box step-ups with a rucksack. Honors LT Chad Wilkinson.",
       scheme: "1000 step-ups @ 50 cm box · 20/16 kg ruck — for time",
       exerciseIds: [EX.boxJump, EX.ruck],
+      music: {
+        bpm: 135,
+        style: "somber cinematic percussion, steady stomping beat",
+        theme: "A thousand step-ups in remembrance — solemn, unbroken rhythm",
+      },
     },
   ];
 }

@@ -542,11 +542,6 @@ textarea:focus {
   display: none;
 }
 
-.tpl-card {
-  min-width: 230px;
-  scroll-snap-align: start;
-}
-
 .link {
   color: var(--accent);
   font-weight: 700;
