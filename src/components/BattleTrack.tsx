@@ -98,9 +98,9 @@ export function BattleTrack({
     if (ensure?.running) {
       return (
         <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
-          Composing tracks in the background
-          {ensure.current ? ` — now: ${ensure.current}` : ""}… This one starts
-          playing as soon as it's ready.
+          Composing tracks on Suno's servers
+          {ensure.current ? ` — requesting: ${ensure.current}` : ""}… Locking
+          your phone is fine; this one starts playing as soon as it's ready.
         </div>
       );
     }
@@ -127,6 +127,15 @@ export function BattleTrack({
             Retry
           </button>
         </>
+      );
+    }
+    if (ensure?.pending) {
+      return (
+        <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
+          {ensure.pending} track{ensure.pending === 1 ? " is" : "s are"} still
+          composing on Suno's servers — they're picked up automatically while
+          the app is open.
+        </div>
       );
     }
     return (
@@ -158,7 +167,8 @@ export function BattleTrack({
           <audio controls src={url} style={{ width: "100%", marginTop: 10 }} />
           {busy ? (
             <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
-              Composing a new track…
+              Composing a new track on Suno's servers — locking your phone is
+              fine…
             </div>
           ) : (
             <button
