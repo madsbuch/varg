@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
   Exercise,
-  MusicProfile,
   Session,
   SessionEntry,
   Template,
@@ -16,15 +15,8 @@ import {
   upsertSession,
 } from "../lib/store";
 import { seedTemplates } from "../lib/seed";
-import {
-  FREESTYLE_PROFILE,
-  deleteCachedTrack,
-  generateTrack,
-  getCachedTrack,
-  loadMusicSettings,
-  saveMusicSettings,
-  type CachedTrack,
-} from "../lib/music";
+import { musicProfileFor } from "../lib/music";
+import { BattleTrack } from "../components/BattleTrack";
 import ExercisePicker from "../components/ExercisePicker";
 import WodPlayer from "../components/WodPlayer";
 import type { WodConfig } from "../components/WodPlayer";
@@ -74,6 +66,7 @@ function StartScreen() {
   const [showSplit, setShowSplit] = useState(false);
   const [wodSetup, setWodSetup] = useState(false);
   const [runningWod, setRunningWod] = useState<WodConfig | null>(null);
+  const [musicFor, setMusicFor] = useState<Template | null>(null);
   const templates = useMemo(() => seedTemplates(), []);
   const history = data.sessions.filter((s) => s.finishedAt);
 
@@ -84,6 +77,22 @@ function StartScreen() {
   const startFromTemplate = (templateId: string) => {
     const tpl = templates.find((t) => t.id === templateId);
     if (!tpl) return;
+    if (tpl.interval) {
+      // Circuit template: run it guided — exercises, timing, cues, music.
+      const exById = new Map(data.exercises.map((e) => [e.id, e]));
+      const exercises = tpl.exerciseIds
+        .map((id) => exById.get(id))
+        .filter((e): e is Exercise => !!e);
+      if (exercises.length === 0) return;
+      unlockAudio(); // must happen inside the tap gesture
+      setRunningWod({
+        exercises,
+        ...tpl.interval,
+        title: tpl.name,
+        trackKey: tpl.id,
+      });
+      return;
+    }
     update((d) => {
       const s = newSession(tpl.name);
       s.templateId = tpl.id;
@@ -110,20 +119,6 @@ function StartScreen() {
         </button>
       </div>
 
-      <div className="section-label">Forsvaret</div>
-      {templates
-        .filter((t) => t.branch === "Forsvaret")
-        .map((t) => (
-          <TemplateCard key={t.id} t={t} onStart={() => startFromTemplate(t.id)} />
-        ))}
-
-      <div className="section-label">Hero WODs & service tests</div>
-      {templates
-        .filter((t) => t.branch !== "Forsvaret")
-        .map((t) => (
-          <TemplateCard key={t.id} t={t} onStart={() => startFromTemplate(t.id)} />
-        ))}
-
       <div className="section-label">History</div>
       {history.length === 0 ? (
         <EmptyState
@@ -132,7 +127,54 @@ function StartScreen() {
           hint="Your logged sessions will appear here."
         />
       ) : (
-        history.map((s) => <HistoryRow key={s.id} session={s} />)
+        <>
+          {history.slice(0, 5).map((s) => (
+            <HistoryRow key={s.id} session={s} />
+          ))}
+          {history.length > 5 && (
+            <div className="faint" style={{ fontSize: 12, marginTop: 6 }}>
+              + {history.length - 5} older session
+              {history.length - 5 === 1 ? "" : "s"}
+            </div>
+          )}
+        </>
+      )}
+
+      <div className="section-label">Forsvaret</div>
+      {templates
+        .filter((t) => t.branch === "Forsvaret")
+        .map((t) => (
+          <TemplateCard
+            key={t.id}
+            t={t}
+            onStart={() => startFromTemplate(t.id)}
+            onMusic={() => setMusicFor(t)}
+          />
+        ))}
+
+      <div className="section-label">Hero WODs & service tests</div>
+      {templates
+        .filter((t) => t.branch !== "Forsvaret")
+        .map((t) => (
+          <TemplateCard
+            key={t.id}
+            t={t}
+            onStart={() => startFromTemplate(t.id)}
+            onMusic={() => setMusicFor(t)}
+          />
+        ))}
+
+      {musicFor && (
+        <Sheet
+          title={musicFor.name}
+          onClose={() => setMusicFor(null)}
+        >
+          <BattleTrack
+            cacheKey={musicFor.id}
+            workoutName={musicFor.name}
+            profile={musicFor.music}
+          />
+        </Sheet>
       )}
 
       {showSplit && <SplitPicker onClose={() => setShowSplit(false)} />}
@@ -152,7 +194,15 @@ function StartScreen() {
   );
 }
 
-function TemplateCard({ t, onStart }: { t: Template; onStart: () => void }) {
+function TemplateCard({
+  t,
+  onStart,
+  onMusic,
+}: {
+  t: Template;
+  onStart: () => void;
+  onMusic: () => void;
+}) {
   return (
     <div className="card" style={{ marginBottom: 10 }}>
       <div className="row">
@@ -165,13 +215,14 @@ function TemplateCard({ t, onStart }: { t: Template; onStart: () => void }) {
       <div className="sub" style={{ marginTop: 4, fontSize: 13 }}>
         {t.scheme}
       </div>
-      <button
-        className="btn sm primary"
-        style={{ width: "100%", marginTop: 10 }}
-        onClick={onStart}
-      >
-        Start
-      </button>
+      <div className="btn-row" style={{ marginTop: 10 }}>
+        <button className="btn sm primary grow" onClick={onStart}>
+          {t.interval ? "Start guided" : "Start"}
+        </button>
+        <button className="btn sm" onClick={onMusic} aria-label="Battle track">
+          <IconMusic />
+        </button>
+      </div>
     </div>
   );
 }
@@ -485,7 +536,11 @@ function ActiveSession({ session }: { session: Session }) {
         </div>
       </div>
 
-      <TrackCard templateId={session.templateId} workoutName={session.name} />
+      <BattleTrack
+        cacheKey={session.templateId ?? "freestyle"}
+        workoutName={session.name}
+        profile={musicProfileFor(session.templateId)}
+      />
 
       <div style={{ marginTop: 14 }}>
         {session.entries.map((entry) => {
@@ -555,173 +610,6 @@ function ActiveSession({ session }: { session: Session }) {
         />
       )}
     </div>
-  );
-}
-
-/* ------------------------------ Battle track ----------------------------- */
-
-function TrackCard({
-  templateId,
-  workoutName,
-}: {
-  templateId?: string;
-  workoutName: string;
-}) {
-  const cacheKey = templateId ?? "freestyle";
-  const profile: MusicProfile = useMemo(() => {
-    const tpl = templateId
-      ? seedTemplates().find((t) => t.id === templateId)
-      : undefined;
-    return tpl?.music ?? FREESTYLE_PROFILE;
-  }, [templateId]);
-
-  const [track, setTrack] = useState<CachedTrack | null | undefined>(undefined);
-  const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState("");
-  const [error, setError] = useState("");
-  const [showSettings, setShowSettings] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    getCachedTrack(cacheKey)
-      .then((t) => alive && setTrack(t ?? null))
-      .catch(() => alive && setTrack(null));
-    return () => {
-      alive = false;
-    };
-  }, [cacheKey]);
-
-  const url = useMemo(
-    () => (track ? URL.createObjectURL(track.blob) : undefined),
-    [track],
-  );
-  useEffect(
-    () => () => {
-      if (url) URL.revokeObjectURL(url);
-    },
-    [url],
-  );
-
-  const generate = async (fresh = false) => {
-    const settings = loadMusicSettings();
-    if (!settings.apiKey) {
-      setShowSettings(true);
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      if (fresh) {
-        await deleteCachedTrack(cacheKey);
-        setTrack(null);
-      }
-      setTrack(
-        await generateTrack(cacheKey, workoutName, profile, settings, setStatus),
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Track generation failed.");
-    } finally {
-      setBusy(false);
-      setStatus("");
-    }
-  };
-
-  return (
-    <div className="card" style={{ marginTop: 14 }}>
-      <div className="row">
-        <div>
-          <h3 style={{ fontSize: 15 }}>Battle track</h3>
-          <div className="faint" style={{ fontSize: 12 }}>
-            {profile.style} · {profile.bpm} BPM
-          </div>
-        </div>
-        <button
-          className="link faint"
-          style={{ fontSize: 12 }}
-          onClick={() => setShowSettings(true)}
-        >
-          API key
-        </button>
-      </div>
-
-      {track && url && (
-        <audio controls src={url} style={{ width: "100%", marginTop: 10 }} />
-      )}
-
-      {busy ? (
-        <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
-          {status}
-        </div>
-      ) : track ? (
-        <button
-          className="link faint"
-          style={{ fontSize: 12, marginTop: 6 }}
-          onClick={() => generate(true)}
-        >
-          generate a new track
-        </button>
-      ) : (
-        track === null && (
-          <button
-            className="btn sm"
-            style={{ marginTop: 10 }}
-            onClick={() => generate()}
-          >
-            <IconMusic /> Generate track
-          </button>
-        )
-      )}
-
-      {error && (
-        <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>
-          {error}
-        </div>
-      )}
-
-      {showSettings && (
-        <MusicSettingsSheet onClose={() => setShowSettings(false)} />
-      )}
-    </div>
-  );
-}
-
-function MusicSettingsSheet({ onClose }: { onClose: () => void }) {
-  const [s, setS] = useState(loadMusicSettings);
-  return (
-    <Sheet title="Music settings" onClose={onClose}>
-      <div className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
-        Tracks are generated with Suno through an API gateway and cached on
-        this device, so each workout's track is only generated once. Suno has
-        no official public API — get a key from the gateway you use (default:
-        sunoapi.org).
-      </div>
-      <Field label="API key">
-        <input
-          autoFocus
-          spellCheck={false}
-          value={s.apiKey}
-          placeholder="Your gateway API key"
-          onChange={(e) => setS({ ...s, apiKey: e.target.value })}
-        />
-      </Field>
-      <Field label="Gateway URL">
-        <input
-          spellCheck={false}
-          value={s.baseUrl}
-          onChange={(e) => setS({ ...s, baseUrl: e.target.value })}
-        />
-      </Field>
-      <button
-        className="btn primary"
-        style={{ marginTop: 8 }}
-        onClick={() => {
-          saveMusicSettings(s);
-          onClose();
-        }}
-      >
-        Save
-      </button>
-    </Sheet>
   );
 }
 

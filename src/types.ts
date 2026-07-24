@@ -99,6 +99,13 @@ export interface MusicProfile {
   theme: string; // mood and story of the workout
 }
 
+/** Interval prescription for circuit templates that run guided. */
+export interface IntervalPlan {
+  work: number; // seconds per station
+  rest: number; // seconds between stations
+  rounds: number;
+}
+
 /** A military-style workout template — a prescribed session. */
 export interface Template {
   id: string;
@@ -108,6 +115,8 @@ export interface Template {
   scheme: string; // human-readable prescription
   exerciseIds: string[];
   music: MusicProfile;
+  /** When set, starting the template launches the guided interval player. */
+  interval?: IntervalPlan;
 }
 
 export interface AppData {

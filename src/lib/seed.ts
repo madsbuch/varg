@@ -118,6 +118,7 @@ export function seedTemplates(): Template[] {
         "Basic soldier conditioning circuit, inspired by Træn med Forsvaret.",
       scheme: "3 rounds: 15 push-ups · 20 air squats · 15 sit-ups · 10 burpees · 400 m run",
       exerciseIds: [EX.pushUp, EX.airSquat, EX.sitUp, EX.burpee, EX.run],
+      interval: { work: 40, rest: 20, rounds: 3 },
       music: {
         bpm: 155,
         style: "nordic electronic rock, driving drums, cold synths",
@@ -144,6 +145,7 @@ export function seedTemplates(): Template[] {
       description: "Cardio circuit intervals, inspired by Træn med Forsvaret.",
       scheme: "5 rounds: 800 m run · 20 kettlebell swings · 10 burpees",
       exerciseIds: [EX.run, EX.kettlebellSwing, EX.burpee],
+      interval: { work: 60, rest: 20, rounds: 5 },
       music: {
         bpm: 165,
         style: "high-energy drum and bass, relentless breakbeats",
@@ -210,6 +212,7 @@ export function seedTemplates(): Template[] {
       description: "AMRAP in 20 minutes.",
       scheme: "20 min AMRAP: 5 pull-ups · 10 push-ups · 15 air squats",
       exerciseIds: [EX.pullUp, EX.pushUp, EX.airSquat],
+      interval: { work: 30, rest: 10, rounds: 10 },
       music: {
         bpm: 170,
         style: "fast punk rock, upbeat and raw",

@@ -8,6 +8,7 @@
 // workout, so a track is generated exactly once per workout.
 
 import type { MusicProfile } from "../types";
+import { seedTemplates } from "./seed";
 
 export const DEFAULT_BASE_URL = "https://api.sunoapi.org";
 const SETTINGS_KEY = "varg.music.v1";
@@ -40,6 +41,13 @@ export const FREESTYLE_PROFILE: MusicProfile = {
   style: "dark electronic rock, heavy driving drums",
   theme: "Wolf on the hunt — raw, relentless training energy",
 };
+
+export function musicProfileFor(templateId?: string): MusicProfile {
+  const tpl = templateId
+    ? seedTemplates().find((t) => t.id === templateId)
+    : undefined;
+  return tpl?.music ?? FREESTYLE_PROFILE;
+}
 
 /* ------------------------------ Track cache ------------------------------ */
 

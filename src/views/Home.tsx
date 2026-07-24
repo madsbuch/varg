@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Tab } from "../App";
 import { useApp } from "../lib/app-context";
-import { Mark, IconFlame, IconClock } from "../components/icons";
+import { Mark, IconFlame, IconClock, IconMusic } from "../components/icons";
 import { Stat } from "../components/ui";
+import { MusicSettingsSheet } from "../components/BattleTrack";
 import { formatRelative } from "../lib/units";
 
 function startOfWeek(): number {
@@ -15,6 +16,7 @@ function startOfWeek(): number {
 
 export default function Home({ goto }: { goto: (t: Tab) => void }) {
   const { data } = useApp();
+  const [showMusic, setShowMusic] = useState(false);
 
   const finished = useMemo(
     () => data.sessions.filter((s) => s.finishedAt),
@@ -51,7 +53,16 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
           <Mark className="mark" />
           <h1>Varg</h1>
         </div>
+        <button
+          className="check"
+          aria-label="Music settings"
+          onClick={() => setShowMusic(true)}
+        >
+          <IconMusic />
+        </button>
       </div>
+
+      {showMusic && <MusicSettingsSheet onClose={() => setShowMusic(false)} />}
 
       <div className="eyebrow">Varg · Old Norse for wolf</div>
       <h2 className="screen-title" style={{ marginTop: 4 }}>
