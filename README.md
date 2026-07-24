@@ -21,8 +21,14 @@ Built with **Tauri 2 · Bun · TypeScript · React**, targeting **Android**.
 - **Split builder** — build your own multi-day splits (Push/Pull/Legs,
   Upper/Lower, PT/Conditioning ship built-in) and start a session straight
   from a split day.
-- **Military templates** — Murph, ACFT, USMC PFT, Navy PRT, Cindy, DT, Chad
-  1000x, standard ruck, and more. Load one and log it.
+- **Workout library** — pick a template and go. Ships with a Træn med
+  Forsvaret-inspired section (Grundtræning, Feltmarch, Kredsløbstræning)
+  plus Murph, ACFT, USMC PFT, Navy PRT, Cindy, DT, Chad 1000x, and more.
+- **Battle tracks (Suno)** — generate an instrumental track matched to each
+  workout's BPM, style, and theme. Suno has no official public API, so this
+  talks to a Suno API gateway (default `api.sunoapi.org`, configurable in
+  Music settings) with your own API key. Finished tracks are downloaded and
+  cached in IndexedDB, so each workout's track is generated exactly once.
 - **Live session logging** — per-set weight×reps / reps / time / distance,
   with live "on pace for a PR" hints. Strictly metric: kg and km, always.
 - **Exercise library ("Manual")** — every exercise with an animated

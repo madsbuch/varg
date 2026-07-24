@@ -92,6 +92,13 @@ export interface PersonalRecord {
   manual: boolean;
 }
 
+/** What a generated workout track should sound like. */
+export interface MusicProfile {
+  bpm: number;
+  style: string; // genre / instrumentation tags
+  theme: string; // mood and story of the workout
+}
+
 /** A military-style workout template — a prescribed session. */
 export interface Template {
   id: string;
@@ -100,6 +107,7 @@ export interface Template {
   description: string;
   scheme: string; // human-readable prescription
   exerciseIds: string[];
+  music: MusicProfile;
 }
 
 export interface AppData {

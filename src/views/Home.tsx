@@ -94,11 +94,7 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
         </div>
       ) : (
         recent.map((s) => (
-          <button
-            key={s.id}
-            className="list-item"
-            onClick={() => goto("train")}
-          >
+          <div key={s.id} className="list-item">
             <div>
               <div className="title">{s.name}</div>
               <div className="sub">
@@ -110,7 +106,7 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
               <IconClock style={{ width: 14, height: 14 }} />
               {formatRelative(s.date)}
             </span>
-          </button>
+          </div>
         ))
       )}
 
