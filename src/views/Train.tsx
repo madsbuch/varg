@@ -27,7 +27,6 @@ import {
   IconClock,
   IconDumbbell,
   IconFlag,
-  IconMusic,
   IconPlus,
   IconTrash,
 } from "../components/icons";
@@ -55,6 +54,11 @@ export default function Train() {
     [data.sessions],
   );
 
+  // Reset scroll when flipping between the library and an active session.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [active?.id]);
+
   if (active) return <ActiveSession key={active.id} session={active} />;
   return <StartScreen />;
 }
@@ -66,7 +70,6 @@ function StartScreen() {
   const [showSplit, setShowSplit] = useState(false);
   const [wodSetup, setWodSetup] = useState(false);
   const [runningWod, setRunningWod] = useState<WodConfig | null>(null);
-  const [musicFor, setMusicFor] = useState<Template | null>(null);
   const templates = useMemo(() => seedTemplates(), []);
   const history = data.sessions.filter((s) => s.finishedAt);
 
@@ -144,38 +147,15 @@ function StartScreen() {
       {templates
         .filter((t) => t.branch === "Forsvaret")
         .map((t) => (
-          <TemplateCard
-            key={t.id}
-            t={t}
-            onStart={() => startFromTemplate(t.id)}
-            onMusic={() => setMusicFor(t)}
-          />
+          <TemplateCard key={t.id} t={t} onStart={() => startFromTemplate(t.id)} />
         ))}
 
       <div className="section-label">Hero WODs & service tests</div>
       {templates
         .filter((t) => t.branch !== "Forsvaret")
         .map((t) => (
-          <TemplateCard
-            key={t.id}
-            t={t}
-            onStart={() => startFromTemplate(t.id)}
-            onMusic={() => setMusicFor(t)}
-          />
+          <TemplateCard key={t.id} t={t} onStart={() => startFromTemplate(t.id)} />
         ))}
-
-      {musicFor && (
-        <Sheet
-          title={musicFor.name}
-          onClose={() => setMusicFor(null)}
-        >
-          <BattleTrack
-            cacheKey={musicFor.id}
-            workoutName={musicFor.name}
-            profile={musicFor.music}
-          />
-        </Sheet>
-      )}
 
       {showSplit && <SplitPicker onClose={() => setShowSplit(false)} />}
       {wodSetup && (
@@ -194,15 +174,7 @@ function StartScreen() {
   );
 }
 
-function TemplateCard({
-  t,
-  onStart,
-  onMusic,
-}: {
-  t: Template;
-  onStart: () => void;
-  onMusic: () => void;
-}) {
+function TemplateCard({ t, onStart }: { t: Template; onStart: () => void }) {
   return (
     <div className="card" style={{ marginBottom: 10 }}>
       <div className="row">
@@ -215,14 +187,13 @@ function TemplateCard({
       <div className="sub" style={{ marginTop: 4, fontSize: 13 }}>
         {t.scheme}
       </div>
-      <div className="btn-row" style={{ marginTop: 10 }}>
-        <button className="btn sm primary grow" onClick={onStart}>
-          {t.interval ? "Start guided" : "Start"}
-        </button>
-        <button className="btn sm" onClick={onMusic} aria-label="Battle track">
-          <IconMusic />
-        </button>
-      </div>
+      <button
+        className="btn sm primary"
+        style={{ width: "100%", marginTop: 10 }}
+        onClick={onStart}
+      >
+        {t.interval ? "Start guided" : "Start"}
+      </button>
     </div>
   );
 }

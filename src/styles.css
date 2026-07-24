@@ -78,6 +78,20 @@ textarea:focus {
   border-color: var(--accent-dim);
 }
 
+/* Opaque strip under the OS status bar so scrolled content never shows
+   through the transparent system bar. */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--safe-top);
+  background: var(--bg);
+  z-index: 40;
+  pointer-events: none;
+}
+
 /* --- App shell --- */
 .app {
   display: flex;
