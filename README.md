@@ -28,6 +28,10 @@ Built with **Tauri 2 · Bun · TypeScript · React**, targeting **Android**.
 - **Exercise library ("Manual")** — every exercise with an animated
   stick-figure demonstration (pure SVG/SMIL, fully offline) and concise
   execution cues.
+- **Interval WOD player** — configurable work/rest/rounds (30/30, Tabata
+  20/10, 40/20 presets), synthesized audio cues (3-2-1 ticks, work/rest/
+  finish tones via Web Audio — no assets), the current exercise's animation
+  on screen, pause/skip, screen wake-lock, and one-tap logging to history.
 - **Offline-first** — all data lives in an on-device SQLite database.
 - **Desert field theme** — light sand/canvas palette with olive-drab accents.
 

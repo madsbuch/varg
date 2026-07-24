@@ -1,6 +1,6 @@
 [package]
 name = "varg"
-version = "0.3.0"
+version = "0.4.0"
 description = "Varg — military-style workout tracker"
 authors = ["Varg"]
 edition = "2021"

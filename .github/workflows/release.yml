@@ -85,6 +85,14 @@ jobs:
       - name: Initialise Android project
         run: bun run tauri android init --ci
 
+      - name: Apply app icons to Android project
+        # `tauri android init` seeds res/ with the default Tauri logos;
+        # overwrite them with the committed Varg icon set.
+        run: |
+          cp -r src-tauri/icons/android/. src-tauri/gen/android/app/src/main/res/
+          echo "Applied icons:"
+          find src-tauri/gen/android/app/src/main/res -name 'ic_launcher*' | head -20
+
       - name: Configure signing
         env:
           ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}

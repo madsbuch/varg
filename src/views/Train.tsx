@@ -10,9 +10,13 @@ import {
 } from "../lib/store";
 import { seedTemplates } from "../lib/seed";
 import ExercisePicker from "../components/ExercisePicker";
-import { ConfirmSheet, EmptyState, Sheet } from "../components/ui";
+import WodPlayer from "../components/WodPlayer";
+import type { WodConfig } from "../components/WodPlayer";
+import { unlockAudio } from "../lib/beep";
+import { ConfirmSheet, EmptyState, Field, Sheet } from "../components/ui";
 import {
   IconCheck,
+  IconClock,
   IconDumbbell,
   IconFlag,
   IconPlus,
@@ -50,6 +54,8 @@ export default function Train() {
 function StartScreen() {
   const { data, update } = useApp();
   const [showSplit, setShowSplit] = useState(false);
+  const [wodSetup, setWodSetup] = useState(false);
+  const [runningWod, setRunningWod] = useState<WodConfig | null>(null);
   const templates = useMemo(() => seedTemplates(), []);
   const history = data.sessions.filter((s) => s.finishedAt);
 
@@ -83,6 +89,13 @@ function StartScreen() {
         onClick={() => setShowSplit(true)}
       >
         <IconDumbbell /> From a split
+      </button>
+      <button
+        className="btn"
+        style={{ marginTop: 10 }}
+        onClick={() => setWodSetup(true)}
+      >
+        <IconClock /> Interval WOD
       </button>
 
       <div className="section-label">Military templates</div>
@@ -121,7 +134,138 @@ function StartScreen() {
       )}
 
       {showSplit && <SplitPicker onClose={() => setShowSplit(false)} />}
+      {wodSetup && (
+        <WodConfigSheet
+          onStart={(cfg) => {
+            setWodSetup(false);
+            setRunningWod(cfg);
+          }}
+          onClose={() => setWodSetup(false)}
+        />
+      )}
+      {runningWod && (
+        <WodPlayer config={runningWod} onClose={() => setRunningWod(null)} />
+      )}
     </div>
+  );
+}
+
+/* ------------------------------ WOD config ------------------------------ */
+
+const WOD_PRESETS = [
+  { label: "30/30 × 4", work: 30, rest: 30, rounds: 4 },
+  { label: "Tabata 20/10 × 8", work: 20, rest: 10, rounds: 8 },
+  { label: "40/20 × 5", work: 40, rest: 20, rounds: 5 },
+];
+
+function WodConfigSheet({
+  onStart,
+  onClose,
+}: {
+  onStart: (cfg: WodConfig) => void;
+  onClose: () => void;
+}) {
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [work, setWork] = useState("30");
+  const [rest, setRest] = useState("30");
+  const [rounds, setRounds] = useState("4");
+  const [picking, setPicking] = useState(false);
+
+  const num = (s: string, fallback: number) => {
+    const n = Number(s);
+    return Number.isFinite(n) && n > 0 ? Math.round(n) : fallback;
+  };
+
+  const start = () => {
+    if (exercises.length === 0) return;
+    unlockAudio(); // must happen inside the tap gesture
+    onStart({
+      exercises,
+      work: num(work, 30),
+      rest: Math.max(0, Number(rest) || 0),
+      rounds: num(rounds, 4),
+    });
+  };
+
+  return (
+    <Sheet title="Interval WOD" onClose={onClose}>
+      <div className="scroll-x">
+        {WOD_PRESETS.map((p) => (
+          <button
+            key={p.label}
+            className="chip"
+            onClick={() => {
+              setWork(String(p.work));
+              setRest(String(p.rest));
+              setRounds(String(p.rounds));
+            }}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="btn-row" style={{ marginTop: 12 }}>
+        <Field label="Work (s)">
+          <input inputMode="numeric" value={work} onChange={(e) => setWork(e.target.value)} />
+        </Field>
+        <Field label="Rest (s)">
+          <input inputMode="numeric" value={rest} onChange={(e) => setRest(e.target.value)} />
+        </Field>
+        <Field label="Rounds">
+          <input inputMode="numeric" value={rounds} onChange={(e) => setRounds(e.target.value)} />
+        </Field>
+      </div>
+
+      <div className="section-label" style={{ marginTop: 4 }}>
+        Exercises (in order)
+      </div>
+      {exercises.length === 0 && (
+        <div className="faint" style={{ fontSize: 13, marginBottom: 8 }}>
+          Add at least one exercise.
+        </div>
+      )}
+      {exercises.map((ex, i) => (
+        <div key={ex.id} className="row" style={{ padding: "6px 0" }}>
+          <span>
+            <span className="faint">{i + 1}. </span>
+            {ex.name}
+          </span>
+          <button
+            className="link faint"
+            style={{ fontSize: 12 }}
+            onClick={() =>
+              setExercises((list) => list.filter((e) => e.id !== ex.id))
+            }
+          >
+            remove
+          </button>
+        </div>
+      ))}
+      <button className="btn sm ghost" onClick={() => setPicking(true)}>
+        <IconPlus /> Add exercise
+      </button>
+
+      <div className="divider" />
+      <button
+        className="btn primary"
+        disabled={exercises.length === 0}
+        onClick={start}
+      >
+        Start WOD
+      </button>
+
+      {picking && (
+        <ExercisePicker
+          exclude={exercises.map((e) => e.id)}
+          onPick={(ex) => {
+            setExercises((list) => [...list, ex]);
+            setPicking(false);
+          }}
+          onClose={() => setPicking(false)}
+        />
+      )}
+    </Sheet>
   );
 }
 

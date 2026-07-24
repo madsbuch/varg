@@ -628,3 +628,71 @@ textarea:focus {
 .cues li {
   line-height: 1.45;
 }
+
+/* --- WOD player --- */
+.wod {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--safe-top) + 16px) 20px calc(var(--safe-bottom) + 20px);
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.wod-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wod-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.wod-phase {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.wod-time {
+  font-size: 84px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.wod-time.urgent {
+  color: var(--danger);
+}
+
+.wod-anim {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 14px;
+  margin-top: 14px;
+}
+
+.wod-exname {
+  font-size: 20px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 4px;
+  text-align: center;
+}
+
+.wod-controls {
+  padding-top: 10px;
+}
