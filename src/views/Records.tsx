@@ -42,10 +42,11 @@ export default function Records() {
       byExercise.set(pr.exerciseId, arr);
     }
     return [...byExercise.entries()]
-      .map(([exId, prs]) => ({
-        exercise: exById.get(exId)!,
-        prs: prs.sort((a, b) => a.kind.localeCompare(b.kind)),
-      }))
+      .flatMap(([exId, prs]) => {
+        const exercise = exById.get(exId);
+        if (!exercise) return [];
+        return [{ exercise, prs: prs.sort((a, b) => a.kind.localeCompare(b.kind)) }];
+      })
       .sort((a, b) => a.exercise.name.localeCompare(b.exercise.name));
   }, [data.prs, data.exercises]);
 
@@ -54,7 +55,7 @@ export default function Records() {
       <div className="eyebrow">Records</div>
       <h2 className="screen-title">Personal records</h2>
 
-      <button className="btn primary" onClick={() => setAdding(true)}>
+      <button className="btn primary" onClick={() => { setAdding(true); }}>
         <IconPlus /> Log a PR manually
       </button>
 
@@ -78,7 +79,7 @@ export default function Records() {
         ))
       )}
 
-      {adding && <AddPRSheet onClose={() => setAdding(false)} />}
+      {adding && <AddPRSheet onClose={() => { setAdding(false); }} />}
     </div>
   );
 }
@@ -113,7 +114,7 @@ function PRGroup({
               <button
                 className="check"
                 aria-label="Delete PR"
-                onClick={() => setDeleting(pr)}
+                onClick={() => { setDeleting(pr); }}
               >
                 <IconTrash />
               </button>
@@ -126,8 +127,8 @@ function PRGroup({
           title="Delete record"
           message={`Delete ${formatPR(deleting)} (${prKindLabel(deleting.kind)})?`}
           confirmLabel="Delete"
-          onConfirm={() => update((d) => deletePR(d, deleting.id))}
-          onClose={() => setDeleting(null)}
+          onConfirm={() => { update((d) => deletePR(d, deleting.id)); }}
+          onClose={() => { setDeleting(null); }}
         />
       )}
     </div>
@@ -191,7 +192,7 @@ function AddPRSheet({ onClose }: { onClose: () => void }) {
       <Field label="Exercise">
         <select
           value={exerciseId}
-          onChange={(e) => onExerciseChange(e.target.value)}
+          onChange={(e) => { onExerciseChange(e.target.value); }}
         >
           {[...data.exercises]
             .sort((a, b) => a.name.localeCompare(b.name))
@@ -205,7 +206,7 @@ function AddPRSheet({ onClose }: { onClose: () => void }) {
 
       {kinds.length > 1 && (
         <Field label="Record type">
-          <select value={kind} onChange={(e) => setKind(e.target.value as PRKind)}>
+          <select value={kind} onChange={(e) => { setKind(e.target.value as PRKind); }}>
             {kinds.map((k) => (
               <option key={k} value={k}>
                 {prKindLabel(k)}
@@ -221,7 +222,7 @@ function AddPRSheet({ onClose }: { onClose: () => void }) {
           inputMode={kind === "time" ? "text" : "decimal"}
           value={value}
           placeholder={valuePlaceholder}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => { setValue(e.target.value); }}
         />
       </Field>
 
@@ -231,7 +232,7 @@ function AddPRSheet({ onClose }: { onClose: () => void }) {
             inputMode="numeric"
             value={reps}
             placeholder="e.g. 5"
-            onChange={(e) => setReps(e.target.value)}
+            onChange={(e) => { setReps(e.target.value); }}
           />
         </Field>
       )}

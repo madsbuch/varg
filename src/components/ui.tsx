@@ -16,12 +16,12 @@ export function Sheet({
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); };
   }, [onClose]);
 
   return (
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet" onClick={(e) => { e.stopPropagation(); }}>
         <div className="sheet-handle" />
         <div className="row" style={{ marginBottom: 14 }}>
           <h2 style={{ margin: 0 }}>{title}</h2>
@@ -65,7 +65,7 @@ export function Segmented<T extends string>({
         <button
           key={o.value}
           className={o.value === value ? "on" : ""}
-          onClick={() => onChange(o.value)}
+          onClick={() => { onChange(o.value); }}
         >
           {o.label}
         </button>

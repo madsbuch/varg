@@ -23,7 +23,10 @@ export function loadMusicSettings(): MusicSettings {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
       const p = JSON.parse(raw) as Partial<MusicSettings>;
-      return { apiKey: p.apiKey ?? "", baseUrl: p.baseUrl || DEFAULT_BASE_URL };
+      return {
+        apiKey: p.apiKey ?? "",
+        baseUrl: p.baseUrl?.trim() ? p.baseUrl : DEFAULT_BASE_URL,
+      };
     }
   } catch {
     // fall through to defaults
@@ -58,8 +61,8 @@ export interface EnsureStatus {
   running: boolean;
   ready: number;
   total: number;
-  current?: string; // workout currently being composed
-  error?: string; // why the run stopped early
+  current?: string | undefined; // workout currently being composed
+  error?: string | undefined; // why the run stopped early
 }
 
 let ensureRunning = false;
@@ -68,7 +71,7 @@ const listeners = new Set<(s: EnsureStatus) => void>();
 
 function emit(s: EnsureStatus): void {
   lastStatus = s;
-  listeners.forEach((fn) => fn(s));
+  listeners.forEach((fn) => { fn(s); });
 }
 
 /** Subscribe to auto-generation progress; fires immediately with the
@@ -114,7 +117,7 @@ export async function ensureAllTracks(): Promise<void> {
     for (const w of missing) {
       emit({ running: true, ready, total, current: w.name });
       try {
-        await generateTrack(w.key, w.name, w.profile, loadMusicSettings(), () => {});
+        await generateTrack(w.key, w.name, w.profile, loadMusicSettings(), () => undefined);
         ready++;
       } catch (e) {
         // Bad key / no credits / offline: stop and retry on next launch
@@ -146,8 +149,8 @@ function openDb(): Promise<IDBDatabase> {
     const req = indexedDB.open(DB_NAME, 1);
     req.onupgradeneeded = () =>
       req.result.createObjectStore(STORE, { keyPath: "key" });
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onsuccess = () => { resolve(req.result); };
+    req.onerror = () => { reject(req.error ?? new Error("IndexedDB open failed")); };
   });
 }
 
@@ -159,8 +162,8 @@ function withStore<T>(
     (db) =>
       new Promise<T>((resolve, reject) => {
         const req = fn(db.transaction(STORE, mode).objectStore(STORE));
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
+        req.onsuccess = () => { resolve(req.result); };
+        req.onerror = () => { reject(req.error ?? new Error("IndexedDB request failed")); };
       }),
   );
 }
@@ -182,7 +185,7 @@ export async function deleteCachedTrack(key: string): Promise<void> {
 interface GatewayResponse<T> {
   code: number;
   msg: string;
-  data: T;
+  data?: T | undefined;
 }
 
 interface RecordInfo {
@@ -223,17 +226,22 @@ export async function generateTrack(
       instrumental: true,
       model: "V4_5",
       prompt,
+      // The gateway requires a callback URL even though we poll for the
+      // result; example.com is IANA-reserved and discards the POST.
+      callBackUrl: "https://example.com/varg-suno-callback",
     }),
   });
   const created = (await createRes
     .json()
     .catch(() => null)) as GatewayResponse<{ taskId?: string }> | null;
-  if (!createRes.ok || !created || created.code !== 200 || !created.data?.taskId) {
+  const taskId =
+    createRes.ok && created?.code === 200 ? created.data?.taskId : undefined;
+  if (taskId == null) {
+    const msg = created?.msg;
     throw new Error(
-      created?.msg || `Generation request failed (HTTP ${createRes.status}).`,
+      msg?.trim() ? msg : `Generation request failed (HTTP ${createRes.status}).`,
     );
   }
-  const taskId = created.data.taskId;
 
   const deadline = Date.now() + 8 * 60 * 1000;
   onStatus("Composing — usually takes 1–3 minutes…");
@@ -248,8 +256,11 @@ export async function generateTrack(
       .catch(() => null)) as GatewayResponse<RecordInfo> | null;
     const status = poll?.data?.status ?? "PENDING";
 
-    if (status === "SUCCESS") {
-      const song = poll?.data?.response?.sunoData?.[0];
+    // A failed callback delivery (we don't host one) can surface as
+    // CALLBACK_EXCEPTION even though the track itself is done — so treat
+    // any terminal status with an audio URL as success.
+    const song = poll?.data?.response?.sunoData?.[0];
+    if (status === "SUCCESS" || (status === "CALLBACK_EXCEPTION" && song?.audioUrl)) {
       if (!song?.audioUrl) {
         throw new Error("Track finished but the gateway returned no audio URL.");
       }
@@ -258,7 +269,7 @@ export async function generateTrack(
       if (!audio.ok) throw new Error("Could not download the finished track.");
       const track: CachedTrack = {
         key,
-        title: song.title || workoutName,
+        title: song.title?.trim() ? song.title : workoutName,
         blob: await audio.blob(),
         createdAt: new Date().toISOString(),
       };

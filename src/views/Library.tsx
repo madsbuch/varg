@@ -51,7 +51,7 @@ export default function Library() {
       <input
         placeholder="Search exercises or muscles…"
         value={q}
-        onChange={(e) => setQ(e.target.value)}
+        onChange={(e) => { setQ(e.target.value); }}
       />
 
       <div className="scroll-x" style={{ marginTop: 10 }}>
@@ -59,7 +59,7 @@ export default function Library() {
           <button
             key={c}
             className={`chip ${cat === c ? "accent" : ""}`}
-            onClick={() => setCat(c)}
+            onClick={() => { setCat(c); }}
           >
             {c}
           </button>
@@ -68,7 +68,7 @@ export default function Library() {
 
       <div style={{ marginTop: 12 }}>
         {filtered.map((ex) => (
-          <button key={ex.id} className="list-item" onClick={() => setOpen(ex)}>
+          <button key={ex.id} className="list-item" onClick={() => { setOpen(ex); }}>
             <div className="row" style={{ justifyContent: "flex-start", gap: 14 }}>
               <div className="anim-thumb">
                 <ExerciseAnim anim={libraryFor(ex).anim} size={62} />
@@ -86,7 +86,7 @@ export default function Library() {
         {filtered.length === 0 && <div className="empty">No matches.</div>}
       </div>
 
-      {open && <ExerciseSheet exercise={open} onClose={() => setOpen(null)} />}
+      {open && <ExerciseSheet exercise={open} onClose={() => { setOpen(null); }} />}
     </div>
   );
 }

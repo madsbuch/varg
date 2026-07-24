@@ -27,12 +27,17 @@ import * as t from "./schema";
 
 const DB_URL = "sqlite:varg.db";
 
-// Migration SQL files, bundled at build time.
-const migrationFiles = import.meta.glob("../../drizzle/*.sql", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-}) as Record<string, string>;
+// Migration SQL files, bundled at build time. Validated at runtime so no
+// type assertion is needed on vite's glob return type.
+const migrationFiles: Record<string, string> = Object.fromEntries(
+  Object.entries(
+    import.meta.glob("../../drizzle/*.sql", {
+      query: "?raw",
+      import: "default",
+      eager: true,
+    }),
+  ).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+);
 
 export class SqlitePersistence implements Persistence {
   private constructor(
@@ -68,9 +73,9 @@ export class SqlitePersistence implements Persistence {
     );
     const applied = new Set(appliedRows.map((r) => r.name));
     for (const path of Object.keys(migrationFiles).sort()) {
-      const name = path.split("/").pop()!;
+      const name = path.split("/").pop() ?? path;
       if (applied.has(name)) continue;
-      for (const raw of migrationFiles[path].split("--> statement-breakpoint")) {
+      for (const raw of (migrationFiles[path] ?? "").split("--> statement-breakpoint")) {
         const stmt = raw.trim();
         if (stmt) await this.sqlite.execute(stmt);
       }
@@ -108,13 +113,14 @@ export class SqlitePersistence implements Persistence {
 
     if (exerciseRows.length === 0) {
       // Fresh DB: seed, importing any legacy localStorage data.
-      const hadLegacy =
-        typeof localStorage !== "undefined" &&
-        localStorage.getItem(STORAGE_KEY) !== null;
+      const legacy =
+        typeof localStorage !== "undefined"
+          ? localStorage.getItem(STORAGE_KEY)
+          : null;
       const initial = loadData(); // parses legacy blob or seeds fresh
       await this.persistAll(initial);
-      if (hadLegacy) {
-        localStorage.setItem(`${STORAGE_KEY}.imported`, localStorage.getItem(STORAGE_KEY)!);
+      if (legacy !== null) {
+        localStorage.setItem(`${STORAGE_KEY}.imported`, legacy);
         localStorage.removeItem(STORAGE_KEY);
       }
       return initial;
@@ -142,22 +148,27 @@ export class SqlitePersistence implements Persistence {
       ]);
 
     const byPos = <X extends { position: number }>(a: X, b: X) => a.position - b.position;
+    const groupPush = <V,>(m: Map<string, V[]>, k: string, v: V) => {
+      const arr = m.get(k);
+      if (arr) arr.push(v);
+      else m.set(k, [v]);
+    };
 
     const daysBySplit = new Map<string, typeof dayRows>();
     for (const d of dayRows) {
-      (daysBySplit.get(d.splitId) ?? daysBySplit.set(d.splitId, []).get(d.splitId)!).push(d);
+      groupPush(daysBySplit, d.splitId, d);
     }
     const exByDay = new Map<string, typeof dayExRows>();
     for (const de of dayExRows) {
-      (exByDay.get(de.dayId) ?? exByDay.set(de.dayId, []).get(de.dayId)!).push(de);
+      groupPush(exByDay, de.dayId, de);
     }
     const entriesBySession = new Map<string, typeof entryRows>();
     for (const e of entryRows) {
-      (entriesBySession.get(e.sessionId) ?? entriesBySession.set(e.sessionId, []).get(e.sessionId)!).push(e);
+      groupPush(entriesBySession, e.sessionId, e);
     }
     const setsByEntry = new Map<string, typeof setRows>();
     for (const s of setRows) {
-      (setsByEntry.get(s.entryId) ?? setsByEntry.set(s.entryId, []).get(s.entryId)!).push(s);
+      groupPush(setsByEntry, s.entryId, s);
     }
 
     const data: AppData = {

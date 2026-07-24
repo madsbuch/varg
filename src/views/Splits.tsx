@@ -24,7 +24,7 @@ export default function Splits() {
       <div className="eyebrow">Splits</div>
       <h2 className="screen-title">Your splits</h2>
 
-      <button className="btn primary" onClick={() => setEditing(newSplit())}>
+      <button className="btn primary" onClick={() => { setEditing(newSplit()); }}>
         <IconPlus /> New split
       </button>
 
@@ -34,7 +34,7 @@ export default function Splits() {
           <button
             className="grow"
             style={{ textAlign: "left", background: "none" }}
-            onClick={() => setEditing(structuredClone(s))}
+            onClick={() => { setEditing(structuredClone(s)); }}
           >
             <div className="title">{s.name}</div>
             <div className="sub">
@@ -47,7 +47,7 @@ export default function Splits() {
             <button
               className="check"
               aria-label="Delete"
-              onClick={() => setDeleting(s)}
+              onClick={() => { setDeleting(s); }}
             >
               <IconTrash />
             </button>
@@ -60,8 +60,8 @@ export default function Splits() {
           title="Delete split"
           message={`Delete split "${deleting.name}"?`}
           confirmLabel="Delete"
-          onConfirm={() => update((d) => deleteSplit(d, deleting.id))}
-          onClose={() => setDeleting(null)}
+          onConfirm={() => { update((d) => deleteSplit(d, deleting.id)); }}
+          onClose={() => { setDeleting(null); }}
         />
       )}
 
@@ -69,7 +69,7 @@ export default function Splits() {
         <SplitEditor
           key={editing.id}
           initial={editing}
-          onClose={() => setEditing(null)}
+          onClose={() => { setEditing(null); }}
           onSave={(split) => {
             update((d) => upsertSplit(d, split));
             setEditing(null);
@@ -95,22 +95,22 @@ function SplitEditor({
   const exById = new Map(data.exercises.map((e) => [e.id, e]));
 
   const patchDay = (dayId: string, fn: (d: SplitDay) => SplitDay) =>
-    setSplit((s) => ({
+    { setSplit((s) => ({
       ...s,
       days: s.days.map((d) => (d.id === dayId ? fn({ ...d }) : d)),
-    }));
+    })); };
 
   const addDay = () =>
-    setSplit((s) => ({
+    { setSplit((s) => ({
       ...s,
       days: [
         ...s.days,
         { id: uid("day"), name: `Day ${s.days.length + 1}`, exerciseIds: [] },
       ],
-    }));
+    })); };
 
   const removeDay = (dayId: string) =>
-    setSplit((s) => ({ ...s, days: s.days.filter((d) => d.id !== dayId) }));
+    { setSplit((s) => ({ ...s, days: s.days.filter((d) => d.id !== dayId) })); };
 
   const addExerciseToDay = (dayId: string, ex: Exercise) => {
     patchDay(dayId, (d) => ({
@@ -131,7 +131,7 @@ function SplitEditor({
           autoFocus
           value={split.name}
           placeholder="e.g. Ranger Prep"
-          onChange={(e) => setSplit({ ...split, name: e.target.value })}
+          onChange={(e) => { setSplit({ ...split, name: e.target.value }); }}
         />
       </Field>
       <Field label="Description">
@@ -139,7 +139,7 @@ function SplitEditor({
           value={split.description ?? ""}
           placeholder="Optional"
           onChange={(e) =>
-            setSplit({ ...split, description: e.target.value })
+            { setSplit({ ...split, description: e.target.value }); }
           }
         />
       </Field>
@@ -150,7 +150,7 @@ function SplitEditor({
             <input
               value={day.name}
               onChange={(e) =>
-                patchDay(day.id, (d) => ({ ...d, name: e.target.value }))
+                { patchDay(day.id, (d) => ({ ...d, name: e.target.value })); }
               }
               style={{ fontWeight: 700 }}
             />
@@ -159,7 +159,7 @@ function SplitEditor({
                 className="check"
                 aria-label="Remove day"
                 style={{ marginLeft: 8 }}
-                onClick={() => removeDay(day.id)}
+                onClick={() => { removeDay(day.id); }}
               >
                 <IconTrash />
               </button>
@@ -179,10 +179,10 @@ function SplitEditor({
                   className="link faint"
                   style={{ fontSize: 12 }}
                   onClick={() =>
-                    patchDay(day.id, (d) => ({
+                    { patchDay(day.id, (d) => ({
                       ...d,
                       exerciseIds: d.exerciseIds.filter((x) => x !== id),
-                    }))
+                    })); }
                   }
                 >
                   remove
@@ -194,7 +194,7 @@ function SplitEditor({
           <button
             className="btn sm ghost"
             style={{ marginTop: 8 }}
-            onClick={() => setPickerDay(day.id)}
+            onClick={() => { setPickerDay(day.id); }}
           >
             <IconPlus /> Add exercise
           </button>
@@ -209,7 +209,7 @@ function SplitEditor({
       <button
         className="btn primary"
         disabled={!canSave}
-        onClick={() => onSave(split)}
+        onClick={() => { onSave(split); }}
       >
         Save split
       </button>
@@ -219,8 +219,8 @@ function SplitEditor({
           exclude={
             split.days.find((d) => d.id === pickerDay)?.exerciseIds ?? []
           }
-          onPick={(ex) => addExerciseToDay(pickerDay, ex)}
-          onClose={() => setPickerDay(null)}
+          onPick={(ex) => { addExerciseToDay(pickerDay, ex); }}
+          onClose={() => { setPickerDay(null); }}
         />
       )}
     </Sheet>

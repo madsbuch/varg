@@ -24,7 +24,7 @@ function tone(
   volume = 0.3,
   type: OscillatorType = "square",
 ): void {
-  if (!ctx || ctx.state !== "running") return;
+  if (ctx?.state !== "running") return;
   const t = ctx.currentTime + startIn;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();

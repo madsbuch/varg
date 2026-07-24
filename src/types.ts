@@ -30,11 +30,11 @@ export interface Exercise {
 /** A single logged set inside a session entry. */
 export interface WorkoutSet {
   id: string;
-  weight?: number; // kg
-  reps?: number;
-  seconds?: number;
-  meters?: number;
-  rpe?: number; // rate of perceived exertion 1-10
+  weight?: number | undefined; // kg
+  reps?: number | undefined;
+  seconds?: number | undefined;
+  meters?: number | undefined;
+  rpe?: number | undefined; // rate of perceived exertion 1-10
   done: boolean;
 }
 
@@ -42,19 +42,19 @@ export interface SessionEntry {
   id: string;
   exerciseId: string;
   sets: WorkoutSet[];
-  note?: string;
+  note?: string | undefined;
 }
 
 export interface Session {
   id: string;
   name: string;
   date: string; // ISO timestamp of start
-  finishedAt?: string; // ISO timestamp when completed
-  splitId?: string;
-  splitDayId?: string;
-  templateId?: string;
+  finishedAt?: string | undefined; // ISO timestamp when completed
+  splitId?: string | undefined;
+  splitDayId?: string | undefined;
+  templateId?: string | undefined;
   entries: SessionEntry[];
-  note?: string;
+  note?: string | undefined;
 }
 
 /** A day within a training split. */
@@ -67,7 +67,7 @@ export interface SplitDay {
 export interface Split {
   id: string;
   name: string;
-  description?: string;
+  description?: string | undefined;
   days: SplitDay[];
   builtIn: boolean;
 }
@@ -85,10 +85,10 @@ export interface PersonalRecord {
   exerciseId: string;
   kind: PRKind;
   value: number; // canonical unit (kg, reps, seconds, meters)
-  reps?: number; // context for weight/1rm PRs
+  reps?: number | undefined; // context for weight/1rm PRs
   date: string; // ISO
-  sessionId?: string; // set when auto-detected
-  note?: string;
+  sessionId?: string | undefined; // set when auto-detected
+  note?: string | undefined;
   manual: boolean;
 }
 
@@ -116,7 +116,7 @@ export interface Template {
   exerciseIds: string[];
   music: MusicProfile;
   /** When set, starting the template launches the guided interval player. */
-  interval?: IntervalPlan;
+  interval?: IntervalPlan | undefined;
 }
 
 export interface AppData {
