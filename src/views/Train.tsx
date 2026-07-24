@@ -16,6 +16,7 @@ import {
 } from "../lib/store";
 import { seedTemplates } from "../lib/seed";
 import { musicProfileFor } from "../lib/music";
+import { scrollContentTop } from "../lib/scroll";
 import { BattleTrack } from "../components/BattleTrack";
 import ExercisePicker from "../components/ExercisePicker";
 import WodPlayer from "../components/WodPlayer";
@@ -56,7 +57,7 @@ export default function Train() {
 
   // Reset scroll when flipping between the library and an active session.
   useEffect(() => {
-    window.scrollTo(0, 0);
+    scrollContentTop();
   }, [active?.id]);
 
   if (active) return <ActiveSession key={active.id} session={active} />;

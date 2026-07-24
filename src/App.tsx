@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ensureAllTracks } from "./lib/music";
+import { scrollContentTop } from "./lib/scroll";
 import Home from "./views/Home";
 import Train from "./views/Train";
 import Splits from "./views/Splits";
@@ -35,16 +36,18 @@ export default function App() {
   // Every tab starts at the top — scroll position must not leak between
   // screens sharing the one scroll container.
   useEffect(() => {
-    window.scrollTo(0, 0);
+    scrollContentTop();
   }, [tab]);
 
   return (
     <div className="app">
-      {tab === "home" && <Home goto={setTab} />}
-      {tab === "train" && <Train />}
-      {tab === "splits" && <Splits />}
-      {tab === "records" && <Records />}
-      {tab === "library" && <Library />}
+      <main id="content" className="content">
+        {tab === "home" && <Home goto={setTab} />}
+        {tab === "train" && <Train />}
+        {tab === "splits" && <Splits />}
+        {tab === "records" && <Records />}
+        {tab === "library" && <Library />}
+      </main>
 
       <nav className="tabbar">
         <div className="inner">

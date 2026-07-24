@@ -34,6 +34,7 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
+  overflow: hidden;
   font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 16px;
   line-height: 1.4;
@@ -78,32 +79,30 @@ textarea:focus {
   border-color: var(--accent-dim);
 }
 
-/* Opaque strip under the OS status bar so scrolled content never shows
-   through the transparent system bar. */
-body::before {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--safe-top);
-  background: var(--bg);
-  z-index: 40;
-  pointer-events: none;
-}
-
-/* --- App shell --- */
+/* --- App shell ---
+   A fixed-height flex column: safe-area inset on the shell, a dedicated
+   scroll container for content, and the tab bar as a normal (opaque)
+   flex child below it. Content can never render under the system status
+   bar or the tab bar — the scroll area physically ends at both. */
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  height: 100%;
   max-width: 640px;
   margin: 0 auto;
+  padding-top: var(--safe-top);
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .screen {
-  flex: 1;
-  padding: calc(var(--safe-top) + 14px) 16px 96px;
+  padding: 14px 16px 24px;
 }
 
 .topbar {
@@ -146,17 +145,13 @@ body::before {
 
 /* --- Tab bar --- */
 .tabbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 30;
+  flex-shrink: 0;
   display: flex;
   justify-content: center;
   gap: 4px;
   padding: 8px 8px calc(var(--safe-bottom) + 8px);
-  background: linear-gradient(180deg, rgba(232, 224, 201, 0) 0%, #e8e0c9 40%);
-  backdrop-filter: blur(8px);
+  background: var(--bg);
+  border-top: 1px solid var(--line);
 }
 
 .tabbar .inner {
