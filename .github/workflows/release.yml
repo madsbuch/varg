@@ -108,6 +108,19 @@ jobs:
       - name: Initialise Android project
         run: bun run tauri android init --ci
 
+      - name: Warm up Gradle wrapper
+        # The wrapper downloads the Gradle distribution on first use; that
+        # download occasionally 504s. Retry it here, cheaply, so the real
+        # build step never dies on a transient CDN failure.
+        run: |
+          cd src-tauri/gen/android
+          for i in 1 2 3 4; do
+            ./gradlew --version && exit 0
+            echo "Gradle warm-up attempt $i failed; retrying in $((i * 20))s…"
+            sleep $((i * 20))
+          done
+          exit 1
+
       - name: Apply app icons to Android project
         # `tauri android init` seeds res/ with the default Tauri logos;
         # overwrite them with the committed Varg icon set.

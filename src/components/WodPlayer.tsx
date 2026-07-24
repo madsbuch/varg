@@ -52,6 +52,10 @@ const PHASE_LABEL: Record<Step["kind"], string> = {
   rest: "Rest",
 };
 
+// buildSteps always yields at least the "ready" step; this fallback only
+// exists to satisfy checked index access.
+const FALLBACK_STEP: Step = { kind: "ready", exIdx: 0, round: 1, secs: 5 };
+
 export default function WodPlayer({
   config,
   onClose,
@@ -61,15 +65,16 @@ export default function WodPlayer({
 }) {
   const { update } = useApp();
   const steps = useMemo(() => buildSteps(config), [config]);
+  const firstStep = steps[0] ?? FALLBACK_STEP;
   const [stepIdx, setStepIdx] = useState(0);
-  const [display, setDisplay] = useState(steps[0].secs);
+  const [display, setDisplay] = useState(firstStep.secs);
   const [paused, setPaused] = useState(false);
   const [logged, setLogged] = useState(false);
-  const remainMs = useRef(steps[0].secs * 1000);
-  const lastSecs = useRef(steps[0].secs);
+  const remainMs = useRef(firstStep.secs * 1000);
+  const lastSecs = useRef(firstStep.secs);
 
   const done = stepIdx >= steps.length;
-  const step = steps[Math.min(stepIdx, steps.length - 1)];
+  const step = steps[Math.min(stepIdx, steps.length - 1)] ?? FALLBACK_STEP;
   const exercise = config.exercises[step.exIdx];
 
   // Battle track: play the workout's cached track under the cues. While
@@ -77,18 +82,20 @@ export default function WodPlayer({
   const [trackUrl, setTrackUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   useEffect(() => {
-    if (!config.trackKey) return;
+    const trackKey = config.trackKey;
+    if (!trackKey) return;
     let url: string | null = null;
     let alive = true;
-    const check = () =>
-      getCachedTrack(config.trackKey!)
+    const check = () => {
+      void getCachedTrack(trackKey)
         .then((t) => {
           if (t && alive && !url) {
             url = URL.createObjectURL(t.blob);
             setTrackUrl(url);
           }
         })
-        .catch(() => {});
+        .catch(() => undefined);
+    };
     check();
     const id = setInterval(() => {
       if (!url) check();
@@ -103,7 +110,7 @@ export default function WodPlayer({
     const a = audioRef.current;
     if (!a) return;
     if (paused || done) a.pause();
-    else a.play().catch(() => {});
+    else a.play().catch(() => undefined);
   }, [paused, done, trackUrl]);
 
   // The next two blocks, so "what's next" is always on screen. Rest is a
@@ -112,8 +119,10 @@ export default function WodPlayer({
     const labels: string[] = [];
     for (let i = stepIdx + 1; i < steps.length && labels.length < 2; i++) {
       const s = steps[i];
-      if (s.kind === "work") labels.push(config.exercises[s.exIdx].name);
-      else if (s.kind === "rest") labels.push("Rest");
+      if (s?.kind === "work") {
+        const ex = config.exercises[s.exIdx];
+        if (ex) labels.push(ex.name);
+      } else if (s?.kind === "rest") labels.push("Rest");
     }
     return labels;
   }, [stepIdx, steps, config.exercises]);
@@ -121,23 +130,33 @@ export default function WodPlayer({
   // Keep the screen awake while the player is open (best effort).
   useEffect(() => {
     let sentinel: WakeLockSentinel | null = null;
-    navigator.wakeLock
-      ?.request("screen")
-      .then((s) => (sentinel = s))
-      .catch(() => {});
+    if ("wakeLock" in navigator) {
+      navigator.wakeLock
+        .request("screen")
+        .then((s) => {
+          sentinel = s;
+        })
+        .catch(() => undefined);
+    }
     return () => {
-      sentinel?.release().catch(() => {});
+      void sentinel?.release().catch(() => undefined);
     };
   }, []);
 
-  // Reset the clock whenever the step changes.
-  useEffect(() => {
-    const s = steps[stepIdx];
-    if (!s) return;
-    remainMs.current = s.secs * 1000;
-    lastSecs.current = s.secs;
-    setDisplay(s.secs);
-  }, [stepIdx, steps]);
+  // Advance to a step: cue it, reset the clock, update state. Called from
+  // the tick interval and the Skip button — never from an effect body.
+  const advance = (next: number) => {
+    const s = steps[next];
+    if (!s) cueFinish();
+    else if (s.kind === "work") cueWork();
+    else cueRest();
+    if (s) {
+      remainMs.current = s.secs * 1000;
+      lastSecs.current = s.secs;
+      setDisplay(s.secs);
+    }
+    setStepIdx(next);
+  };
 
   // The ticking heart of the player.
   useEffect(() => {
@@ -153,24 +172,12 @@ export default function WodPlayer({
         setDisplay(secs);
         if (secs <= 3 && secs >= 1) cueTick();
       }
-      if (remainMs.current <= 0) {
-        const next = stepIdx + 1;
-        if (next >= steps.length) cueFinish();
-        else if (steps[next].kind === "work") cueWork();
-        else cueRest();
-        setStepIdx(next);
-      }
+      if (remainMs.current <= 0) advance(stepIdx + 1);
     }, 120);
-    return () => clearInterval(id);
-  }, [paused, done, stepIdx, steps]);
+    return () => { clearInterval(id); };
+  });
 
-  const skip = () => {
-    const next = stepIdx + 1;
-    if (next >= steps.length) cueFinish();
-    else if (steps[next].kind === "work") cueWork();
-    else cueRest();
-    setStepIdx(next);
-  };
+  const skip = () => { advance(stepIdx + 1); };
 
   const totalPlanned = useMemo(
     () => steps.reduce((a, s) => (s.kind === "ready" ? a : a + s.secs), 0),
@@ -272,9 +279,7 @@ export default function WodPlayer({
             <div className="faint" style={{ fontSize: 13, marginTop: 4 }}>
               {upNext.length === 0
                 ? "Last station — empty the tank"
-                : upNext.length === 1
-                  ? `Next: ${upNext[0]}`
-                  : `Next: ${upNext[0]} · Then: ${upNext[1]}`}
+                : `Next: ${upNext.join(" · Then: ")}`}
             </div>
           </>
         )}
@@ -284,7 +289,7 @@ export default function WodPlayer({
 
       <div className="wod-controls">
         <div className="btn-row">
-          <button className="btn" onClick={() => setPaused((p) => !p)}>
+          <button className="btn" onClick={() => { setPaused((p) => !p); }}>
             {paused ? "Resume" : "Pause"}
           </button>
           <button className="btn ghost" onClick={skip}>

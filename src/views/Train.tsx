@@ -16,6 +16,7 @@ import {
 } from "../lib/store";
 import { seedTemplates } from "../lib/seed";
 import { musicProfileFor } from "../lib/music";
+import { scrollContentTop } from "../lib/scroll";
 import { BattleTrack } from "../components/BattleTrack";
 import ExercisePicker from "../components/ExercisePicker";
 import WodPlayer from "../components/WodPlayer";
@@ -56,7 +57,7 @@ export default function Train() {
 
   // Reset scroll when flipping between the library and an active session.
   useEffect(() => {
-    window.scrollTo(0, 0);
+    scrollContentTop();
   }, [active?.id]);
 
   if (active) return <ActiveSession key={active.id} session={active} />;
@@ -114,10 +115,10 @@ function StartScreen() {
         <button className="btn sm" onClick={startBlank}>
           <IconPlus /> Empty session
         </button>
-        <button className="btn sm" onClick={() => setShowSplit(true)}>
+        <button className="btn sm" onClick={() => { setShowSplit(true); }}>
           <IconDumbbell /> From a split
         </button>
-        <button className="btn sm" onClick={() => setWodSetup(true)}>
+        <button className="btn sm" onClick={() => { setWodSetup(true); }}>
           <IconClock /> Interval WOD
         </button>
       </div>
@@ -147,28 +148,28 @@ function StartScreen() {
       {templates
         .filter((t) => t.branch === "Forsvaret")
         .map((t) => (
-          <TemplateCard key={t.id} t={t} onStart={() => startFromTemplate(t.id)} />
+          <TemplateCard key={t.id} t={t} onStart={() => { startFromTemplate(t.id); }} />
         ))}
 
       <div className="section-label">Hero WODs & service tests</div>
       {templates
         .filter((t) => t.branch !== "Forsvaret")
         .map((t) => (
-          <TemplateCard key={t.id} t={t} onStart={() => startFromTemplate(t.id)} />
+          <TemplateCard key={t.id} t={t} onStart={() => { startFromTemplate(t.id); }} />
         ))}
 
-      {showSplit && <SplitPicker onClose={() => setShowSplit(false)} />}
+      {showSplit && <SplitPicker onClose={() => { setShowSplit(false); }} />}
       {wodSetup && (
         <WodConfigSheet
           onStart={(cfg) => {
             setWodSetup(false);
             setRunningWod(cfg);
           }}
-          onClose={() => setWodSetup(false)}
+          onClose={() => { setWodSetup(false); }}
         />
       )}
       {runningWod && (
-        <WodPlayer config={runningWod} onClose={() => setRunningWod(null)} />
+        <WodPlayer config={runningWod} onClose={() => { setRunningWod(null); }} />
       )}
     </div>
   );
@@ -255,13 +256,13 @@ function WodConfigSheet({
 
       <div className="btn-row" style={{ marginTop: 12 }}>
         <Field label="Work (s)">
-          <input inputMode="numeric" value={work} onChange={(e) => setWork(e.target.value)} />
+          <input inputMode="numeric" value={work} onChange={(e) => { setWork(e.target.value); }} />
         </Field>
         <Field label="Rest (s)">
-          <input inputMode="numeric" value={rest} onChange={(e) => setRest(e.target.value)} />
+          <input inputMode="numeric" value={rest} onChange={(e) => { setRest(e.target.value); }} />
         </Field>
         <Field label="Rounds">
-          <input inputMode="numeric" value={rounds} onChange={(e) => setRounds(e.target.value)} />
+          <input inputMode="numeric" value={rounds} onChange={(e) => { setRounds(e.target.value); }} />
         </Field>
       </div>
 
@@ -283,14 +284,14 @@ function WodConfigSheet({
             className="link faint"
             style={{ fontSize: 12 }}
             onClick={() =>
-              setExercises((list) => list.filter((e) => e.id !== ex.id))
+              { setExercises((list) => list.filter((e) => e.id !== ex.id)); }
             }
           >
             remove
           </button>
         </div>
       ))}
-      <button className="btn sm ghost" onClick={() => setPicking(true)}>
+      <button className="btn sm ghost" onClick={() => { setPicking(true); }}>
         <IconPlus /> Add exercise
       </button>
 
@@ -310,7 +311,7 @@ function WodConfigSheet({
             setExercises((list) => [...list, ex]);
             setPicking(false);
           }}
-          onClose={() => setPicking(false)}
+          onClose={() => { setPicking(false); }}
         />
       )}
     </Sheet>
@@ -343,7 +344,7 @@ function SplitPicker({ onClose }: { onClose: () => void }) {
           <button
             key={s.id}
             className="list-item"
-            onClick={() => setSplitId(s.id)}
+            onClick={() => { setSplitId(s.id); }}
           >
             <div>
               <div className="title">{s.name}</div>
@@ -357,7 +358,7 @@ function SplitPicker({ onClose }: { onClose: () => void }) {
             <button
               key={day.id}
               className="list-item"
-              onClick={() => startDay(day.id)}
+              onClick={() => { startDay(day.id); }}
             >
               <div>
                 <div className="title">{day.name}</div>
@@ -368,7 +369,7 @@ function SplitPicker({ onClose }: { onClose: () => void }) {
           <button
             className="btn ghost"
             style={{ marginTop: 12 }}
-            onClick={() => setSplitId(null)}
+            onClick={() => { setSplitId(null); }}
           >
             Back
           </button>
@@ -394,7 +395,7 @@ function HistoryRow({ session }: { session: Session }) {
       <button
         className="check"
         aria-label="Delete session"
-        onClick={() => setConfirming(true)}
+        onClick={() => { setConfirming(true); }}
       >
         <IconTrash />
       </button>
@@ -403,8 +404,8 @@ function HistoryRow({ session }: { session: Session }) {
           title="Delete session"
           message={`Delete "${session.name}"? PRs will be recalculated.`}
           confirmLabel="Delete"
-          onConfirm={() => update((d) => deleteSession(d, session.id))}
-          onClose={() => setConfirming(false)}
+          onConfirm={() => { update((d) => deleteSession(d, session.id)); }}
+          onClose={() => { setConfirming(false); }}
         />
       )}
     </div>
@@ -491,7 +492,7 @@ function ActiveSession({ session }: { session: Session }) {
             fontWeight: 800,
           }}
           value={session.name}
-          onChange={(e) => patch((s) => ({ ...s, name: e.target.value }))}
+          onChange={(e) => { patch((s) => ({ ...s, name: e.target.value })); }}
         />
       </div>
       {session.note && (
@@ -524,25 +525,25 @@ function ActiveSession({ session }: { session: Session }) {
               exercise={ex}
               bestPr={bestOneRm(data, ex.id)}
               onChange={(fn) =>
-                patch((s) => {
+                { patch((s) => {
                   s.entries = s.entries.map((e) =>
                     e.id === entry.id ? fn(structuredClone(e)) : e,
                   );
                   return s;
-                })
+                }); }
               }
               onRemove={() =>
-                patch((s) => {
+                { patch((s) => {
                   s.entries = s.entries.filter((e) => e.id !== entry.id);
                   return s;
-                })
+                }); }
               }
             />
           );
         })}
       </div>
 
-      <button className="btn" style={{ marginTop: 12 }} onClick={() => setPicking(true)}>
+      <button className="btn" style={{ marginTop: 12 }} onClick={() => { setPicking(true); }}>
         <IconPlus /> Add exercise
       </button>
 
@@ -553,21 +554,21 @@ function ActiveSession({ session }: { session: Session }) {
       <button
         className="btn danger ghost"
         style={{ marginTop: 10 }}
-        onClick={() => setConfirmDiscard(true)}
+        onClick={() => { setConfirmDiscard(true); }}
       >
         <IconTrash /> Discard
       </button>
 
       {picking && (
-        <ExercisePicker onPick={addExercise} onClose={() => setPicking(false)} />
+        <ExercisePicker onPick={addExercise} onClose={() => { setPicking(false); }} />
       )}
       {confirmDiscard && (
         <ConfirmSheet
           title="Discard session"
           message="Discard this session? Nothing will be saved."
           confirmLabel="Discard"
-          onConfirm={() => update((d) => deleteSession(d, session.id))}
-          onClose={() => setConfirmDiscard(false)}
+          onConfirm={() => { update((d) => deleteSession(d, session.id)); }}
+          onClose={() => { setConfirmDiscard(false); }}
         />
       )}
       {confirmEmptyFinish && (
@@ -577,7 +578,7 @@ function ActiveSession({ session }: { session: Session }) {
           confirmLabel="Finish"
           danger={false}
           onConfirm={doFinish}
-          onClose={() => setConfirmEmptyFinish(false)}
+          onClose={() => { setConfirmEmptyFinish(false); }}
         />
       )}
     </div>
@@ -587,8 +588,8 @@ function ActiveSession({ session }: { session: Session }) {
 function SessionTimer({ start }: { start: string }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
+    const id = setInterval(() => { setNow(Date.now()); }, 1000);
+    return () => { clearInterval(id); };
   }, []);
   const elapsed = (now - new Date(start).getTime()) / 1000;
   return (
@@ -624,24 +625,24 @@ function EntryCard({
   const cols = columnsFor(exercise.metric);
 
   const setField = (setId: string, field: Partial<WorkoutSet>) =>
-    onChange((e) => {
+    { onChange((e) => {
       e.sets = e.sets.map((s) => (s.id === setId ? { ...s, ...field } : s));
       return e;
-    });
+    }); };
 
   const addSet = () =>
-    onChange((e) => {
+    { onChange((e) => {
       const last = e.sets[e.sets.length - 1];
       const seed = last ? { ...last, id: emptySet().id, done: false } : emptySet();
       e.sets = [...e.sets, seed];
       return e;
-    });
+    }); };
 
   const removeSet = (setId: string) =>
-    onChange((e) => {
+    { onChange((e) => {
       e.sets = e.sets.filter((s) => s.id !== setId);
       return e;
-    });
+    }); };
 
   return (
     <div className="card" style={{ marginBottom: 12 }}>
@@ -688,13 +689,13 @@ function EntryCard({
                   key={c.key}
                   initial={c.get(s)}
                   placeholder={c.placeholder}
-                  onChange={(v) => setField(s.id, c.set(v))}
+                  onChange={(v) => { setField(s.id, c.set(v)); }}
                 />
               ))}
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <button
                   className={`check ${s.done ? "on" : ""}`}
-                  onClick={() => setField(s.id, { done: !s.done })}
+                  onClick={() => { setField(s.id, { done: !s.done }); }}
                   aria-label="Toggle done"
                 >
                   <IconCheck />
@@ -710,7 +711,7 @@ function EntryCard({
                   <button
                     className="link faint"
                     style={{ fontSize: 12 }}
-                    onClick={() => removeSet(s.id)}
+                    onClick={() => { removeSet(s.id); }}
                   >
                     remove set
                   </button>
@@ -821,7 +822,7 @@ function NumInput({
           onChange(parseTime(t));
         } else {
           const n = t.trim() === "" ? undefined : Number(t);
-          onChange(Number.isFinite(n as number) ? (n as number) : undefined);
+          onChange(n != null && Number.isFinite(n) ? n : undefined);
         }
       }}
     />
