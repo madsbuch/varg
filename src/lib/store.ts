@@ -111,8 +111,17 @@ export function deleteSession(data: AppData, id: string): AppData {
   return { ...data, sessions, prs };
 }
 
+/**
+ * Manual PRs are keyed by (exercise, kind): logging one replaces the previous
+ * manual entry instead of stacking a second, contradictory number beside it.
+ * Auto rows are left alone — they are derived from sessions and recomputePRs
+ * owns them.
+ */
 export function addManualPR(data: AppData, pr: PersonalRecord): AppData {
-  return { ...data, prs: [...data.prs, pr] };
+  const kept = data.prs.filter(
+    (p) => !(p.manual && p.exerciseId === pr.exerciseId && p.kind === pr.kind),
+  );
+  return { ...data, prs: [...kept, pr] };
 }
 
 export function deletePR(data: AppData, id: string): AppData {

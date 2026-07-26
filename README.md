@@ -14,6 +14,32 @@ Built with **Tauri 2 · Bun · TypeScript · React**, targeting **Android**.
 
 ---
 
+## Philosophy: programs are authored in code
+
+Varg has no in-app workout builder, and that is on purpose. New training
+programs are **described in prose and added to the codebase by an AI agent**,
+then shipped as a build:
+
+> "20 sec situps, cardio, pushups, cardio, backlifts… 10 seconds of rest
+> between each, 3 rounds. Cardio alternates between running on the spot and
+> air boxing."
+
+becomes a `Template` in [`src/lib/seed.ts`](src/lib/seed.ts), along with any
+new exercises, stick-figure animations and form cues it needs. The phone stays
+a training tool with a start button, not a spreadsheet you fill in between
+sets — and the messy work of turning an idea into a correct, animated,
+correctly-timed program happens where it can be reviewed, tested in CI, and
+kept in version control.
+
+The one thing you *can* build in the app is an ad-hoc **Interval WOD** on the
+Hunt screen: pick stations, set work/rest/rounds, go. It is a scratchpad for
+the session in front of you, not a saved program.
+
+Adding a program, the guardrails around it, and the animation conventions are
+documented in [CLAUDE.md](CLAUDE.md).
+
+---
+
 ## Features
 
 - **Personal records** — auto-detected from every session (estimated 1RM via

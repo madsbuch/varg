@@ -29,17 +29,32 @@ export function formatSeconds(total: number): string {
   return `${m}:${pad(s)}`;
 }
 
+/**
+ * Parse a number the way a European keypad produces one.
+ *
+ * Danish (and most continental) Android keypads emit "," on the decimal
+ * key, and `Number("102,5")` is NaN. Every numeric input in the app must
+ * go through this — writing undefined on a comma silently erased the
+ * weight the athlete had just typed while the field still showed it.
+ *
+ * Returns undefined for empty or genuinely unparseable input, so callers
+ * can distinguish "cleared" from "typed something wrong".
+ */
+export function parseDecimal(input: string): number | undefined {
+  const s = input.trim().replace(",", ".");
+  if (!s) return undefined;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 /** Parse "mm:ss" or "h:mm:ss" or plain seconds into seconds. */
 export function parseTime(input: string): number | undefined {
   const s = input.trim();
   if (!s) return undefined;
-  if (!s.includes(":")) {
-    const n = Number(s);
-    return Number.isFinite(n) ? n : undefined;
-  }
-  const parts = s.split(":").map((p) => Number(p));
-  if (parts.some((p) => !Number.isFinite(p))) return undefined;
-  return parts.reduce((acc, p) => acc * 60 + p, 0);
+  if (!s.includes(":")) return parseDecimal(s);
+  const parts = s.split(":").map((p) => parseDecimal(p));
+  if (parts.some((p) => p === undefined)) return undefined;
+  return (parts as number[]).reduce((acc, p) => acc * 60 + p, 0);
 }
 
 export function formatDate(iso: string): string {

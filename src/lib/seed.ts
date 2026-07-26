@@ -1,3 +1,30 @@
+/**
+ * Built-in content: every exercise, split and workout program the app ships.
+ *
+ * THIS FILE IS THE PROGRAM LIBRARY, AND IT IS EDITED BY HAND.
+ *
+ * Varg deliberately has no in-app program authoring. When the owner wants a
+ * new workout they describe it in prose and an agent adds it here, then ships
+ * a build. That is the intended workflow — not a gap waiting for a template
+ * editor screen. (The ad-hoc "Interval WOD" sheet on the Hunt screen is a
+ * scratchpad for throwing a circuit together on the spot; it does not persist
+ * and it is not a program library.)
+ *
+ * Consequences, because nobody reviews this content in a form before it runs:
+ *
+ *  - Exercise ids are permanent. They are foreign keys in the user's SQLite
+ *    database and in their personal records. Never rename or reuse one.
+ *  - Every exercise added here needs its own animation in ExerciseAnim.tsx
+ *    and its own cues in library.ts. The category fallback in library.ts is
+ *    for user-created exercises; a built-in that falls back demonstrates the
+ *    wrong movement, which is how Air Squat once showed a push-up.
+ *  - `bun run db:smoke` asserts both of the above, plus that no template
+ *    references an exercise that does not exist. Run it.
+ *  - Existing installs pick new built-ins up via mergeBuiltIns() on load;
+ *    their database was seeded on first launch and is never re-seeded.
+ *
+ * See CLAUDE.md for the full authoring procedure.
+ */
 import type { Exercise, Split, Template } from "../types";
 
 // Stable IDs so built-in content can be referenced from splits & templates.
@@ -20,6 +47,7 @@ export const EX = {
   lunge: "ex-lunge",
   burpee: "ex-burpee",
   boxJump: "ex-box-jump",
+  boxStepUp: "ex-box-step-up",
   kettlebellSwing: "ex-kb-swing",
   wallBall: "ex-wall-ball",
   thruster: "ex-thruster",
@@ -27,12 +55,18 @@ export const EX = {
   ruck: "ex-ruck",
   row: "ex-row-erg",
   assaultBike: "ex-assault-bike",
-  farmerCarry: "ex-farmer-carry",
+  farmerCarry: "ex-farmer-carry", // deprecated, see seedExercises()
+  farmerCarryDistance: "ex-farmer-carry-distance",
+  powerThrow: "ex-power-throw",
+  sprintDragCarry: "ex-sprint-drag-carry",
   hangingLegRaise: "ex-hanging-leg-raise",
   benchDip: "ex-bench-dip",
   backLift: "ex-back-lift",
   runInPlace: "ex-run-in-place",
   airBoxing: "ex-air-boxing",
+  kneeLift: "ex-knee-lift",
+  reverseLunge: "ex-reverse-lunge",
+  armCircles: "ex-arm-circles",
 } as const;
 
 export function seedExercises(): Exercise[] {
@@ -55,7 +89,18 @@ export function seedExercises(): Exercise[] {
     e(EX.thruster, "Thruster", "conditioning", "weight_reps", ["full body"]),
     e(EX.kettlebellSwing, "Kettlebell Swing", "conditioning", "weight_reps", ["posterior chain"]),
     e(EX.wallBall, "Wall Ball", "conditioning", "weight_reps", ["legs", "shoulders"]),
-    e(EX.farmerCarry, "Farmer's Carry", "conditioning", "weight_reps", ["grip", "core"]),
+    // A carry is a distance under load, not a set of reps. The original
+    // ex-farmer-carry is weight_reps: it asked for a rep count on a walk,
+    // offered no distance field, and minted an Est. 1RM from whatever
+    // number was typed. It cannot be corrected in place — mergeBuiltIns()
+    // only adds ids it has never seen, and the SQLite loader only writes
+    // rows it does not already know, so editing a shipped exercise's name,
+    // metric or muscles is a no-op on every device except a fresh install.
+    // A semantic correction therefore ships as a NEW id with templates and
+    // splits repointed. The old id keeps its library.ts entry so existing
+    // history and personal records still resolve to the right movement,
+    // and it is left out of this list so no fresh install offers both.
+    e(EX.farmerCarryDistance, "Farmer's Carry", "conditioning", "distance_time", ["grip", "core"]),
     e(EX.airSquat, "Air Squat", "bodyweight", "reps", ["quads", "glutes"]),
     e(EX.pullUp, "Pull-up", "bodyweight", "reps", ["back", "biceps"]),
     e(EX.chinUp, "Chin-up", "bodyweight", "reps", ["back", "biceps"]),
@@ -67,8 +112,18 @@ export function seedExercises(): Exercise[] {
     e(EX.flutterKick, "Flutter Kick", "core", "reps", ["core"]),
     e(EX.hangingLegRaise, "Hanging Leg Raise", "core", "reps", ["core"]),
     e(EX.lunge, "Walking Lunge", "bodyweight", "reps", ["quads", "glutes"]),
+    e(EX.reverseLunge, "Reverse Lunge", "bodyweight", "reps", ["quads", "glutes", "hip flexors"]),
+    e(EX.kneeLift, "Standing Knee Lift", "bodyweight", "reps", ["hip flexors", "core"]),
+    e(EX.armCircles, "Arm Circles", "bodyweight", "time", ["shoulders", "upper back"]),
     e(EX.burpee, "Burpee", "conditioning", "reps", ["full body"]),
     e(EX.boxJump, "Box Jump", "conditioning", "reps", ["legs"]),
+    e(EX.boxStepUp, "Box Step-up", "conditioning", "reps", ["legs", "glutes"]),
+    // Both ACFT events are scored on a single effort: metres thrown, and
+    // the 250 m shuttle's clock time. They are distance_time and not time
+    // because a "time" PR is a maximum (prs.ts) — for a for-time event
+    // that would record the athlete's worst run as their record.
+    e(EX.powerThrow, "Standing Power Throw", "conditioning", "distance_time", ["full body"]),
+    e(EX.sprintDragCarry, "Sprint-Drag-Carry", "conditioning", "distance_time", ["full body"]),
     e(EX.plank, "Plank", "core", "time", ["core"]),
     e(EX.run, "Run", "cardio", "distance_time", ["conditioning"]),
     e(EX.runInPlace, "Run on the Spot", "cardio", "time", ["conditioning"]),
@@ -110,7 +165,7 @@ export function seedSplits(): Split[] {
       days: [
         { id: "pt-strength", name: "Strength Base", exerciseIds: [EX.backSquat, EX.deadlift, EX.overheadPress, EX.pullUp] },
         { id: "pt-grind", name: "Grinder", exerciseIds: [EX.burpee, EX.pushUp, EX.sitUp, EX.flutterKick] },
-        { id: "pt-ruck", name: "Ruck Day", exerciseIds: [EX.ruck, EX.farmerCarry, EX.plank] },
+        { id: "pt-ruck", name: "Ruck Day", exerciseIds: [EX.ruck, EX.farmerCarryDistance, EX.plank] },
       ],
     },
   ];
@@ -154,13 +209,50 @@ export function seedTemplates(): Template[] {
       },
     },
     {
+      id: "tpl-rasteplads",
+      name: "Rasteplads",
+      branch: "Varg",
+      description:
+        "Rest-stop reset after one to two hours behind the wheel. Standing " +
+        "only — nothing goes on the tarmac. Opens the hips the seat closed " +
+        "down, unlocks the shoulders, moves blood without soaking your shirt " +
+        "for the next leg.",
+      scheme: "3 rounds · 6 stations · 20 s work / 10 s rest — 3 min a round",
+      // Ordered for a body that has just been folded into a car seat: start
+      // with the shoulders while everything is still cold, alternate lower
+      // and upper, and put the two hip-openers where the legs are warm.
+      // Nothing here needs a floor, a wall or more than a parking space.
+      exerciseIds: [
+        EX.armCircles,
+        EX.airSquat,
+        EX.runInPlace,
+        EX.kneeLift,
+        EX.reverseLunge,
+        EX.airBoxing,
+      ],
+      interval: { work: 20, rest: 10, rounds: 3 },
+      music: {
+        bpm: 140,
+        style:
+          "motorik krautrock, hypnotic driving rhythm, analog synth, no vocals",
+        theme:
+          "Nine minutes at a roadside stop — shake the highway out of the legs and get back on the road",
+      },
+    },
+    {
       id: "tpl-dk-grund",
       name: "Grundtræning",
       branch: "Forsvaret",
       description:
-        "Basic soldier conditioning circuit, inspired by Træn med Forsvaret.",
-      scheme: "3 rounds: 15 push-ups · 20 air squats · 15 sit-ups · 10 burpees · 400 m run",
-      exerciseIds: [EX.pushUp, EX.airSquat, EX.sitUp, EX.burpee, EX.run],
+        "Basic soldier conditioning circuit, inspired by Træn med " +
+        "Forsvaret. Push-ups, air squats, sit-ups, burpees, run on the spot.",
+      // The scheme states what the interval enforces, not a prescription
+      // the player cannot run: a 400 m station in 40 s is world-record
+      // pace, and an interval WOD logs seconds, never metres, so the
+      // distance could not have been recorded either. Forty seconds of
+      // running with no room to leave is running on the spot.
+      scheme: "3 rounds · 5 stations · 40 s work / 20 s rest",
+      exerciseIds: [EX.pushUp, EX.airSquat, EX.sitUp, EX.burpee, EX.runInPlace],
       interval: { work: 40, rest: 20, rounds: 3 },
       music: {
         bpm: 155,
@@ -185,9 +277,13 @@ export function seedTemplates(): Template[] {
       id: "tpl-dk-kredsloeb",
       name: "Kredsløbstræning",
       branch: "Forsvaret",
-      description: "Cardio circuit intervals, inspired by Træn med Forsvaret.",
-      scheme: "5 rounds: 800 m run · 20 kettlebell swings · 10 burpees",
-      exerciseIds: [EX.run, EX.kettlebellSwing, EX.burpee],
+      description:
+        "Cardio circuit intervals, inspired by Træn med Forsvaret. Run on " +
+        "the spot, kettlebell swings, burpees.",
+      // Same correction as Grundtræning: 800 m in a 60 s station was not a
+      // prescription anyone could follow, and the station is timed anyway.
+      scheme: "5 rounds · 3 stations · 60 s work / 20 s rest",
+      exerciseIds: [EX.runInPlace, EX.kettlebellSwing, EX.burpee],
       interval: { work: 60, rest: 20, rounds: 5 },
       music: {
         bpm: 165,
@@ -214,8 +310,21 @@ export function seedTemplates(): Template[] {
       name: "ACFT (Army Combat Fitness Test)",
       branch: "U.S. Army",
       description: "Six-event test of combat readiness. Log each event's score.",
-      scheme: "3-rep deadlift · power throw · hand-release push-ups · sprint-drag-carry · leg tuck/plank · 3.2 km run",
-      exerciseIds: [EX.deadlift, EX.pushUp, EX.plank, EX.run],
+      // Six events named, six cards logged. The power throw and the
+      // sprint-drag-carry had no exercise anywhere in the repo, so the
+      // session showed four cards under a note promising six; they are
+      // seeded rather than dropped from the text, because a service test
+      // you can only log two thirds of is not the test. (The 2025 Army
+      // Fitness Test retires the power throw — this template is the ACFT.)
+      scheme: "3-rep deadlift · power throw · hand-release push-ups · sprint-drag-carry · plank · 3.2 km run",
+      exerciseIds: [
+        EX.deadlift,
+        EX.powerThrow,
+        EX.pushUp,
+        EX.sprintDragCarry,
+        EX.plank,
+        EX.run,
+      ],
       music: {
         bpm: 160,
         style: "hard military trap, heavy 808s, snare cadence",
@@ -252,10 +361,18 @@ export function seedTemplates(): Template[] {
       id: "tpl-cindy",
       name: "Cindy",
       branch: "CrossFit Benchmark",
-      description: "AMRAP in 20 minutes.",
-      scheme: "20 min AMRAP: 5 pull-ups · 10 push-ups · 15 air squats",
+      description:
+        "Cindy is a 20-minute AMRAP — 5 pull-ups, 10 push-ups, 15 air " +
+        "squats, as many rounds as possible. The guided player counts the " +
+        "clock, not rounds, so this is the timed adaptation.",
+      // Twenty minutes of continuous work at a fixed station pace. Rest is
+      // zero because an AMRAP has none: the old 30/10 × 10 injected 290 s
+      // of rest into the one format defined by not having any, and traded
+      // the score for a fixed round count. Count your own rounds for the
+      // real Cindy.
+      scheme: "Timed adaptation · 10 rounds · 3 stations · 40 s work, no rest",
       exerciseIds: [EX.pullUp, EX.pushUp, EX.airSquat],
-      interval: { work: 30, rest: 10, rounds: 10 },
+      interval: { work: 40, rest: 0, rounds: 10 },
       music: {
         bpm: 170,
         style: "fast punk rock, upbeat and raw",
@@ -294,7 +411,11 @@ export function seedTemplates(): Template[] {
       branch: "Navy SEAL",
       description: "1,000 box step-ups with a rucksack. Honors LT Chad Wilkinson.",
       scheme: "1000 step-ups @ 50 cm box · 20/16 kg ruck — for time",
-      exerciseIds: [EX.boxJump, EX.ruck],
+      // Step-ups, not box jumps. The station used to map to Box Jump,
+      // whose cues say "explode up, land soft" — a thousand jumps under a
+      // ruck is a different, and much worse, workout — and it filed the
+      // reps as a Box Jump record.
+      exerciseIds: [EX.boxStepUp, EX.ruck],
       music: {
         bpm: 135,
         style: "somber cinematic percussion, steady stomping beat",

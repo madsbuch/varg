@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useApp } from "./lib/app-context";
+import { installBackButton, useBackHandler } from "./lib/back";
 import { ensureAllTracks } from "./lib/music";
 import { scrollContentTop } from "./lib/scroll";
 import Home from "./views/Home";
@@ -10,6 +12,7 @@ import Settings from "./views/Settings";
 import {
   IconBook,
   IconDumbbell,
+  IconFlag,
   IconHome,
   IconLayers,
   IconTrophy,
@@ -31,8 +34,93 @@ const TABS: { id: Tab; label: string; Icon: typeof IconHome }[] = [
   { id: "library", label: "Manual", Icon: IconBook },
 ];
 
+/**
+ * Quit the app. Registering a Back handler suppresses Android's native
+ * exit entirely (see lib/back.ts), so the root has to do the quitting
+ * itself — and the only API for it lives in `@tauri-apps/plugin-process`,
+ * which Varg does not depend on. The specifier is kept in a variable so
+ * the bundler leaves the import alone; if the plugin is ever added this
+ * starts working, and until then Back at Home is simply inert, which is
+ * strictly better than the old behaviour of killing a running workout.
+ */
+async function exitApp(): Promise<void> {
+  try {
+    const specifier = "@tauri-apps/plugin-process";
+    const mod = (await import(/* @vite-ignore */ specifier)) as {
+      exit: (code?: number) => Promise<void>;
+    };
+    await mod.exit(0);
+  } catch {
+    // Plugin absent, or not running under Tauri — leave it to the platform.
+  }
+}
+
+/**
+ * The write-through failed and the athlete's latest edits are only in
+ * memory. It retries itself with backoff, so this is a status line rather
+ * than a modal — but it stays up until a write lands, because a session
+ * that looks logged and is not on disk is exactly what gets lost.
+ *
+ * Lives in the shell, outside the scroll container, so it survives a tab
+ * change and cannot be scrolled away.
+ */
+function SaveFailureBanner() {
+  const { saveFailure } = useApp();
+  if (!saveFailure) return null;
+  return (
+    <div style={{ padding: "0 16px" }}>
+      <div className="persist-error" role="status">
+        <IconFlag />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          Not saved — retrying
+          <div style={{ fontWeight: 400, wordBreak: "break-word" }}>
+            {saveFailure.message}
+            {saveFailure.attempts > 1 && ` · ${String(saveFailure.attempts)} attempts`}
+          </div>
+        </div>
+        <button className="btn ghost sm" onClick={saveFailure.retry}>
+          Retry
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("home");
+
+  // Android Back. The root owns the exit policy because a registered
+  // handler suppresses the native one; sheets and the WOD player mount
+  // later and therefore sit ABOVE this in the stack, getting first refusal.
+  useEffect(() => {
+    let dispose: (() => void) | null = null;
+    let cancelled = false;
+    void installBackButton(() => { void exitApp(); }).then((off) => {
+      if (cancelled) off();
+      else dispose = off;
+    });
+    return () => {
+      cancelled = true;
+      dispose?.();
+    };
+  }, []);
+
+  // Read through a ref so this handler keeps a stable identity: re-running
+  // useBackHandler would re-push it to the TOP of the stack, above the
+  // sheets it must stay underneath.
+  const tabRef = useRef<Tab>("home");
+  useEffect(() => {
+    tabRef.current = tab;
+  }, [tab]);
+
+  const onBack = useCallback(() => {
+    if (tabRef.current === "home") return false; // nothing left — exit.
+    setTab("home");
+    return true;
+  }, []);
+  // Bottom of the stack: sheets and the player mount later but must always
+  // get first refusal, and React runs a child's effects before its parent's.
+  useBackHandler(true, onBack, true);
 
   // Compose any missing workout tracks in the background (no-op without
   // an API key; every finished track is cached for good) — and resume
@@ -58,6 +146,8 @@ export default function App() {
 
   return (
     <div className="app">
+      <SaveFailureBanner />
+
       <main id="content" className="content">
         {tab === "home" && <Home goto={setTab} />}
         {tab === "train" && <Train />}

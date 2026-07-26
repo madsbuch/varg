@@ -86,7 +86,11 @@ const DEFS = {
       // squat from a hinge at a glance.
       p(["M46 88 L47 72 L46 56", "M46 88 L58 74 L42 68"]),
       p(["M46 56 L48 32", "M42 68 L47 46"]),
-      p(["M48 36 L45 50 M48 36 L53 50", "M46 50 L62 44 M46 50 L62 48"]),
+      // Arms reach forward at the bottom, but one high and one low: two
+      // arms four units apart are one arm once the stroke is drawn. The
+      // vertical spread has to be wide enough that the near hand rising
+      // and the far hand dropping do not cross halfway through the morph.
+      p(["M48 36 L42 50 M48 36 L54 50", "M46 50 L58 38 M46 50 L60 58"]),
       head([52, 50], [25, 39]),
     ],
   },
@@ -234,11 +238,57 @@ const DEFS = {
       head([26, 26], [58, 60]),
     ],
   },
+  reverseLunge: {
+    dur: 2.4,
+    parts: [
+      // Front leg stays forward, trail leg stays behind — never mirrored,
+      // so the two never coincide midway through the morph.
+      p([
+        // Standing frame is a hip-width stance, not feet together: at 8
+        // units the two legs sit right on the merge point for a 4-unit
+        // stroke and read as one line at the ends of the loop.
+        "M43 88 L46 74 L48 60 M55 88 L53 74 L50 60",
+        "M38 88 L40 74 L48 62 M74 86 L64 80 L48 62",
+      ]),
+      p(["M49 60 L50 36", "M48 62 L48 38"]),
+      p(["M50 44 L44 56 M50 44 L56 56", "M48 46 L42 58 M48 46 L54 58"]),
+      head([51, 49], [29, 31]),
+    ],
+  },
+  kneeLift: {
+    dur: 2.0,
+    parts: [
+      // One leg lifts against a planted one. Alternating both legs in two
+      // frames puts them at equal half-height mid-morph, which at this slow
+      // tempo reads as a squat — the cue text carries the alternation.
+      p(["M50 64 L46 76 L46 88"]),
+      p(["M50 64 L54 76 L54 88", "M50 64 L61 57 L56 69"]),
+      p(["M50 64 L50 40"]),
+      p(["M50 46 L44 58 M50 46 L56 58"]),
+      head([50], [33]),
+    ],
+  },
+  armCircles: {
+    dur: 2.0,
+    parts: [
+      p(["M44 88 L46 74 L48 62 M56 88 L54 74 L52 62"]),
+      p(["M50 62 L50 40"]),
+      // Three frames: down, out, up. Each arm keeps its own side.
+      p([
+        "M50 44 L36 58 M50 44 L64 58",
+        "M50 44 L30 44 M50 44 L70 44",
+        "M50 44 L36 28 M50 44 L64 28",
+      ]),
+      head([50], [33]),
+    ],
+  },
   lunge: {
     dur: 2.0,
     parts: [
+      // Stance width at the top: feet stacked on the same point read as a
+      // one-legged figure for as long as the standing frame is held.
       p([
-        "M46 88 L47 72 L46 56 M46 88 L45 72 L46 56",
+        "M52 88 L51 72 L46 56 M40 88 L41 72 L46 56",
         "M58 88 L58 74 L46 64 M30 86 L38 80 L46 64",
       ]),
       p(["M46 56 L48 32", "M46 64 L48 40"]),
@@ -257,6 +307,52 @@ const DEFS = {
       p(["M36 64 L40 44", "M54 36 L56 18", "M68 42 L70 22"]),
       p(["M40 44 L30 56", "M56 18 L64 12", "M70 22 L78 32"]),
       head([44, 60, 74], [37, 11, 15]),
+    ],
+  },
+  boxStepUp: {
+    dur: 2.4,
+    parts: [
+      p(["M60 88 L60 66 L88 66 L88 88"], { gear: true }),
+      // A step-up is not a small box jump: the lead foot is planted on the
+      // box in both frames and there is never a moment with both feet off
+      // the ground. Chad 1000x is a thousand of these under a ruck, and a
+      // figure that hops would coach the wrong movement for two hours.
+      p([
+        "M46 60 L54 62 L62 66 M46 60 L44 74 L44 88",
+        "M66 42 L66 54 L66 66 M66 42 L58 56 L52 70",
+      ]),
+      p(["M46 60 L50 36", "M66 42 L68 20"]),
+      p(["M49 38 L42 48 M49 38 L56 48", "M67 22 L60 32 M67 22 L74 32"]),
+      head([52, 70], [30, 14]),
+    ],
+  },
+  powerThrow: {
+    dur: 2.0,
+    parts: [
+      p(["M46 88 L54 72 L38 66", "M46 88 L47 72 L46 56"]),
+      p(["M38 66 L50 46", "M46 56 L40 34"]),
+      p(["M50 46 L46 60 M50 46 L56 58", "M40 34 L26 24 M40 34 L32 12"]),
+      // The throw is backwards over the head, so the ball ends up behind
+      // the athlete — that arc is the event, and it is the only thing that
+      // separates this from an overhead press.
+      gearC([51, 22], [63, 8], 5),
+      head([56, 46], [40, 27]),
+    ],
+  },
+  sprintDragCarry: {
+    dur: 1.0,
+    parts: [
+      p(["M4 88 L22 88 L22 80 L4 80 Z"], { gear: true, fill: true }),
+      p(["M22 80 L42 48", "M22 80 L40 52"], { gear: true }),
+      p(["M46 60 L50 36"]),
+      // Driving stride under load: lead leg in front, trail leg behind,
+      // both clear of the strap line — see runInPlace.
+      p([
+        "M46 60 L56 70 L60 82 M46 60 L40 74 L34 84",
+        "M46 60 L50 74 L52 88 M46 60 L38 72 L30 78",
+      ]),
+      p(["M50 38 L58 44 M50 38 L42 48", "M50 38 L60 40 M50 38 L40 52"]),
+      head([54], [29]),
     ],
   },
   burpee: {
@@ -309,9 +405,13 @@ const DEFS = {
     parts: [
       p(["M38 88 L42 74 L48 62 M64 88 L58 74 L52 62"]),
       p(["M50 62 L50 42", "M52 62 L52 42"]),
+      // One hand punches, the other holds guard by the cheek — swapping
+      // which arm is extended puts both at the same mid-height halfway
+      // through the morph. The cue text carries the alternation, the same
+      // way kneeLift's does.
       p([
-        "M50 46 L62 44 L76 46 M50 46 L47 40 L55 34",
-        "M52 46 L58 40 L54 32 M52 46 L62 48 L78 50",
+        "M50 46 L62 44 L76 46 M50 46 L46 38 L52 33",
+        "M52 46 L60 46 L62 42 M52 46 L47 39 L53 34",
       ]),
       head([53, 55], [35, 34]),
     ],
@@ -321,11 +421,17 @@ const DEFS = {
     parts: [
       p(["M46 62 L48 34"]),
       p(["M37 38 L45 40 L44 54 L36 52 Z"], { gear: true, fill: true }),
+      // Lead leg stays in front, trail leg stays behind — see runInPlace.
+      // Swapping them mirrors both across the hip and the march collapses
+      // into a single vertical stick halfway through every stride.
       p([
-        "M46 62 L52 74 L52 88 M46 62 L40 76 L36 88",
-        "M46 62 L40 74 L42 88 M46 62 L52 76 L58 88",
+        "M46 62 L54 72 L58 86 M46 62 L42 76 L38 88",
+        "M46 62 L50 74 L52 88 M46 62 L38 72 L32 82",
       ]),
-      p(["M48 40 L55 50", "M48 40 L41 50"]),
+      // Same trap for the arm: mirroring it across the torso sends it
+      // vertical at the midpoint, straight down the body line. It swings
+      // fore and aft on the near side instead.
+      p(["M48 40 L58 44", "M48 40 L55 55"]),
       head([52], [27]),
     ],
   },
@@ -333,9 +439,11 @@ const DEFS = {
     dur: 1.4,
     parts: [
       p(["M46 60 L48 34"]),
+      // Short loaded steps, but the legs still keep their own side — see
+      // runInPlace.
       p([
-        "M46 60 L52 72 L52 88 M46 60 L40 74 L36 88",
-        "M46 60 L40 72 L42 88 M46 60 L52 74 L58 88",
+        "M46 60 L52 72 L54 86 M46 60 L42 74 L40 88",
+        "M46 60 L49 74 L50 88 M46 60 L39 72 L34 84",
       ]),
       p(["M48 36 L40 58 M48 36 L56 58"]),
       gearC([39, 39], [63, 64], 5),

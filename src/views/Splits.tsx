@@ -125,7 +125,14 @@ function SplitEditor({
   const canSave = split.name.trim().length > 0;
 
   return (
-    <Sheet title={initial.name ? "Edit split" : "New split"} onClose={onClose}>
+    // The whole split — days, names, exercise lists — lives in local state
+    // until "Save split", so a stray backdrop tap on the ~91 px scrim above
+    // a full editor used to throw the entire draft away. Close is explicit.
+    <Sheet
+      title={initial.name ? "Edit split" : "New split"}
+      onClose={onClose}
+      dismissOnBackdrop={false}
+    >
       <Field label="Name">
         <input
           autoFocus

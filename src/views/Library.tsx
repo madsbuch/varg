@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { Category, Exercise } from "../types";
 import { useApp } from "../lib/app-context";
 import { libraryFor } from "../lib/library";
-import { prKindLabel } from "../lib/prs";
+import { collapsePRs, prKindLabel } from "../lib/prs";
 import ExerciseAnim from "../components/ExerciseAnim";
 import { Sheet } from "../components/ui";
 import { formatSeconds, kmFromMeters, roundW } from "../lib/units";
@@ -100,7 +100,9 @@ function ExerciseSheet({
 }) {
   const { data } = useApp();
   const lib = libraryFor(exercise);
-  const prs = data.prs.filter((p) => p.exerciseId === exercise.id);
+  // Collapsed to the record that stands per kind — one row per stored PR
+  // showed a superseded manual entry as a second, contradictory number.
+  const rows = collapsePRs(data.prs).filter((r) => r.exerciseId === exercise.id);
 
   const prText = (kind: string, value: number, reps?: number): string => {
     switch (kind) {
@@ -141,15 +143,26 @@ function ExerciseSheet({
         ))}
       </ol>
 
-      {prs.length > 0 && (
+      {rows.length > 0 && (
         <>
           <div className="section-label">Your records</div>
-          {prs.map((pr) => (
-            <div key={pr.id} className="row" style={{ padding: "4px 0" }}>
-              <span className="muted">{prKindLabel(pr.kind)}</span>
-              <span style={{ fontWeight: 700, color: "var(--gold)" }}>
-                {prText(pr.kind, pr.value, pr.reps)}
-              </span>
+          {rows.map(({ kind, best, superseded }) => (
+            <div key={`${best.exerciseId}:${kind}`}>
+              <div className="row" style={{ padding: "4px 0" }}>
+                <span className="muted">{prKindLabel(kind)}</span>
+                <span style={{ fontWeight: 700, color: "var(--gold)" }}>
+                  {prText(kind, best.value, best.reps)}
+                </span>
+              </div>
+              {/* A manual entry the logged sets beat — kept visible so the
+                  athlete can act on it. Deleting is done on Records. */}
+              {superseded.map((pr) => (
+                <div key={pr.id} className="row" style={{ padding: "0 0 4px 10px" }}>
+                  <span className="faint" style={{ fontSize: 12 }}>
+                    {prText(pr.kind, pr.value, pr.reps)} · manual · superseded
+                  </span>
+                </div>
+              ))}
             </div>
           ))}
         </>

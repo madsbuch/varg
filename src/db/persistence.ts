@@ -16,6 +16,12 @@ import type {
   Split,
 } from "../types";
 
+/**
+ * Backends must implement every write non-destructively: upsert what is
+ * there, delete only what disappeared. A backend that empties a table
+ * before refilling it loses the difference whenever the refill rejects,
+ * and there is no transaction to fall back on (see sqlite.ts).
+ */
 export interface Persistence {
   load(): Promise<AppData>;
   saveExercise(ex: Exercise): Promise<void>;
@@ -61,7 +67,38 @@ async function diffById<T extends HasId>(
   }
 }
 
-/** Write everything that changed between two snapshots. */
+/**
+ * PRs are the one list reference equality cannot speak for: recomputePRs
+ * rebuilds the whole array on every session edit, so `prev.prs !== next.prs`
+ * is true after every logged rep even when not a single record moved.
+ * They are flat records, so comparing them by value is cheap and exact.
+ */
+function samePRs(prev: PersonalRecord[], next: PersonalRecord[]): boolean {
+  if (prev.length !== next.length) return false;
+  const prevById = new Map(prev.map((p) => [p.id, p]));
+  return next.every((n) => {
+    const p = prevById.get(n.id);
+    if (!p) return false;
+    return (
+      p.exerciseId === n.exerciseId &&
+      p.kind === n.kind &&
+      p.value === n.value &&
+      p.reps === n.reps &&
+      p.date === n.date &&
+      p.sessionId === n.sessionId &&
+      p.note === n.note &&
+      p.manual === n.manual
+    );
+  });
+}
+
+/**
+ * Write everything that changed between two snapshots.
+ *
+ * Rejects on the first failed write. The caller must NOT advance its
+ * diff baseline until this resolves — anything already written is
+ * idempotent, so the whole diff is safe to replay.
+ */
 export async function persistDiff(
   p: Persistence,
   prev: AppData,
@@ -71,5 +108,5 @@ export async function persistDiff(
   await diffById(prev.exercises, next.exercises, (e) => p.saveExercise(e), (id) => p.deleteExercise(id));
   await diffById(prev.splits, next.splits, (s) => p.saveSplit(s), (id) => p.deleteSplit(id));
   await diffById(prev.sessions, next.sessions, (s) => p.saveSession(s), (id) => p.deleteSession(id));
-  if (prev.prs !== next.prs) await p.replacePRs(next.prs);
+  if (prev.prs !== next.prs && !samePRs(prev.prs, next.prs)) await p.replacePRs(next.prs);
 }

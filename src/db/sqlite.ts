@@ -12,7 +12,7 @@
  */
 import Database from "@tauri-apps/plugin-sql";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
-import { eq, getTableColumns, getTableName, inArray } from "drizzle-orm";
+import { eq, getTableColumns, getTableName, inArray, sql } from "drizzle-orm";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import type {
   AppData,
@@ -26,6 +26,17 @@ import type { Persistence } from "./persistence";
 import * as t from "./schema";
 
 const DB_URL = "sqlite:varg.db";
+
+/** SQL string literal. Only used for values we control (migration names). */
+function quote(s: string): string {
+  return `'${s.replace(/'/g, "''")}'`;
+}
+
+/** The plugin rejects with a plain string as often as with an Error. */
+function errorText(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return typeof err === "string" ? err : "unknown error";
+}
 
 // Migration SQL files, bundled at build time. Validated at runtime so no
 // type assertion is needed on vite's glob return type.
@@ -63,7 +74,21 @@ export class SqlitePersistence implements Persistence {
     return p;
   }
 
-  /** Apply pending drizzle-kit migrations, tracked in __migrations. */
+  /**
+   * Apply pending drizzle-kit migrations, tracked in __migrations.
+   *
+   * A file and its bookkeeping row go over the wire as ONE execute()
+   * string wrapped in BEGIN/COMMIT. Statement-at-a-time was not atomic:
+   * a file that fails half-way (a unique index that real data violates,
+   * or the process being killed mid-file, which is routine on Android)
+   * left its earlier statements committed with no __migrations row, and
+   * since the generated SQL uses bare CREATE TABLE every later launch
+   * re-ran statement 1 and died on "table already exists" — permanently.
+   *
+   * BEGIN and COMMIT must travel together: the plugin runs each
+   * execute() on a connection from an sqlx pool, so sending them as
+   * separate calls can put them on different connections.
+   */
   private async migrate(): Promise<void> {
     await this.sqlite.execute(
       "CREATE TABLE IF NOT EXISTS __migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)",
@@ -75,14 +100,26 @@ export class SqlitePersistence implements Persistence {
     for (const path of Object.keys(migrationFiles).sort()) {
       const name = path.split("/").pop() ?? path;
       if (applied.has(name)) continue;
-      for (const raw of (migrationFiles[path] ?? "").split("--> statement-breakpoint")) {
-        const stmt = raw.trim();
-        if (stmt) await this.sqlite.execute(stmt);
-      }
-      await this.sqlite.execute(
-        "INSERT INTO __migrations (name, applied_at) VALUES ($1, $2)",
-        [name, new Date().toISOString()],
+      const stmts = (migrationFiles[path] ?? "")
+        .split("--> statement-breakpoint")
+        .map((raw) => raw.trim())
+        .filter((stmt) => stmt !== "")
+        .map((stmt) => (stmt.endsWith(";") ? stmt : `${stmt};`));
+      // Values are inlined, not bound: a parameter list applies to the
+      // first statement of a multi-statement query only.
+      stmts.push(
+        `INSERT INTO __migrations (name, applied_at) VALUES (${quote(name)}, ${quote(new Date().toISOString())});`,
       );
+      try {
+        await this.sqlite.execute(`BEGIN;\n${stmts.join("\n")}\nCOMMIT;`);
+      } catch (err) {
+        // The failing statement aborts the batch before COMMIT, leaving
+        // the transaction open on whichever connection ran it. Best
+        // effort — the pool may hand us a different one, and the error
+        // the user needs to see is the original one either way.
+        await this.sqlite.execute("ROLLBACK").catch(() => undefined);
+        throw new Error(`Migration ${name} failed: ${errorText(err)}`);
+      }
     }
   }
 
@@ -307,13 +344,22 @@ export class SqlitePersistence implements Persistence {
           position: i,
         })),
       );
-      const dayEx = split.days.flatMap((d) =>
-        d.exerciseIds.map((exId, i) => ({
-          dayId: d.id,
-          exerciseId: exId,
-          position: i,
-        })),
-      );
+      // Deduped on (dayId, exerciseId), which is the table's primary key.
+      // A day listing the same exercise twice is a UNIQUE violation inside
+      // load(), and because the splits/split_days rows above have already
+      // committed, the next launch finds the split "known" and skips this
+      // write forever — the split renders with empty days, permanently.
+      // db-smoke rejects it in seed content; splits are user-editable, so
+      // the write path must not be fatal either.
+      const dayEx: { dayId: string; exerciseId: string; position: number }[] = [];
+      for (const d of split.days) {
+        const seen = new Set<string>();
+        for (const exId of d.exerciseIds) {
+          if (seen.has(exId)) continue;
+          seen.add(exId);
+          dayEx.push({ dayId: d.id, exerciseId: exId, position: seen.size - 1 });
+        }
+      }
       if (dayEx.length > 0) {
         await this.db.insert(t.splitDayExercises).values(dayEx);
       }
@@ -334,6 +380,33 @@ export class SqlitePersistence implements Persistence {
     await this.db.delete(t.splits).where(eq(t.splits.id, id));
   }
 
+  /**
+   * Ids still on disk, optionally limited to one session, so a write can
+   * delete exactly what disappeared instead of clearing and refilling.
+   */
+  private async idsOnDisk(table: string, sessionId?: string): Promise<Set<string>> {
+    const rows =
+      sessionId === undefined
+        ? await this.sqlite.select<{ id: string }[]>(`SELECT id FROM "${table}"`)
+        : await this.sqlite.select<{ id: string }[]>(
+            `SELECT id FROM "${table}" WHERE session_id = $1`,
+            [sessionId],
+          );
+    return new Set(rows.map((r) => r.id));
+  }
+
+  /**
+   * Upsert the session and everything under it, then delete only the
+   * rows that are actually gone.
+   *
+   * This used to DELETE the session's sets and entries and then insert
+   * them back. Every execute() is its own autocommit statement on a
+   * pooled connection, so there was no transaction around that pair: a
+   * rejected insert (SQLITE_BUSY, the OS suspending the WebView mid-IPC)
+   * left the session row on disk with zero entries and zero sets, and
+   * the work was gone. Upsert-then-prune has no such window — a failure
+   * mid-way leaves the previous rows intact and the diff is replayed.
+   */
   async saveSession(session: Session): Promise<void> {
     const row = {
       id: session.id,
@@ -350,36 +423,76 @@ export class SqlitePersistence implements Persistence {
       .values(row)
       .onConflictDoUpdate({ target: t.sessions.id, set: row });
 
-    await this.db.delete(t.workoutSets).where(eq(t.workoutSets.sessionId, session.id));
-    await this.db.delete(t.sessionEntries).where(eq(t.sessionEntries.sessionId, session.id));
-
+    // Entries before sets: workout_sets.entry_id is a foreign key.
     if (session.entries.length > 0) {
-      await this.db.insert(t.sessionEntries).values(
-        session.entries.map((e, i) => ({
-          id: e.id,
-          sessionId: session.id,
-          exerciseId: e.exerciseId,
-          position: i,
-          note: e.note ?? null,
-        })),
-      );
-      const sets = session.entries.flatMap((e) =>
-        e.sets.map((w, i) => ({
-          id: w.id,
-          entryId: e.id,
-          sessionId: session.id,
-          position: i,
-          weight: w.weight ?? null,
-          reps: w.reps ?? null,
-          seconds: w.seconds ?? null,
-          meters: w.meters ?? null,
-          rpe: w.rpe ?? null,
-          done: w.done,
-        })),
-      );
-      if (sets.length > 0) {
-        await this.db.insert(t.workoutSets).values(sets);
-      }
+      await this.db
+        .insert(t.sessionEntries)
+        .values(
+          session.entries.map((e, i) => ({
+            id: e.id,
+            sessionId: session.id,
+            exerciseId: e.exerciseId,
+            position: i,
+            note: e.note ?? null,
+          })),
+        )
+        .onConflictDoUpdate({
+          target: t.sessionEntries.id,
+          set: {
+            sessionId: sql`excluded.session_id`,
+            exerciseId: sql`excluded.exercise_id`,
+            position: sql`excluded.position`,
+            note: sql`excluded.note`,
+          },
+        });
+    }
+    const sets = session.entries.flatMap((e) =>
+      e.sets.map((w, i) => ({
+        id: w.id,
+        entryId: e.id,
+        sessionId: session.id,
+        position: i,
+        weight: w.weight ?? null,
+        reps: w.reps ?? null,
+        seconds: w.seconds ?? null,
+        meters: w.meters ?? null,
+        rpe: w.rpe ?? null,
+        done: w.done,
+      })),
+    );
+    if (sets.length > 0) {
+      await this.db
+        .insert(t.workoutSets)
+        .values(sets)
+        .onConflictDoUpdate({
+          target: t.workoutSets.id,
+          set: {
+            entryId: sql`excluded.entry_id`,
+            sessionId: sql`excluded.session_id`,
+            position: sql`excluded.position`,
+            weight: sql`excluded.weight`,
+            reps: sql`excluded.reps`,
+            seconds: sql`excluded.seconds`,
+            meters: sql`excluded.meters`,
+            rpe: sql`excluded.rpe`,
+            done: sql`excluded.done`,
+          },
+        });
+    }
+
+    // Sets first: deleting an entry cascades to its sets anyway, but the
+    // reverse order would drop rows we are about to keep.
+    const keptSets = new Set(sets.map((s) => s.id));
+    const goneSets = [...(await this.idsOnDisk("workout_sets", session.id))]
+      .filter((id) => !keptSets.has(id));
+    if (goneSets.length > 0) {
+      await this.db.delete(t.workoutSets).where(inArray(t.workoutSets.id, goneSets));
+    }
+    const keptEntries = new Set(session.entries.map((e) => e.id));
+    const goneEntries = [...(await this.idsOnDisk("session_entries", session.id))]
+      .filter((id) => !keptEntries.has(id));
+    if (goneEntries.length > 0) {
+      await this.db.delete(t.sessionEntries).where(inArray(t.sessionEntries.id, goneEntries));
     }
   }
 
@@ -389,22 +502,48 @@ export class SqlitePersistence implements Persistence {
     await this.db.delete(t.sessions).where(eq(t.sessions.id, id));
   }
 
+  /**
+   * Upsert then prune, never empty-then-refill. Manually entered PRs
+   * exist nowhere else in the app — auto ones are recomputed from the
+   * sessions, but a manual record wiped by a failed insert is gone for
+   * good. Auto PR ids are stable (`auto-<exercise>:<kind>`), so a
+   * recompute that changes nothing writes the same rows back.
+   */
   async replacePRs(prs: PersonalRecord[]): Promise<void> {
-    await this.db.delete(t.personalRecords);
     if (prs.length > 0) {
-      await this.db.insert(t.personalRecords).values(
-        prs.map((p) => ({
-          id: p.id,
-          exerciseId: p.exerciseId,
-          kind: p.kind,
-          value: p.value,
-          reps: p.reps ?? null,
-          date: p.date,
-          sessionId: p.sessionId ?? null,
-          note: p.note ?? null,
-          manual: p.manual,
-        })),
-      );
+      await this.db
+        .insert(t.personalRecords)
+        .values(
+          prs.map((p) => ({
+            id: p.id,
+            exerciseId: p.exerciseId,
+            kind: p.kind,
+            value: p.value,
+            reps: p.reps ?? null,
+            date: p.date,
+            sessionId: p.sessionId ?? null,
+            note: p.note ?? null,
+            manual: p.manual,
+          })),
+        )
+        .onConflictDoUpdate({
+          target: t.personalRecords.id,
+          set: {
+            exerciseId: sql`excluded.exercise_id`,
+            kind: sql`excluded.kind`,
+            value: sql`excluded.value`,
+            reps: sql`excluded.reps`,
+            date: sql`excluded.date`,
+            sessionId: sql`excluded.session_id`,
+            note: sql`excluded.note`,
+            manual: sql`excluded.manual`,
+          },
+        });
+    }
+    const kept = new Set(prs.map((p) => p.id));
+    const gone = [...(await this.idsOnDisk("personal_records"))].filter((id) => !kept.has(id));
+    if (gone.length > 0) {
+      await this.db.delete(t.personalRecords).where(inArray(t.personalRecords.id, gone));
     }
   }
 }

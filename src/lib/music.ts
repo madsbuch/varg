@@ -256,6 +256,85 @@ export function errorText(e: unknown): string {
   return String(e);
 }
 
+/* ---------------------------- Failed tracks ------------------------------ */
+// A workout whose generation terminally fails is never cached, so it used to
+// re-enter `missing` on every single app foreground — two charged submissions
+// each time, forever, for a track that can never succeed (moderation
+// rejection, revoked key). Failures are therefore persisted: past the attempt
+// ceiling a key is only re-submitted once its backoff has elapsed, or when
+// the user explicitly asks for it from Settings.
+
+const FAILED_KEY = "varg.music.failed.v1";
+export const MAX_FAILED_ATTEMPTS = 3;
+// Wait before the composer spends another generation, indexed by how far the
+// attempt count is past the ceiling.
+const FAILED_BACKOFF_MS = [
+  60 * 60 * 1000,
+  6 * 60 * 60 * 1000,
+  24 * 60 * 60 * 1000,
+];
+
+export interface TrackFailure {
+  attempts: number;
+  lastAt: string; // ISO
+  reason: string;
+}
+
+export function loadTrackFailures(): Record<string, TrackFailure> {
+  try {
+    const raw = localStorage.getItem(FAILED_KEY);
+    if (raw) return JSON.parse(raw) as Record<string, TrackFailure>;
+  } catch {
+    // fall through
+  }
+  return {};
+}
+
+function saveTrackFailures(all: Record<string, TrackFailure>): void {
+  localStorage.setItem(FAILED_KEY, JSON.stringify(all));
+}
+
+/** Record one terminal failure for a workout, bumping its attempt count. */
+function recordTrackFailure(key: string, reason: string): void {
+  const all = loadTrackFailures();
+  all[key] = {
+    attempts: (all[key]?.attempts ?? 0) + 1,
+    lastAt: new Date().toISOString(),
+    reason: truncate(reason, 160),
+  };
+  saveTrackFailures(all);
+}
+
+/** Forget a workout's failure history — on success, or when the user
+ * explicitly retries it. */
+export function clearTrackFailure(key: string): void {
+  const all = loadTrackFailures();
+  if (key in all) {
+    saveTrackFailures(
+      Object.fromEntries(Object.entries(all).filter(([k]) => k !== key)),
+    );
+  }
+}
+
+/** May the composer spend a generation on this key right now? */
+function mayAttempt(
+  key: string,
+  failures: Record<string, TrackFailure> = loadTrackFailures(),
+): boolean {
+  const f = failures[key];
+  if (!f || f.attempts < MAX_FAILED_ATTEMPTS) return true;
+  const i = Math.min(
+    f.attempts - MAX_FAILED_ATTEMPTS,
+    FAILED_BACKOFF_MS.length - 1,
+  );
+  return Date.now() - Date.parse(f.lastAt) >= (FAILED_BACKOFF_MS[i] ?? 0);
+}
+
+/** The gateway rejected the API key. That applies to every request in
+ * flight, not just one task, so a run must stop rather than retry per
+ * workout. */
+class MusicAuthError extends Error {}
+
 let ensureRunning = false;
 let lastStatus: EnsureStatus = { running: false, ready: 0, total: 0 };
 const listeners = new Set<(s: EnsureStatus) => void>();
@@ -285,9 +364,12 @@ export function onEnsureStatus(fn: (s: EnsureStatus) => void): () => void {
  *
  * A track that fails on the server is re-requested once; if the first two
  * submissions fail and nothing has ever succeeded, the run bails early
- * (broken key/credits) instead of burning a request per workout. Every
- * failure is surfaced through EnsureStatus.error and the composer log —
- * never silently. */
+ * (broken key/credits) instead of burning a request per workout. Failures
+ * are persisted per workout, so a track that can never succeed stops costing
+ * a generation on every foreground once it hits the attempt ceiling, and a
+ * rejected API key stops the whole run rather than one task. Every failure
+ * is surfaced through EnsureStatus.error and the composer log — never
+ * silently. */
 export async function ensureAllTracks(): Promise<void> {
   if (ensureRunning) return;
   const settings = loadMusicSettings();
@@ -318,12 +400,25 @@ export async function ensureAllTracks(): Promise<void> {
     }
 
     let ready = 0;
+    let blocked = 0;
+    const failures = loadTrackFailures();
     const missing: WorkoutMusic[] = [];
     for (const w of workouts) {
-      if (await getCachedTrack(w.key)) ready++;
-      else if (!loadPendingTasks().some((t) => t.key === w.key)) missing.push(w);
+      if (await getCachedTrack(w.key)) {
+        ready++;
+      } else if (!loadPendingTasks().some((t) => t.key === w.key)) {
+        if (mayAttempt(w.key, failures)) missing.push(w);
+        else blocked++;
+      }
     }
     if (missing.length === 0 && loadPendingTasks().length === 0) return;
+    // Logged only when the run has work to do — otherwise every foreground
+    // would push a line into the ring buffer and bury the real diagnostics.
+    if (blocked > 0) {
+      musicLog(
+        `${blocked} workout${blocked === 1 ? "" : "s"} skipped — generation has failed ${String(MAX_FAILED_ATTEMPTS)}+ times; retry from Settings.`,
+      );
+    }
 
     // Phase 1 — submit a request for every missing track. A failing
     // submission is retried once.
@@ -331,6 +426,15 @@ export async function ensureAllTracks(): Promise<void> {
     let submitted = 0;
     let submitFailed = 0;
     for (const w of missing) {
+      // Re-checked per iteration, not just in the snapshot above: submitting
+      // takes many seconds, and a manual regenerate started meanwhile has
+      // already put this key in flight. Submitting again charges a second
+      // credit and orphans one of the two tasks.
+      if (loadPendingTasks().some((t) => t.key === w.key)) continue;
+      if (await getCachedTrack(w.key)) {
+        ready++;
+        continue;
+      }
       emit({
         running: true,
         ready,
@@ -352,6 +456,7 @@ export async function ensureAllTracks(): Promise<void> {
           if (attempt === 2) {
             submitFailed++;
             failed++;
+            recordTrackFailure(w.key, errorText(e));
             firstError ??= `${w.name}: ${errorText(e)}`;
           }
         }
@@ -371,6 +476,7 @@ export async function ensureAllTracks(): Promise<void> {
     // server-side and the loop continues on the next resume.
     const retriedKeys = new Set<string>();
     let unreachableRounds = 0;
+    let authFailed = false;
     while (loadPendingTasks().length > 0) {
       emit({
         running: true,
@@ -386,10 +492,22 @@ export async function ensureAllTracks(): Promise<void> {
         try {
           result = await pollPendingTask(task, settings);
         } catch (e) {
-          // Terminal failure — pollPendingTask already dropped the record.
+          // Terminal failure — pollPendingTask already dropped the record
+          // and counted the attempt.
           reachedGateway = true;
+          if (e instanceof MusicAuthError) {
+            // The key is bad, not this one task: every request in flight is
+            // doomed, so resubmitting any of them only burns credits.
+            authFailed = true;
+            failed++;
+            firstError ??= errorText(e);
+            musicLog(
+              "The gateway rejected the API key — stopping this run. Check the key in Settings.",
+            );
+            break;
+          }
           const w = workouts.find((x) => x.key === task.key);
-          if (w && !retriedKeys.has(task.key)) {
+          if (w && !retriedKeys.has(task.key) && mayAttempt(task.key)) {
             retriedKeys.add(task.key);
             musicLog(
               `"${task.workoutName}" failed — submitting one fresh request.`,
@@ -414,6 +532,7 @@ export async function ensureAllTracks(): Promise<void> {
           // standby can never time out a track that actually finished.
           if (Date.now() - Date.parse(task.requestedAt) > PENDING_TTL_MS) {
             removePendingTask(task.key);
+            recordTrackFailure(task.key, "Still pending after 30 minutes.");
             failed++;
             firstError ??= `${task.workoutName}: gave up after 30 minutes.`;
             musicLog(
@@ -424,6 +543,7 @@ export async function ensureAllTracks(): Promise<void> {
           ready++;
         }
       }
+      if (authFailed) break;
       unreachableRounds = reachedGateway ? 0 : unreachableRounds + 1;
       if (
         loadPendingTasks().length > 0 &&
@@ -566,6 +686,14 @@ async function requestTrack(
     `Style: ${profile.style}. Steady ${profile.bpm} BPM, driving rhythm, ` +
     `high energy, no vocals.`;
 
+  // Track length is NOT controllable here: the generate endpoint takes no
+  // duration, and in non-custom mode the model decides — a few minutes,
+  // against workouts that run three to eighteen. The track is therefore
+  // always assumed to be shorter than the session and is looped with a
+  // crossfade at playback time (src/lib/track.ts). Do not "fix" this by
+  // padding the prompt with "make it 18 minutes long"; the model ignores
+  // it and the seam handling is what actually matters.
+
   musicLog(`Requesting "${workoutName}" (model ${settings.model}) from ${base}…`);
   const createRes = await httpFetch(`${base}/api/v1/generate`, {
     method: "POST",
@@ -647,11 +775,37 @@ async function pollPendingTask(
   } catch {
     // non-JSON body — logged below
   }
+  // Some gateways answer 200 with the real code in the body, so trust the
+  // body's code whenever there is no data to go with it.
+  const code = poll && poll.data == null ? poll.code : pollRes.status;
+  const detail = poll?.msg.trim() ? poll.msg : truncate(rawBody) || "(empty)";
+  if (code >= 400 && code < 500 && code !== 429) {
+    // A 4xx is about the request, not the composition: reading it as "still
+    // composing" bought 30 minutes of doomed polling behind a UI that said
+    // everything was fine. 401/403 is the key itself and kills the whole run.
+    removePendingTask(task.key);
+    musicLog(
+      `Poll for "${task.workoutName}" rejected — HTTP ${pollRes.status} (code ${String(code)}): ${detail}`,
+    );
+    if (code === 401 || code === 403) {
+      const err = new MusicAuthError(
+        `The gateway rejected the API key (${String(code)}): ${detail}`,
+      );
+      recordTrackFailure(task.key, err.message);
+      throw err;
+    }
+    recordTrackFailure(task.key, `Gateway rejected the poll (${String(code)}).`);
+    throw new Error(
+      `The gateway rejected the poll (${String(code)}): ${detail}`,
+    );
+  }
   if (!pollRes.ok || poll == null) {
+    // 5xx, rate limiting, or an unparseable 200 — genuinely transient, and
+    // bounded by the 30-minute TTL.
     musicLog(
       `Poll for "${task.workoutName}" — HTTP ${pollRes.status}, body: ${truncate(rawBody) || "(empty)"}`,
     );
-    return "pending"; // odd gateway reply; bounded by the 30-minute TTL
+    return "pending";
   }
   const status = poll.data?.status ?? "PENDING";
   const song = poll.data?.response?.sunoData?.[0];
@@ -662,6 +816,7 @@ async function pollPendingTask(
   if (status === "SUCCESS" || (status === "CALLBACK_EXCEPTION" && song?.audioUrl)) {
     if (!song?.audioUrl) {
       removePendingTask(task.key);
+      recordTrackFailure(task.key, "Finished with no audio URL.");
       musicLog(
         `"${task.workoutName}" finished but no audio URL — body: ${truncate(rawBody)}`,
       );
@@ -679,6 +834,10 @@ async function pollPendingTask(
     }
     if (!audio.ok) {
       removePendingTask(task.key);
+      recordTrackFailure(
+        task.key,
+        `Download rejected (HTTP ${String(audio.status)}).`,
+      );
       musicLog(
         `Download of "${task.workoutName}" rejected — HTTP ${audio.status}.`,
       );
@@ -695,6 +854,7 @@ async function pollPendingTask(
     };
     await putCachedTrack(track);
     removePendingTask(task.key);
+    clearTrackFailure(task.key);
     musicLog(
       `"${task.workoutName}" cached (${Math.round(blob.size / 1024)} kB) — done.`,
     );
@@ -706,6 +866,7 @@ async function pollPendingTask(
     status === "SENSITIVE_WORD_ERROR"
   ) {
     removePendingTask(task.key);
+    recordTrackFailure(task.key, `Generation failed on the server (${status}).`);
     musicLog(
       `"${task.workoutName}" failed on the server — status ${status}, body: ${truncate(rawBody)}`,
     );
@@ -729,21 +890,30 @@ export async function generateTrack(
   onStatus: (status: string) => void,
 ): Promise<CachedTrack> {
   onStatus("Requesting track…");
-  removePendingTask(key); // a regenerate abandons any stale in-flight task
-  const task = await requestTrack(key, workoutName, profile, settings);
+  // An explicit regenerate is the user overruling the backoff, so the
+  // failure history goes with the stale in-flight task.
+  removePendingTask(key);
+  clearTrackFailure(key);
+  await requestTrack(key, workoutName, profile, settings);
   onStatus(
     "Composing on Suno's servers — usually 1–3 minutes. Locking your phone is fine; the track is picked up when you come back.",
   );
   let unreachable = 0;
   for (;;) {
     await sleep(POLL_INTERVAL_MS);
-    // The background composer may have resolved this task in the meantime.
-    if (!loadPendingTasks().some((t) => t.taskId === task.taskId)) {
+    // Re-resolved by key, never by taskId: the background composer may have
+    // replaced our record with its own request for the same workout. That is
+    // still this workout being composed, so following the current record is
+    // right — matching on our taskId reported a false "Generation failed"
+    // while a paid task carried on unwatched.
+    const mine = loadPendingTasks().find((t) => t.key === key);
+    if (!mine) {
+      // Nothing in flight: either it landed in the cache or it died.
       const cached = await getCachedTrack(key);
       if (cached) return cached;
       throw new Error("Generation failed — see the composer log in Settings.");
     }
-    const result = await pollPendingTask(task, settings);
+    const result = await pollPendingTask(mine, settings);
     if (result === "unreachable") {
       unreachable++;
       if (unreachable >= MAX_UNREACHABLE_ROUNDS) {
@@ -757,8 +927,9 @@ export async function generateTrack(
     }
     unreachable = 0;
     if (result === "pending") {
-      if (Date.now() - Date.parse(task.requestedAt) > PENDING_TTL_MS) {
+      if (Date.now() - Date.parse(mine.requestedAt) > PENDING_TTL_MS) {
         removePendingTask(key);
+        recordTrackFailure(key, "Still pending after 30 minutes.");
         throw new Error("Timed out waiting for the track — try again later.");
       }
       continue;

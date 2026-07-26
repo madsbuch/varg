@@ -76,8 +76,30 @@ export type PRKind =
   | "1rm" // best estimated one-rep max (weight_reps)
   | "weight" // heaviest weight for reps
   | "reps" // most reps in a set
-  | "time" // fastest time (lower is better)
+  | "time" // longest hold — see PR_DIRECTION before assuming otherwise
   | "distance"; // longest distance
+
+/** Which way a record improves: a bigger number, or a smaller one. */
+export type PRDirection = "higher" | "lower";
+
+/**
+ * The direction each PR kind improves in, declared exactly once and honoured
+ * by every comparison in `lib/prs.ts`.
+ *
+ * `time` is a *hold*: every time-metric exercise in the app is a plank, a wall
+ * sit or a dead hang, so longer wins. A for-time effort (a scored 400 m run)
+ * is the opposite and must NOT reuse this kind — it would store the athlete's
+ * worst attempt as the record. Give it a new kind here with direction "lower"
+ * and map the metric to it in `prKindsFor`; the exhaustive Record and the
+ * exhaustive switch make both halves compile errors if you forget.
+ */
+export const PR_DIRECTION: Record<PRKind, PRDirection> = {
+  "1rm": "higher",
+  weight: "higher",
+  reps: "higher",
+  time: "higher",
+  distance: "higher",
+};
 
 /** A personal record for an exercise. Auto-detected from sessions or entered manually. */
 export interface PersonalRecord {

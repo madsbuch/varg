@@ -7,7 +7,12 @@
   --line: #c6b98f;
   --text: #2b2a1c;
   --muted: #6f6849;
-  --faint: #948b69;
+  /* Darkened from #948b69, which was 2.89:1 on --panel — a WCAG AA fail at
+     every size it is used (10.5-13 px) and at the 3:1 graphic threshold for
+     the tab icons, which inherit it. `user-scalable=no` in index.html means
+     zoom is not a workaround. Now 5.13:1 on --panel, 4.60:1 on --bg,
+     4.35:1 on --panel-2 (icons and gear strokes only, so 3:1 applies). */
+  --faint: #6b6247;
   --accent: #5c6b33; /* olive drab */
   --accent-dim: #77883f;
   --on-accent: #f5f1e0;
@@ -77,6 +82,15 @@ input:focus,
 select:focus,
 textarea:focus {
   border-color: var(--accent-dim);
+}
+
+/* A buffer the parser rejected — "102,5" typed on a keypad that emits a
+   comma, say. The field must look wrong; the old behaviour was to write
+   `undefined` and keep rendering the text as if it had been accepted. */
+input.invalid,
+.input-invalid {
+  border-color: var(--danger);
+  background: #f6e3df;
 }
 
 /* --- App shell ---
@@ -318,6 +332,14 @@ textarea:focus {
   border-color: #c0a95e;
 }
 
+/* Terminal failure — a track whose generation will not be retried on its
+   own. Deliberately louder than "No track", which only means not yet. */
+.chip.danger,
+.track-failed {
+  color: var(--danger);
+  border-color: #cf9a8b;
+}
+
 /* --- Lists --- */
 .row {
   display: flex;
@@ -359,6 +381,29 @@ textarea:focus {
 
 .faint {
   color: var(--faint);
+}
+
+/* Unsaved work. Stays on screen until the write succeeds, because unlike a
+   toast the fact it reports — what you see is not what is on disk — does
+   not stop being true after four seconds. */
+.persist-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid #cf9a8b;
+  border-radius: 12px;
+  background: #f6e3df;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.persist-error svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
 }
 
 .empty {
@@ -668,6 +713,51 @@ textarea:focus {
   font-variant-numeric: tabular-nums;
 }
 
+/* `.chip` is `white-space: nowrap`, so its automatic min-width is the full
+   text width and it refuses to shrink. Template names come from seed.ts and
+   nothing bounds their length: at 360 dp "Kredsløbstræning · Round 1/5"
+   pushed Stop — the only exit from a running WOD — clean off the right edge.
+   The title chip is the one elastic element here; the clock and the buttons
+   keep their intrinsic size. `display: block` so the overflow ellipsises
+   instead of clipping mid-glyph (an anonymous flex item ignores
+   text-overflow). */
+.wod-top .chip:first-child {
+  display: block;
+  min-width: 3.5em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wod-top .chip + .chip {
+  flex: 0 0 auto;
+}
+
+.wod-top .check {
+  flex: 0 0 34px;
+}
+
+/* Battle-track toggle. Muted is the dim default; blocked is the WebView
+   refusing to autoplay, and needs to read as "tap me", not as an error. */
+.wod-top .check.music {
+  color: var(--faint);
+}
+
+.wod-top .check.music.on {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+
+.wod-top .check.music.blocked {
+  color: var(--gold);
+  border-color: #c0a95e;
+  animation: musicNudge 1.8s ease-in-out infinite;
+}
+
+@keyframes musicNudge {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
 /* Whole-workout progress. */
 .wod-progress {
   height: 4px;
@@ -683,6 +773,10 @@ textarea:focus {
   transition: width 0.1s linear;
 }
 
+/* `overflow: hidden` is load-bearing: every child is unshrinkable, so on a
+   short viewport the column used to spill upwards and paint "GET READY"
+   straight over the header chips. The media queries below give the column
+   enough room that the clip never actually engages. */
 .wod-center {
   flex: 1;
   display: flex;
@@ -691,6 +785,7 @@ textarea:focus {
   justify-content: center;
   gap: 6px;
   min-height: 0;
+  overflow: hidden;
 }
 
 .wod-phase {
@@ -702,7 +797,7 @@ textarea:focus {
 }
 
 .wod-time {
-  font-size: 76px;
+  font-size: min(76px, 12vh);
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -713,13 +808,26 @@ textarea:focus {
   color: var(--danger);
 }
 
+/* The figure is the one part of the column that may give ground; everything
+   else here — phase, countdown, station name, step bar — is instruction.
+   `min-height: 0` is what actually makes the shrink happen: a flex item's
+   automatic minimum is its content size, so `flex-shrink` alone does nothing. */
 .wod-anim {
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-height: 0;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 20px;
   padding: 10px;
   margin-top: 10px;
+}
+
+/* WodPlayer hardcodes size={170} on the SVG; let the box drive it instead,
+   capped so a tall screen doesn't blow the figure up. */
+.wod-anim .ex-anim {
+  width: auto;
+  height: 100%;
+  max-height: 170px;
 }
 
 /* The rest block is visibly not a station: brass frame, dashed edge. */
@@ -832,10 +940,31 @@ textarea:focus {
   padding-top: 12px;
 }
 
-.wod-controls .btn.ghost {
+/* Scoped to the transport row: these are the ◀ / ▶ squares flanking
+   Pause. The completion screen puts full-width ghost buttons ("Remove
+   from history", "Close") directly in .wod-controls, and an unscoped
+   64px would clip their labels. */
+.wod-controls .btn-row .btn.ghost {
   width: 64px;
   flex: 0 0 auto;
   font-size: 15px;
+}
+
+/* Short viewports: small phones, and — since tauri.conf.json sets no
+   orientation lock — anything held sideways. The figure shrinks first
+   (above), then drops out, then the queue. What survives is the countdown
+   and the station name, which is what you read mid-burpee, plus the
+   controls, which are the only way out. */
+@media (max-height: 560px) {
+  .wod-anim {
+    display: none;
+  }
+}
+
+@media (max-height: 460px) {
+  .wod-queue {
+    display: none;
+  }
 }
 
 /* Stopping mid-workout is destructive — confirm in place. */

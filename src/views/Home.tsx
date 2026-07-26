@@ -3,6 +3,7 @@ import type { Tab } from "../App";
 import { useApp } from "../lib/app-context";
 import { Mark, IconFlame, IconClock, IconGear } from "../components/icons";
 import { Stat } from "../components/ui";
+import { collapsePRs } from "../lib/prs";
 import { formatRelative } from "../lib/units";
 
 function startOfWeek(): number {
@@ -20,6 +21,10 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
     () => data.sessions.filter((s) => s.finishedAt),
     [data.sessions],
   );
+
+  // Collapsed, so this agrees with the Records screen: a manual entry the
+  // auto record beat is stored but is not a separate tracked record.
+  const prCount = useMemo(() => collapsePRs(data.prs).length, [data.prs]);
 
   const thisWeek = useMemo(() => {
     const wk = startOfWeek();
@@ -122,7 +127,7 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
       <button className="list-item" onClick={() => { goto("records"); }}>
         <div>
           <div className="title">Personal records</div>
-          <div className="sub">{data.prs.length} tracked</div>
+          <div className="sub">{prCount} tracked</div>
         </div>
         <span className="chip accent">View</span>
       </button>

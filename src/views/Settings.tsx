@@ -2,16 +2,20 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Tab } from "../App";
 import type { MusicProfile } from "../types";
 import {
+  MAX_FAILED_ATTEMPTS,
   SUNO_MODELS,
   clearMusicLog,
   clearProfileOverride,
+  clearTrackFailure,
   deleteCachedTrack,
   ensureAllTracks,
   generateTrack,
   getCachedTrack,
   loadMusicSettings,
+  loadTrackFailures,
   onEnsureStatus,
   onMusicLog,
+  putCachedTrack,
   readMusicLog,
   saveMusicSettings,
   saveProfileOverride,
@@ -19,8 +23,10 @@ import {
   type CachedTrack,
   type EnsureStatus,
   type MusicLogEntry,
+  type TrackFailure,
   type WorkoutMusic,
 } from "../lib/music";
+import { parseDecimal } from "../lib/units";
 import { ConfirmSheet, Field, Sheet } from "../components/ui";
 import { IconChevron, IconMusic } from "../components/icons";
 
@@ -29,6 +35,9 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
   const [status, setStatus] = useState<EnsureStatus | null>(null);
   const [workouts, setWorkouts] = useState<WorkoutMusic[]>(workoutMusicList);
   const [cached, setCached] = useState<ReadonlySet<string>>(new Set());
+  const [failures, setFailures] = useState<Record<string, TrackFailure>>(
+    loadTrackFailures,
+  );
   const [editing, setEditing] = useState<WorkoutMusic | null>(null);
 
   useEffect(() => onEnsureStatus(setStatus), []);
@@ -42,13 +51,14 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
       }
       setWorkouts(list);
       setCached(have);
+      setFailures(loadTrackFailures());
     })();
   }, []);
 
   // Re-check the cache whenever the background composer reports progress.
   useEffect(() => {
     refresh();
-  }, [refresh, status?.ready, status?.running]);
+  }, [refresh, status?.ready, status?.running, status?.error]);
 
   const save = () => {
     saveMusicSettings(settings);
@@ -113,29 +123,44 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
       <div className="section-label">
         Battle tracks · {cached.size}/{workouts.length} ready
       </div>
-      {workouts.map((w) => (
-        <button
-          key={w.key}
-          className="list-item"
-          onClick={() => {
-            setEditing(w);
-          }}
-        >
-          <div>
-            <div className="title">{w.name}</div>
-            <div className="sub">
-              {w.profile.bpm} BPM · {w.profile.style}
-              {w.isCustom ? " · customised" : ""}
-            </div>
+      {workouts.map((w) => {
+        const ready = cached.has(w.key);
+        const failure = ready ? undefined : failures[w.key];
+        return (
+          <div key={w.key}>
+            <button
+              className="list-item"
+              onClick={() => {
+                setEditing(w);
+              }}
+            >
+              <div>
+                <div className="title">{w.name}</div>
+                <div className="sub">
+                  {w.profile.bpm} BPM · {w.profile.style}
+                  {w.isCustom ? " · customised" : ""}
+                </div>
+              </div>
+              <span
+                className={`chip ${ready ? "accent" : failure ? "danger" : ""}`}
+                style={{ flexShrink: 0 }}
+              >
+                {ready ? "Ready" : failure ? "Failed" : "No track"}
+              </span>
+            </button>
+            {failure && (
+              <TrackFailureCard
+                failure={failure}
+                onRetry={() => {
+                  clearTrackFailure(w.key);
+                  refresh();
+                  void ensureAllTracks();
+                }}
+              />
+            )}
           </div>
-          <span
-            className={`chip ${cached.has(w.key) ? "accent" : ""}`}
-            style={{ flexShrink: 0 }}
-          >
-            {cached.has(w.key) ? "Ready" : "No track"}
-          </span>
-        </button>
-      ))}
+        );
+      })}
 
       <ComposerLog />
 
@@ -320,6 +345,37 @@ function ComposerLog() {
   );
 }
 
+/** Why a workout has no track, and the only way back. Once a workout hits
+ * the attempt ceiling the composer stops spending generations on it — that
+ * has to be visible, or the user just sees "No track" forever. */
+function TrackFailureCard({
+  failure,
+  onRetry,
+}: {
+  failure: TrackFailure;
+  onRetry: () => void;
+}) {
+  const capped = failure.attempts >= MAX_FAILED_ATTEMPTS;
+  return (
+    <div
+      className="card"
+      style={{ marginTop: 6, borderColor: "var(--danger)" }}
+    >
+      <ErrorText text={`Failed — ${failure.reason}`} />
+      <div className="faint" style={{ fontSize: 12, marginTop: 6 }}>
+        {failure.attempts} attempt{failure.attempts === 1 ? "" : "s"}, last{" "}
+        {new Date(failure.lastAt).toLocaleString()}.{" "}
+        {capped
+          ? "Automatic retries are paused so it stops costing a generation every time the app opens."
+          : "The composer retries this one on its own in the background."}
+      </div>
+      <button className="btn sm" style={{ marginTop: 10 }} onClick={onRetry}>
+        Retry this track
+      </button>
+    </div>
+  );
+}
+
 function ErrorText({ text }: { text: string }) {
   return (
     <div style={{ color: "var(--danger)", fontSize: 13, fontWeight: 700 }}>
@@ -345,6 +401,7 @@ function WorkoutMusicSheet({
   const [statusMsg, setStatusMsg] = useState("");
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmRegen, setConfirmRegen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -368,8 +425,8 @@ function WorkoutMusicSheet({
   );
 
   const currentProfile = (): MusicProfile | null => {
-    const n = Number(bpm);
-    if (!Number.isFinite(n) || n < 40 || n > 260) {
+    const n = parseDecimal(bpm);
+    if (n === undefined || n < 40 || n > 260) {
       setError("BPM must be a number between 40 and 260.");
       return null;
     }
@@ -399,6 +456,11 @@ function WorkoutMusicSheet({
     }
     saveProfileOverride(workout.key, p);
     setBusy(true);
+    // The delete is load-bearing: leaving the old track cached makes the
+    // background composer prune the new pending task, and generateTrack then
+    // returns the old track as a success — a burned credit with no error.
+    // So the paid track is stashed and restored if the new one never lands.
+    const previous = track;
     try {
       await deleteCachedTrack(workout.key);
       setTrack(null);
@@ -406,6 +468,10 @@ function WorkoutMusicSheet({
         await generateTrack(workout.key, workout.name, p, settings, setStatusMsg),
       );
     } catch (e) {
+      if (previous) {
+        await putCachedTrack(previous);
+        setTrack(previous);
+      }
       setError(e instanceof Error ? e.message : "Track generation failed.");
     } finally {
       setBusy(false);
@@ -474,7 +540,10 @@ function WorkoutMusicSheet({
           <button
             className="btn primary grow"
             onClick={() => {
-              void regenerate();
+              // Validate before asking: a bad BPM should say so, not open a
+              // dialog that promises to spend a generation.
+              setError("");
+              if (currentProfile()) setConfirmRegen(true);
             }}
           >
             <IconMusic /> Regenerate
@@ -513,6 +582,25 @@ function WorkoutMusicSheet({
           </button>
         )}
       </div>
+
+      {confirmRegen && (
+        <ConfirmSheet
+          title="Regenerate track"
+          message={
+            track
+              ? `Compose a new track for "${workout.name}"? That costs one Suno generation and replaces the current track — the current one is kept if the new one fails.`
+              : `Compose a track for "${workout.name}"? That costs one Suno generation.`
+          }
+          confirmLabel="Regenerate"
+          danger={false}
+          onConfirm={() => {
+            void regenerate();
+          }}
+          onClose={() => {
+            setConfirmRegen(false);
+          }}
+        />
+      )}
 
       {confirmDelete && (
         <ConfirmSheet

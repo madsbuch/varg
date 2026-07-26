@@ -93,12 +93,23 @@ const LIB: Record<string, LibraryEntry> = {
       "Absorb the catch straight into the next squat.",
     ],
   },
+  // Two ids, one movement: ex-farmer-carry is the deprecated weight_reps
+  // version. It stays here because devices that seeded before the fix
+  // still hold it, and a missing entry would demonstrate a burpee.
   [EX.farmerCarry]: {
     anim: "carry",
     cues: [
       "Deadlift the handles up — never round over.",
       "Tall posture, ribs stacked, crush grip.",
       "Short fast steps; stop before your grip fails.",
+    ],
+  },
+  [EX.farmerCarryDistance]: {
+    anim: "carry",
+    cues: [
+      "Deadlift the handles up — never round over.",
+      "Tall posture, ribs stacked, crush grip.",
+      "Log the distance you covered before the grip went.",
     ],
   },
   [EX.airSquat]: {
@@ -189,6 +200,30 @@ const LIB: Record<string, LibraryEntry> = {
       "Drive through the front heel into the next step.",
     ],
   },
+  [EX.reverseLunge]: {
+    anim: "reverseLunge",
+    cues: [
+      "Step straight back, torso tall — no forward lean.",
+      "Back knee toward the ground, front shin vertical.",
+      "Push off the back foot to stand; alternate legs.",
+    ],
+  },
+  [EX.kneeLift]: {
+    anim: "kneeLift",
+    cues: [
+      "Stand tall, weight through the whole standing foot.",
+      "Drive one knee above hip height, slow and controlled.",
+      "Lower under control — no swinging, no leaning back.",
+    ],
+  },
+  [EX.armCircles]: {
+    anim: "armCircles",
+    cues: [
+      "Arms straight out to the sides, shoulders down.",
+      "Big slow circles — chest open, ribs stacked.",
+      "Reverse direction halfway through.",
+    ],
+  },
   [EX.burpee]: {
     anim: "burpee",
     cues: [
@@ -203,6 +238,30 @@ const LIB: Record<string, LibraryEntry> = {
       "Load the hips, arms back.",
       "Explode up, land soft and quiet — full foot on the box.",
       "Stand tall on top; step down, don't rebound.",
+    ],
+  },
+  [EX.boxStepUp]: {
+    anim: "boxStepUp",
+    cues: [
+      "Whole foot on the box, knee tracking over the toes.",
+      "Stand up through the top leg — no push off the back foot, no hop.",
+      "Step down under control and alternate the lead leg.",
+    ],
+  },
+  [EX.powerThrow]: {
+    anim: "powerThrow",
+    cues: [
+      "Squat with the ball low, back flat, arms long.",
+      "Explode hips and legs, throw back over the head.",
+      "Score the best of two — log the distance in metres.",
+    ],
+  },
+  [EX.sprintDragCarry]: {
+    anim: "sprintDragCarry",
+    cues: [
+      "Five 50 m lengths: sprint, sled drag, lateral, carry, sprint.",
+      "Stay low on the drag, hips down, short driving steps.",
+      "Log the total time; the distance is always 250 m.",
     ],
   },
   [EX.plank]: {
@@ -233,7 +292,7 @@ const LIB: Record<string, LibraryEntry> = {
     anim: "boxing",
     cues: [
       "Hands up by the cheeks, chin tucked, elbows in.",
-      "Punch straight from the guard and snap it back — don't wind up.",
+      "Punch straight from the guard and snap it back — alternate hands, don't wind up.",
       "Rotate hip and shoulder into every shot; keep the feet moving.",
     ],
   },

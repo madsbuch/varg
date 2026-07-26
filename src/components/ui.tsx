@@ -1,26 +1,66 @@
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useBackHandler } from "../lib/back";
 import { IconClose } from "./icons";
+
+// Every mounted Sheet used to register its own window keydown listener, so
+// one Escape closed a nested picker AND the editor underneath it. Only the
+// top of the stack may respond.
+const sheetStack: object[] = [];
 
 export function Sheet({
   title,
   onClose,
+  dismissOnBackdrop = true,
   children,
 }: {
   title: string;
   onClose: () => void;
+  /** Off for sheets holding an uncommitted draft, e.g. the split editor. */
+  dismissOnBackdrop?: boolean;
   children: ReactNode;
 }) {
+  const token = useRef({});
+
+  // Callers pass `onClose` as an inline arrow, so it is a new function on
+  // every render. Both stacks below are strictly ordered by registration
+  // time, so re-registering on a re-render would hoist a parent sheet above
+  // the picker it opened — one Back would then close the editor instead of
+  // the picker. Read through a ref and register exactly once per mount.
+  const close = useRef(onClose);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => { window.removeEventListener("keydown", onKey); };
+    close.current = onClose;
   }, [onClose]);
 
+  useEffect(() => {
+    const self = token.current;
+    sheetStack.push(self);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (sheetStack[sheetStack.length - 1] !== self) return;
+      close.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      const i = sheetStack.lastIndexOf(self);
+      if (i >= 0) sheetStack.splice(i, 1);
+    };
+  }, []);
+
+  // Android Back closes the sheet rather than the app. The back stack is
+  // last-in-first-out too, so nesting works without extra bookkeeping.
+  const onBack = useCallback(() => {
+    close.current();
+    return true;
+  }, []);
+  useBackHandler(true, onBack);
+
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
+    <div
+      className="sheet-backdrop"
+      onClick={dismissOnBackdrop ? onClose : undefined}
+    >
       <div className="sheet" onClick={(e) => { e.stopPropagation(); }}>
         <div className="sheet-handle" />
         <div className="row" style={{ marginBottom: 14 }}>

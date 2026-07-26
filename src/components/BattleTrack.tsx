@@ -13,9 +13,11 @@ import {
   getCachedTrack,
   loadMusicSettings,
   onEnsureStatus,
+  putCachedTrack,
   type CachedTrack,
   type EnsureStatus,
 } from "../lib/music";
+import { ConfirmSheet } from "./ui";
 
 export function BattleTrack({
   cacheKey,
@@ -30,6 +32,7 @@ export function BattleTrack({
   const [ensure, setEnsure] = useState<EnsureStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [confirmRegen, setConfirmRegen] = useState(false);
   const hasKey = !!loadMusicSettings().apiKey;
 
   useEffect(() => onEnsureStatus(setEnsure), []);
@@ -72,6 +75,11 @@ export function BattleTrack({
     if (!settings.apiKey) return;
     setBusy(true);
     setError("");
+    // The delete has to happen first — with the old track still cached, the
+    // background composer prunes the new pending task and generateTrack
+    // hands back the *old* track as a success: a credit burned in silence.
+    // So the paid track is stashed and put back if the new one never lands.
+    const previous = track;
     try {
       await deleteCachedTrack(cacheKey);
       setTrack(null);
@@ -79,6 +87,10 @@ export function BattleTrack({
         await generateTrack(cacheKey, workoutName, profile, settings, () => undefined),
       );
     } catch (e) {
+      if (previous) {
+        await putCachedTrack(previous);
+        setTrack(previous);
+      }
       setError(e instanceof Error ? e.message : "Track generation failed.");
     } finally {
       setBusy(false);
@@ -175,7 +187,7 @@ export function BattleTrack({
               className="link faint"
               style={{ fontSize: 12, marginTop: 6 }}
               onClick={() => {
-                void regenerate();
+                setConfirmRegen(true);
               }}
             >
               generate a new track
@@ -203,6 +215,21 @@ export function BattleTrack({
         >
           {error}
         </div>
+      )}
+
+      {confirmRegen && (
+        <ConfirmSheet
+          title="Generate a new track"
+          message={`Compose a new battle track for "${workoutName}"? That costs one Suno generation and replaces the current track. The current one is kept if the new one fails.`}
+          confirmLabel="Generate"
+          danger={false}
+          onConfirm={() => {
+            void regenerate();
+          }}
+          onClose={() => {
+            setConfirmRegen(false);
+          }}
+        />
       )}
     </div>
   );

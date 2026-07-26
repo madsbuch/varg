@@ -15,6 +15,7 @@ import {
   upsertSession,
 } from "../lib/store";
 import { seedTemplates } from "../lib/seed";
+import { bestPRFor } from "../lib/prs";
 import { musicProfileFor } from "../lib/music";
 import { scrollContentTop } from "../lib/scroll";
 import { BattleTrack } from "../components/BattleTrack";
@@ -37,6 +38,7 @@ import {
   formatSeconds,
   kmFromMeters,
   metersFromKm,
+  parseDecimal,
   parseTime,
   roundW,
 } from "../lib/units";
@@ -259,6 +261,19 @@ const WOD_PRESETS = [
   { label: "20/10 × 3", work: 20, rest: 10, rounds: 3 },
 ];
 
+/**
+ * Ceiling on stations × rounds. The player materialises two step objects
+ * per interval, so a pasted 10⁶ builds millions of them and stalls the
+ * first paint. 500 intervals is hours of clock time — far past any real
+ * circuit, but nothing a fat finger reaches (45 rounds still fits).
+ */
+const MAX_WOD_INTERVALS = 500;
+
+/** Flags a field whose text isn't a number, so the fallback isn't silent. */
+function badNum(s: string): string | undefined {
+  return s.trim() !== "" && parseDecimal(s) === undefined ? "invalid" : undefined;
+}
+
 function WodConfigSheet({
   onStart,
   onClose,
@@ -271,18 +286,20 @@ function WodConfigSheet({
   const [rest, setRest] = useState("30");
   const [rounds, setRounds] = useState("4");
   const [picking, setPicking] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
 
   const num = (s: string, fallback: number) => {
-    const n = Number(s);
-    return Number.isFinite(n) && n > 0 ? Math.round(n) : fallback;
+    const n = parseDecimal(s);
+    return n != null && n > 0 ? Math.round(n) : fallback;
   };
 
   const plan = {
     work: num(work, 30),
-    rest: Math.max(0, Number(rest) || 0),
+    rest: Math.max(0, Math.round(parseDecimal(rest) ?? 0)),
     rounds: num(rounds, 4),
   };
   const duration = intervalSeconds(exercises.length, plan);
+  const intervals = exercises.length * plan.rounds;
 
   const move = (from: number, delta: number) => {
     setExercises((list) => {
@@ -297,6 +314,17 @@ function WodConfigSheet({
 
   const start = () => {
     if (exercises.length === 0) return;
+    // Say no out loud rather than clamping: a silently shortened circuit is
+    // a different workout, and the athlete never asked for it.
+    if (intervals > MAX_WOD_INTERVALS) {
+      setStartError(
+        `${String(exercises.length)} stations × ${String(plan.rounds)} rounds ` +
+          `is ${String(intervals)} intervals. Varg tops out at ` +
+          `${String(MAX_WOD_INTERVALS)} — split a circuit this long into ` +
+          `several WODs.`,
+      );
+      return;
+    }
     unlockAudio(); // must happen inside the tap gesture
     onStart({ exercises, ...plan });
   };
@@ -321,13 +349,13 @@ function WodConfigSheet({
 
       <div className="btn-row" style={{ marginTop: 12 }}>
         <Field label="Work (s)">
-          <input inputMode="numeric" value={work} onChange={(e) => { setWork(e.target.value); }} />
+          <input className={badNum(work)} inputMode="numeric" value={work} onChange={(e) => { setWork(e.target.value); }} />
         </Field>
         <Field label="Rest (s)">
-          <input inputMode="numeric" value={rest} onChange={(e) => { setRest(e.target.value); }} />
+          <input className={badNum(rest)} inputMode="numeric" value={rest} onChange={(e) => { setRest(e.target.value); }} />
         </Field>
         <Field label="Rounds">
-          <input inputMode="numeric" value={rounds} onChange={(e) => { setRounds(e.target.value); }} />
+          <input className={badNum(rounds)} inputMode="numeric" value={rounds} onChange={(e) => { setRounds(e.target.value); }} />
         </Field>
       </div>
 
@@ -407,6 +435,14 @@ function WodConfigSheet({
           }}
           onClose={() => { setPicking(false); }}
         />
+      )}
+      {startError && (
+        <Sheet title="Can't start" onClose={() => { setStartError(null); }}>
+          <p className="muted" style={{ marginTop: 0 }}>{startError}</p>
+          <button className="btn" onClick={() => { setStartError(null); }}>
+            OK
+          </button>
+        </Sheet>
       )}
     </Sheet>
   );
@@ -520,6 +556,7 @@ function ActiveSession({ session }: { session: Session }) {
   const [picking, setPicking] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmEmptyFinish, setConfirmEmptyFinish] = useState(false);
+  const [confirmUnchecked, setConfirmUnchecked] = useState(false);
   const exById = useMemo(
     () => new Map(data.exercises.map((e) => [e.id, e])),
     [data.exercises],
@@ -549,21 +586,37 @@ function ActiveSession({ session }: { session: Session }) {
     0,
   );
 
-  /** Finish: any set with data counts — mark them done, then close out. */
+  const uncheckedWithData = session.entries.reduce(
+    (a, e) => a + e.sets.filter((s) => !s.done && setHasData(s)).length,
+    0,
+  );
+
   const finish = () => {
     if (filledSets === 0) {
       setConfirmEmptyFinish(true);
       return;
     }
-    doFinish();
+    // A set with data but no tick is how you record a missed attempt, so
+    // ask before promoting them — never assume.
+    if (uncheckedWithData > 0) {
+      setConfirmUnchecked(true);
+      return;
+    }
+    doFinish(false);
   };
 
-  const doFinish = () => {
+  /**
+   * Close out. The checkbox is the only gate on PR detection, so finishing
+   * must not touch `done` unless the athlete explicitly asked for it.
+   */
+  const doFinish = (markUnchecked: boolean) => {
     update((d) => {
       const s = structuredClone(session);
-      for (const entry of s.entries) {
-        for (const set of entry.sets) {
-          if (setHasData(set)) set.done = true;
+      if (markUnchecked) {
+        for (const entry of s.entries) {
+          for (const set of entry.sets) {
+            if (setHasData(set)) set.done = true;
+          }
         }
       }
       s.finishedAt = new Date().toISOString();
@@ -671,9 +724,45 @@ function ActiveSession({ session }: { session: Session }) {
           message="No sets have any data. Finish anyway?"
           confirmLabel="Finish"
           danger={false}
-          onConfirm={doFinish}
+          onConfirm={() => { doFinish(false); }}
           onClose={() => { setConfirmEmptyFinish(false); }}
         />
+      )}
+      {confirmUnchecked && (
+        // Two outcomes, so this can't be a ConfirmSheet: dismissing must
+        // return to the session, not silently finish it — a finished
+        // session can no longer be edited.
+        <Sheet
+          title="Unchecked sets"
+          onClose={() => { setConfirmUnchecked(false); }}
+        >
+          <p className="muted" style={{ marginTop: 0 }}>
+            {uncheckedWithData} set{uncheckedWithData === 1 ? " has" : "s have"}{" "}
+            data but {uncheckedWithData === 1 ? "is" : "are"} not ticked.
+            Unticked sets count as failed attempts — they stay out of your
+            records.
+          </p>
+          <div className="btn-row" style={{ marginTop: 16 }}>
+            <button
+              className="btn ghost"
+              onClick={() => {
+                setConfirmUnchecked(false);
+                doFinish(false);
+              }}
+            >
+              Finish as-is
+            </button>
+            <button
+              className="btn primary"
+              onClick={() => {
+                setConfirmUnchecked(false);
+                doFinish(true);
+              }}
+            >
+              Mark them done
+            </button>
+          </div>
+        </Sheet>
       )}
     </div>
   );
@@ -697,10 +786,10 @@ function bestOneRm(
   data: ReturnType<typeof useApp>["data"],
   exerciseId: string,
 ): number {
-  const pr = data.prs.find(
-    (p) => p.exerciseId === exerciseId && p.kind === "1rm",
-  );
-  return pr?.value ?? 0;
+  // The standing record, not the first match: manual PRs used to be stored
+  // ahead of the computed ones, so .find() let a single low manual entry
+  // shadow the real best and flag every working set as "on pace".
+  return bestPRFor(data.prs, exerciseId, "1rm")?.value ?? 0;
 }
 
 function EntryCard({
@@ -717,6 +806,9 @@ function EntryCard({
   onRemove: () => void;
 }) {
   const cols = columnsFor(exercise.metric);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [confirmRemoveSet, setConfirmRemoveSet] = useState<string | null>(null);
+  const logged = entry.sets.filter(setHasData).length;
 
   const setField = (setId: string, field: Partial<WorkoutSet>) =>
     { onChange((e) => {
@@ -724,11 +816,11 @@ function EntryCard({
       return e;
     }); };
 
+  // Shape only. The previous set's numbers show up as placeholders instead,
+  // so a failed attempt can't inherit the last good lift and be logged.
   const addSet = () =>
     { onChange((e) => {
-      const last = e.sets[e.sets.length - 1];
-      const seed = last ? { ...last, id: emptySet().id, done: false } : emptySet();
-      e.sets = [...e.sets, seed];
+      e.sets = [...e.sets, emptySet()];
       return e;
     }); };
 
@@ -737,6 +829,11 @@ function EntryCard({
       e.sets = e.sets.filter((s) => s.id !== setId);
       return e;
     }); };
+
+  const askRemoveSet = (s: WorkoutSet) => {
+    if (setHasData(s)) setConfirmRemoveSet(s.id);
+    else removeSet(s.id);
+  };
 
   return (
     <div className="card" style={{ marginBottom: 12 }}>
@@ -747,7 +844,16 @@ function EntryCard({
             {exercise.category}
           </div>
         </div>
-        <button className="check" onClick={onRemove} aria-label="Remove">
+        {/* One tap to prune a station you're skipping; confirm once it
+            holds logged work — deleting an entry drops its sets for good. */}
+        <button
+          className="check"
+          onClick={() => {
+            if (logged > 0) setConfirmRemove(true);
+            else onRemove();
+          }}
+          aria-label="Remove"
+        >
           <IconTrash />
         </button>
       </div>
@@ -764,6 +870,7 @@ function EntryCard({
           <span></span>
         </div>
         {entry.sets.map((s, i) => {
+          const prev = entry.sets[i - 1];
           const isPr =
             exercise.metric === "weight_reps" &&
             s.weight != null &&
@@ -778,14 +885,20 @@ function EntryCard({
               style={{ gridTemplateColumns: gridTemplate(cols.length) }}
             >
               <div className="set-idx">{i + 1}</div>
-              {cols.map((c) => (
-                <NumInput
-                  key={c.key}
-                  initial={c.get(s)}
-                  placeholder={c.placeholder}
-                  onChange={(v) => { setField(s.id, c.set(v)); }}
-                />
-              ))}
+              {cols.map((c) => {
+                // The set above is a hint, not a value: it greys out and is
+                // never logged unless the athlete types it.
+                const hint = prev ? c.get(prev) : "";
+                return (
+                  <NumInput
+                    key={c.key}
+                    initial={c.get(s)}
+                    placeholder={hint === "" ? c.placeholder : hint}
+                    isTime={c.isTime ?? false}
+                    onChange={(v) => { setField(s.id, c.set(v)); }}
+                  />
+                );
+              })}
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <button
                   className={`check ${s.done ? "on" : ""}`}
@@ -805,7 +918,7 @@ function EntryCard({
                   <button
                     className="link faint"
                     style={{ fontSize: 12 }}
-                    onClick={() => { removeSet(s.id); }}
+                    onClick={() => { askRemoveSet(s); }}
                   >
                     remove set
                   </button>
@@ -819,6 +932,28 @@ function EntryCard({
       <button className="btn sm ghost" style={{ marginTop: 8 }} onClick={addSet}>
         <IconPlus /> Add set
       </button>
+
+      {confirmRemove && (
+        <ConfirmSheet
+          title="Remove exercise"
+          message={
+            `Remove ${exercise.name}? Its ${String(logged)} logged ` +
+            `${logged === 1 ? "set" : "sets"} will be deleted.`
+          }
+          confirmLabel="Remove"
+          onConfirm={onRemove}
+          onClose={() => { setConfirmRemove(false); }}
+        />
+      )}
+      {confirmRemoveSet != null && (
+        <ConfirmSheet
+          title="Remove set"
+          message="This set has data. Delete it?"
+          confirmLabel="Remove"
+          onConfirm={() => { removeSet(confirmRemoveSet); }}
+          onClose={() => { setConfirmRemoveSet(null); }}
+        />
+      )}
     </div>
   );
 }
@@ -829,6 +964,8 @@ interface Col {
   key: string;
   label: string;
   placeholder: string;
+  /** Takes mm:ss rather than a decimal. */
+  isTime?: boolean;
   get: (s: WorkoutSet) => string;
   set: (v: number | undefined) => Partial<WorkoutSet>;
 }
@@ -861,6 +998,7 @@ const timeCol: Col = {
   key: "t",
   label: "time",
   placeholder: "mm:ss",
+  isTime: true,
   get: (s) => {
     if (s.seconds == null) return "";
     const m = Math.floor(s.seconds / 60);
@@ -891,33 +1029,39 @@ function gridTemplate(numCols: number): string {
 /**
  * Numeric/text input with its own string buffer so partial entries
  * (e.g. "2." or "1:0") don't fight React's controlled value.
+ *
+ * Text that doesn't parse leaves the stored value alone and turns the
+ * field red. Writing undefined instead erased the number the athlete was
+ * looking at — the buffer keeps rendering, so nothing said it was gone.
  */
 function NumInput({
   initial,
   placeholder,
+  isTime,
   onChange,
 }: {
   initial: string;
   placeholder: string;
+  isTime: boolean;
   onChange: (v: number | undefined) => void;
 }) {
   const [text, setText] = useState(initial);
-  const isTime = placeholder === "mm:ss" || placeholder === "time";
+  const parse = isTime ? parseTime : parseDecimal;
+  // "1:" is halfway to "1:30", not a mistake — judge a settled buffer only.
+  const invalid =
+    text.trim() !== "" && !/[.,:]$/.test(text) && parse(text) === undefined;
 
   return (
     <input
+      className={invalid ? "invalid" : undefined}
       inputMode={isTime ? "text" : "decimal"}
       placeholder={placeholder}
       value={text}
       onChange={(e) => {
         const t = e.target.value;
         setText(t);
-        if (isTime) {
-          onChange(parseTime(t));
-        } else {
-          const n = t.trim() === "" ? undefined : Number(t);
-          onChange(n != null && Number.isFinite(n) ? n : undefined);
-        }
+        const v = parse(t);
+        if (v !== undefined || t.trim() === "") onChange(v);
       }}
     />
   );

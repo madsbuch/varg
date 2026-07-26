@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import type { Exercise, PersonalRecord, PRKind } from "../types";
 import { useApp } from "../lib/app-context";
 import { addManualPR, deletePR, uid } from "../lib/store";
-import { prKindLabel, prKindsFor } from "../lib/prs";
+import type { PRRow } from "../lib/prs";
+import { collapsePRs, prKindLabel, prKindsFor } from "../lib/prs";
 import { ConfirmSheet, Field, Sheet } from "../components/ui";
 import { IconPlus, IconTrash, IconTrophy } from "../components/icons";
 import {
@@ -10,6 +11,7 @@ import {
   formatSeconds,
   kmFromMeters,
   metersFromKm,
+  parseDecimal,
   parseTime,
   roundW,
 } from "../lib/units";
@@ -32,23 +34,28 @@ export default function Records() {
   const { data } = useApp();
   const [adding, setAdding] = useState(false);
 
+  // One row per (exercise, kind) — the stored list can hold an auto record and
+  // a manual one for the same lift, and showing both reads as two conflicting
+  // answers to the same question.
   const grouped = useMemo(() => {
     const exById = new Map(data.exercises.map((e) => [e.id, e]));
-    const byExercise = new Map<string, PersonalRecord[]>();
-    for (const pr of data.prs) {
-      if (!exById.has(pr.exerciseId)) continue;
-      const arr = byExercise.get(pr.exerciseId) ?? [];
-      arr.push(pr);
-      byExercise.set(pr.exerciseId, arr);
+    const byExercise = new Map<string, PRRow[]>();
+    for (const row of collapsePRs(data.prs)) {
+      if (!exById.has(row.exerciseId)) continue;
+      const arr = byExercise.get(row.exerciseId) ?? [];
+      arr.push(row);
+      byExercise.set(row.exerciseId, arr);
     }
     return [...byExercise.entries()]
-      .flatMap(([exId, prs]) => {
+      .flatMap(([exId, rows]) => {
         const exercise = exById.get(exId);
         if (!exercise) return [];
-        return [{ exercise, prs: prs.sort((a, b) => a.kind.localeCompare(b.kind)) }];
+        return [{ exercise, rows: rows.sort((a, b) => a.kind.localeCompare(b.kind)) }];
       })
       .sort((a, b) => a.exercise.name.localeCompare(b.exercise.name));
   }, [data.prs, data.exercises]);
+
+  const recordCount = grouped.reduce((n, g) => n + g.rows.length, 0);
 
   return (
     <div className="screen">
@@ -60,7 +67,7 @@ export default function Records() {
       </button>
 
       <div className="section-label">
-        {data.prs.length} record{data.prs.length === 1 ? "" : "s"}
+        {recordCount} record{recordCount === 1 ? "" : "s"}
       </div>
 
       {grouped.length === 0 ? (
@@ -74,8 +81,8 @@ export default function Records() {
           </div>
         </div>
       ) : (
-        grouped.map(({ exercise, prs }) => (
-          <PRGroup key={exercise.id} exercise={exercise} prs={prs} />
+        grouped.map(({ exercise, rows }) => (
+          <PRGroup key={exercise.id} exercise={exercise} rows={rows} />
         ))
       )}
 
@@ -86,10 +93,10 @@ export default function Records() {
 
 function PRGroup({
   exercise,
-  prs,
+  rows,
 }: {
   exercise: Exercise;
-  prs: PersonalRecord[];
+  rows: PRRow[];
 }) {
   const { update } = useApp();
   const [deleting, setDeleting] = useState<PersonalRecord | null>(null);
@@ -99,26 +106,49 @@ function PRGroup({
         <h3 style={{ fontSize: 17 }}>{exercise.name}</h3>
       </div>
       <div style={{ marginTop: 8 }}>
-        {prs.map((pr) => (
-          <div key={pr.id} className="row" style={{ padding: "8px 0" }}>
-            <div>
-              <div style={{ fontWeight: 700, color: "var(--gold)" }}>
-                {formatPR(pr)}
+        {rows.map(({ kind, best, superseded }) => (
+          <div key={`${best.exerciseId}:${kind}`}>
+            <div className="row" style={{ padding: "8px 0" }}>
+              <div>
+                <div style={{ fontWeight: 700, color: "var(--gold)" }}>
+                  {formatPR(best)}
+                </div>
+                <div className="faint" style={{ fontSize: 12 }}>
+                  {prKindLabel(best.kind)} · {formatDate(best.date)}
+                  {best.manual ? " · manual" : ""}
+                </div>
               </div>
-              <div className="faint" style={{ fontSize: 12 }}>
-                {prKindLabel(pr.kind)} · {formatDate(pr.date)}
-                {pr.manual ? " · manual" : ""}
-              </div>
+              {best.manual && (
+                <button
+                  className="check"
+                  aria-label="Delete PR"
+                  onClick={() => { setDeleting(best); }}
+                >
+                  <IconTrash />
+                </button>
+              )}
             </div>
-            {pr.manual && (
-              <button
-                className="check"
-                aria-label="Delete PR"
-                onClick={() => { setDeleting(pr); }}
+            {/* A manual entry the logged sets beat. Shown rather than dropped:
+                it may be a deliberate correction of an inflated 1RM estimate,
+                and deleting it has to be the athlete's call. */}
+            {superseded.map((pr) => (
+              <div
+                key={pr.id}
+                className="row"
+                style={{ padding: "0 0 8px 10px" }}
               >
-                <IconTrash />
-              </button>
-            )}
+                <div className="faint" style={{ fontSize: 12 }}>
+                  {formatPR(pr)} · manual, {formatDate(pr.date)} · superseded
+                </div>
+                <button
+                  className="check"
+                  aria-label="Delete superseded PR"
+                  onClick={() => { setDeleting(pr); }}
+                >
+                  <IconTrash />
+                </button>
+              </div>
+            ))}
           </div>
         ))}
       </div>
@@ -145,6 +175,16 @@ function AddPRSheet({ onClose }: { onClose: () => void }) {
   const [kind, setKind] = useState<PRKind>(kinds[0] ?? "1rm");
   const [value, setValue] = useState("");
   const [reps, setReps] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const valuePlaceholder =
+    kind === "time"
+      ? "mm:ss"
+      : kind === "distance"
+        ? "km"
+        : kind === "reps"
+          ? "reps"
+          : "kg";
 
   const onExerciseChange = (id: string) => {
     setExerciseId(id);
@@ -159,33 +199,38 @@ function AddPRSheet({ onClose }: { onClose: () => void }) {
     if (kind === "time") {
       canonical = parseTime(value);
     } else {
-      const n = Number(value);
-      if (!Number.isFinite(n) || n <= 0) return;
-      canonical = kind === "distance" ? metersFromKm(n) : n;
+      // A Danish keypad puts "," on the decimal key. Number("102,5") is NaN,
+      // which used to make this button a silent no-op.
+      const n = parseDecimal(value);
+      if (n != null) canonical = kind === "distance" ? metersFromKm(n) : n;
     }
-    if (canonical == null || canonical <= 0) return;
+    if (canonical == null || canonical <= 0) {
+      setError(
+        kind === "time"
+          ? "Enter a time as mm:ss."
+          : `Enter a ${valuePlaceholder} value above zero.`,
+      );
+      return;
+    }
+
+    const repCount = parseDecimal(reps);
+    if (reps.trim() !== "" && (repCount == null || repCount <= 0)) {
+      setError("Reps must be a number above zero, or left blank.");
+      return;
+    }
 
     const pr: PersonalRecord = {
       id: uid("pr"),
       exerciseId: exercise.id,
       kind,
       value: canonical,
-      reps: reps ? Number(reps) : undefined,
+      reps: repCount != null ? Math.round(repCount) : undefined,
       date: new Date().toISOString(),
       manual: true,
     };
     update((d) => addManualPR(d, pr));
     onClose();
   };
-
-  const valuePlaceholder =
-    kind === "time"
-      ? "mm:ss"
-      : kind === "distance"
-        ? "km"
-        : kind === "reps"
-          ? "reps"
-          : "kg";
 
   return (
     <Sheet title="Log a PR" onClose={onClose}>
@@ -206,7 +251,13 @@ function AddPRSheet({ onClose }: { onClose: () => void }) {
 
       {kinds.length > 1 && (
         <Field label="Record type">
-          <select value={kind} onChange={(e) => { setKind(e.target.value as PRKind); }}>
+          <select
+            value={kind}
+            onChange={(e) => {
+              setKind(e.target.value as PRKind);
+              setError(null);
+            }}
+          >
             {kinds.map((k) => (
               <option key={k} value={k}>
                 {prKindLabel(k)}
@@ -222,7 +273,7 @@ function AddPRSheet({ onClose }: { onClose: () => void }) {
           inputMode={kind === "time" ? "text" : "decimal"}
           value={value}
           placeholder={valuePlaceholder}
-          onChange={(e) => { setValue(e.target.value); }}
+          onChange={(e) => { setValue(e.target.value); setError(null); }}
         />
       </Field>
 
@@ -232,9 +283,15 @@ function AddPRSheet({ onClose }: { onClose: () => void }) {
             inputMode="numeric"
             value={reps}
             placeholder="e.g. 5"
-            onChange={(e) => { setReps(e.target.value); }}
+            onChange={(e) => { setReps(e.target.value); setError(null); }}
           />
         </Field>
+      )}
+
+      {error && (
+        <p style={{ color: "var(--danger)", fontSize: 13, margin: "4px 0 0" }}>
+          {error}
+        </p>
       )}
 
       <button className="btn primary" style={{ marginTop: 8 }} onClick={submit}>
