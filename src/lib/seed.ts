@@ -79,16 +79,39 @@ export function seedExercises(): Exercise[] {
   ): Exercise => ({ id, name, category, metric, muscles, builtIn: true });
 
   return [
-    e(EX.backSquat, "Back Squat", "strength", "weight_reps", ["quads", "glutes"]),
-    e(EX.frontSquat, "Front Squat", "strength", "weight_reps", ["quads", "core"]),
-    e(EX.deadlift, "Deadlift", "strength", "weight_reps", ["posterior chain", "back"]),
-    e(EX.benchPress, "Bench Press", "strength", "weight_reps", ["chest", "triceps"]),
-    e(EX.overheadPress, "Overhead Press", "strength", "weight_reps", ["shoulders", "triceps"]),
-    e(EX.barbellRow, "Barbell Row", "strength", "weight_reps", ["back", "biceps"]),
+    e(EX.backSquat, "Back Squat", "strength", "weight_reps", [
+      "quads",
+      "glutes",
+    ]),
+    e(EX.frontSquat, "Front Squat", "strength", "weight_reps", [
+      "quads",
+      "core",
+    ]),
+    e(EX.deadlift, "Deadlift", "strength", "weight_reps", [
+      "posterior chain",
+      "back",
+    ]),
+    e(EX.benchPress, "Bench Press", "strength", "weight_reps", [
+      "chest",
+      "triceps",
+    ]),
+    e(EX.overheadPress, "Overhead Press", "strength", "weight_reps", [
+      "shoulders",
+      "triceps",
+    ]),
+    e(EX.barbellRow, "Barbell Row", "strength", "weight_reps", [
+      "back",
+      "biceps",
+    ]),
     e(EX.powerClean, "Power Clean", "strength", "weight_reps", ["full body"]),
     e(EX.thruster, "Thruster", "conditioning", "weight_reps", ["full body"]),
-    e(EX.kettlebellSwing, "Kettlebell Swing", "conditioning", "weight_reps", ["posterior chain"]),
-    e(EX.wallBall, "Wall Ball", "conditioning", "weight_reps", ["legs", "shoulders"]),
+    e(EX.kettlebellSwing, "Kettlebell Swing", "conditioning", "weight_reps", [
+      "posterior chain",
+    ]),
+    e(EX.wallBall, "Wall Ball", "conditioning", "weight_reps", [
+      "legs",
+      "shoulders",
+    ]),
     // A carry is a distance under load, not a set of reps. The original
     // ex-farmer-carry is weight_reps: it asked for a rep count on a walk,
     // offered no distance field, and minted an Est. 1RM from whatever
@@ -100,7 +123,13 @@ export function seedExercises(): Exercise[] {
     // splits repointed. The old id keeps its library.ts entry so existing
     // history and personal records still resolve to the right movement,
     // and it is left out of this list so no fresh install offers both.
-    e(EX.farmerCarryDistance, "Farmer's Carry", "conditioning", "distance_time", ["grip", "core"]),
+    e(
+      EX.farmerCarryDistance,
+      "Farmer's Carry",
+      "conditioning",
+      "distance_time",
+      ["grip", "core"],
+    ),
     e(EX.airSquat, "Air Squat", "bodyweight", "reps", ["quads", "glutes"]),
     e(EX.pullUp, "Pull-up", "bodyweight", "reps", ["back", "biceps"]),
     e(EX.chinUp, "Chin-up", "bodyweight", "reps", ["back", "biceps"]),
@@ -112,9 +141,19 @@ export function seedExercises(): Exercise[] {
     e(EX.flutterKick, "Flutter Kick", "core", "reps", ["core"]),
     e(EX.hangingLegRaise, "Hanging Leg Raise", "core", "reps", ["core"]),
     e(EX.lunge, "Walking Lunge", "bodyweight", "reps", ["quads", "glutes"]),
-    e(EX.reverseLunge, "Reverse Lunge", "bodyweight", "reps", ["quads", "glutes", "hip flexors"]),
-    e(EX.kneeLift, "Standing Knee Lift", "bodyweight", "reps", ["hip flexors", "core"]),
-    e(EX.armCircles, "Arm Circles", "bodyweight", "time", ["shoulders", "upper back"]),
+    e(EX.reverseLunge, "Reverse Lunge", "bodyweight", "reps", [
+      "quads",
+      "glutes",
+      "hip flexors",
+    ]),
+    e(EX.kneeLift, "Standing Knee Lift", "bodyweight", "reps", [
+      "hip flexors",
+      "core",
+    ]),
+    e(EX.armCircles, "Arm Circles", "bodyweight", "time", [
+      "shoulders",
+      "upper back",
+    ]),
     e(EX.burpee, "Burpee", "conditioning", "reps", ["full body"]),
     e(EX.boxJump, "Box Jump", "conditioning", "reps", ["legs"]),
     e(EX.boxStepUp, "Box Step-up", "conditioning", "reps", ["legs", "glutes"]),
@@ -122,15 +161,28 @@ export function seedExercises(): Exercise[] {
     // the 250 m shuttle's clock time. They are distance_time and not time
     // because a "time" PR is a maximum (prs.ts) — for a for-time event
     // that would record the athlete's worst run as their record.
-    e(EX.powerThrow, "Standing Power Throw", "conditioning", "distance_time", ["full body"]),
-    e(EX.sprintDragCarry, "Sprint-Drag-Carry", "conditioning", "distance_time", ["full body"]),
+    e(EX.powerThrow, "Standing Power Throw", "conditioning", "distance_time", [
+      "full body",
+    ]),
+    e(
+      EX.sprintDragCarry,
+      "Sprint-Drag-Carry",
+      "conditioning",
+      "distance_time",
+      ["full body"],
+    ),
     e(EX.plank, "Plank", "core", "time", ["core"]),
     e(EX.run, "Run", "cardio", "distance_time", ["conditioning"]),
     e(EX.runInPlace, "Run on the Spot", "cardio", "time", ["conditioning"]),
-    e(EX.airBoxing, "Air Boxing", "cardio", "time", ["conditioning", "shoulders"]),
+    e(EX.airBoxing, "Air Boxing", "cardio", "time", [
+      "conditioning",
+      "shoulders",
+    ]),
     e(EX.ruck, "Ruck March", "ruck", "distance_time", ["conditioning", "legs"]),
     e(EX.row, "Row (Erg)", "cardio", "distance_time", ["conditioning"]),
-    e(EX.assaultBike, "Assault Bike", "cardio", "distance_time", ["conditioning"]),
+    e(EX.assaultBike, "Assault Bike", "cardio", "distance_time", [
+      "conditioning",
+    ]),
   ];
 }
 
@@ -142,9 +194,21 @@ export function seedSplits(): Split[] {
       description: "Classic 3-day hypertrophy + strength rotation.",
       builtIn: true,
       days: [
-        { id: "ppl-push", name: "Push", exerciseIds: [EX.benchPress, EX.overheadPress, EX.dip, EX.pushUp] },
-        { id: "ppl-pull", name: "Pull", exerciseIds: [EX.deadlift, EX.barbellRow, EX.pullUp, EX.chinUp] },
-        { id: "ppl-legs", name: "Legs", exerciseIds: [EX.backSquat, EX.frontSquat, EX.lunge, EX.boxJump] },
+        {
+          id: "ppl-push",
+          name: "Push",
+          exerciseIds: [EX.benchPress, EX.overheadPress, EX.dip, EX.pushUp],
+        },
+        {
+          id: "ppl-pull",
+          name: "Pull",
+          exerciseIds: [EX.deadlift, EX.barbellRow, EX.pullUp, EX.chinUp],
+        },
+        {
+          id: "ppl-legs",
+          name: "Legs",
+          exerciseIds: [EX.backSquat, EX.frontSquat, EX.lunge, EX.boxJump],
+        },
       ],
     },
     {
@@ -153,8 +217,21 @@ export function seedSplits(): Split[] {
       description: "4-day strength split.",
       builtIn: true,
       days: [
-        { id: "ul-upper", name: "Upper", exerciseIds: [EX.benchPress, EX.barbellRow, EX.overheadPress, EX.pullUp] },
-        { id: "ul-lower", name: "Lower", exerciseIds: [EX.backSquat, EX.deadlift, EX.lunge, EX.plank] },
+        {
+          id: "ul-upper",
+          name: "Upper",
+          exerciseIds: [
+            EX.benchPress,
+            EX.barbellRow,
+            EX.overheadPress,
+            EX.pullUp,
+          ],
+        },
+        {
+          id: "ul-lower",
+          name: "Lower",
+          exerciseIds: [EX.backSquat, EX.deadlift, EX.lunge, EX.plank],
+        },
       ],
     },
     {
@@ -163,9 +240,21 @@ export function seedSplits(): Split[] {
       description: "Bodyweight + conditioning for field readiness.",
       builtIn: true,
       days: [
-        { id: "pt-strength", name: "Strength Base", exerciseIds: [EX.backSquat, EX.deadlift, EX.overheadPress, EX.pullUp] },
-        { id: "pt-grind", name: "Grinder", exerciseIds: [EX.burpee, EX.pushUp, EX.sitUp, EX.flutterKick] },
-        { id: "pt-ruck", name: "Ruck Day", exerciseIds: [EX.ruck, EX.farmerCarryDistance, EX.plank] },
+        {
+          id: "pt-strength",
+          name: "Strength Base",
+          exerciseIds: [EX.backSquat, EX.deadlift, EX.overheadPress, EX.pullUp],
+        },
+        {
+          id: "pt-grind",
+          name: "Grinder",
+          exerciseIds: [EX.burpee, EX.pushUp, EX.sitUp, EX.flutterKick],
+        },
+        {
+          id: "pt-ruck",
+          name: "Ruck Day",
+          exerciseIds: [EX.ruck, EX.farmerCarryDistance, EX.plank],
+        },
       ],
     },
   ];
@@ -217,29 +306,28 @@ export function seedTemplates(): Template[] {
         "only — nothing goes on the tarmac. Opens the hips the seat closed " +
         "down, unlocks the shoulders, moves blood without soaking your shirt " +
         "for the next leg.",
-      // No round length here either. Rounds 1 and 2 are 3:00, but the player
-      // drops the trailing rest so round 3 is 2:50 — and the card already
-      // shows the real total. See the note on tpl-varg-18.
-      scheme: "3 rounds · 6 stations · 20 s work / 10 s rest",
-      // Ordered for a body that has just been folded into a car seat: start
-      // with the shoulders while everything is still cold, alternate lower
-      // and upper, and put the two hip-openers where the legs are warm.
+      scheme: "3 rounds · 6 stations · 15 s work, no rest — 90 s a round",
+      // Legs first: the seat closed the hips down, so the heavy lower-body
+      // work goes in while there is still patience for it, then the hip
+      // flexors and the cardio, and the shoulders close each round out.
       // Nothing here needs a floor, a wall or more than a parking space.
       exerciseIds: [
-        EX.armCircles,
         EX.airSquat,
-        EX.runInPlace,
-        EX.kneeLift,
         EX.reverseLunge,
+        EX.kneeLift,
+        EX.runInPlace,
+        EX.armCircles,
         EX.airBoxing,
       ],
-      interval: { work: 20, rest: 10, rounds: 3 },
+      // No rest: fifteen seconds a station is short enough to run straight
+      // through, and the station change is the breather.
+      interval: { work: 15, rest: 0, rounds: 3 },
       music: {
         bpm: 140,
         style:
           "motorik krautrock, hypnotic driving rhythm, analog synth, no vocals",
         theme:
-          "Nine minutes at a roadside stop — shake the highway out of the legs and get back on the road",
+          "Four and a half minutes at a roadside stop, no pauses — shake the highway out of the legs and get back on the road",
       },
     },
     {
@@ -300,7 +388,8 @@ export function seedTemplates(): Template[] {
       branch: "CrossFit Hero WOD",
       description:
         "In memory of Lt. Michael Murphy. Traditionally done wearing a 9 kg vest.",
-      scheme: "1.6 km run · 100 pull-ups · 200 push-ups · 300 air squats · 1.6 km run — for time",
+      scheme:
+        "1.6 km run · 100 pull-ups · 200 push-ups · 300 air squats · 1.6 km run — for time",
       exerciseIds: [EX.run, EX.pullUp, EX.pushUp, EX.airSquat, EX.run],
       music: {
         bpm: 175,
@@ -312,14 +401,16 @@ export function seedTemplates(): Template[] {
       id: "tpl-acft",
       name: "ACFT (Army Combat Fitness Test)",
       branch: "U.S. Army",
-      description: "Six-event test of combat readiness. Log each event's score.",
+      description:
+        "Six-event test of combat readiness. Log each event's score.",
       // Six events named, six cards logged. The power throw and the
       // sprint-drag-carry had no exercise anywhere in the repo, so the
       // session showed four cards under a note promising six; they are
       // seeded rather than dropped from the text, because a service test
       // you can only log two thirds of is not the test. (The 2025 Army
       // Fitness Test retires the power throw — this template is the ACFT.)
-      scheme: "3-rep deadlift · power throw · hand-release push-ups · sprint-drag-carry · plank · 3.2 km run",
+      scheme:
+        "3-rep deadlift · power throw · hand-release push-ups · sprint-drag-carry · plank · 3.2 km run",
       exerciseIds: [
         EX.deadlift,
         EX.powerThrow,
@@ -400,7 +491,8 @@ export function seedTemplates(): Template[] {
       name: "DT",
       branch: "CrossFit Hero WOD",
       description: "In memory of USAF SSgt Timothy Davis.",
-      scheme: "5 rounds: 12 deadlifts · 9 hang power cleans · 6 push press @ 70/48 kg — for time",
+      scheme:
+        "5 rounds: 12 deadlifts · 9 hang power cleans · 6 push press @ 70/48 kg — for time",
       exerciseIds: [EX.deadlift, EX.powerClean, EX.overheadPress],
       music: {
         bpm: 172,
@@ -412,7 +504,8 @@ export function seedTemplates(): Template[] {
       id: "tpl-chad",
       name: "Chad 1000x",
       branch: "Navy SEAL",
-      description: "1,000 box step-ups with a rucksack. Honors LT Chad Wilkinson.",
+      description:
+        "1,000 box step-ups with a rucksack. Honors LT Chad Wilkinson.",
       scheme: "1000 step-ups @ 50 cm box · 20/16 kg ruck — for time",
       // Step-ups, not box jumps. The station used to map to Box Jump,
       // whose cues say "explode up, land soft" — a thousand jumps under a
