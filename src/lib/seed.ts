@@ -217,26 +217,28 @@ export function seedTemplates(): Template[] {
         "only — nothing goes on the tarmac. Opens the hips the seat closed " +
         "down, unlocks the shoulders, moves blood without soaking your shirt " +
         "for the next leg.",
-      scheme: "3 rounds · 6 stations · 20 s work / 10 s rest — 3 min a round",
-      // Ordered for a body that has just been folded into a car seat: start
-      // with the shoulders while everything is still cold, alternate lower
-      // and upper, and put the two hip-openers where the legs are warm.
+      scheme: "3 rounds · 6 stations · 15 s work, no rest — 90 s a round",
+      // Legs first: the seat closed the hips down, so the heavy lower-body
+      // work goes in while there is still patience for it, then the hip
+      // flexors and the cardio, and the shoulders close each round out.
       // Nothing here needs a floor, a wall or more than a parking space.
       exerciseIds: [
-        EX.armCircles,
         EX.airSquat,
-        EX.runInPlace,
-        EX.kneeLift,
         EX.reverseLunge,
+        EX.kneeLift,
+        EX.runInPlace,
+        EX.armCircles,
         EX.airBoxing,
       ],
-      interval: { work: 20, rest: 10, rounds: 3 },
+      // No rest: fifteen seconds a station is short enough to run straight
+      // through, and the station change is the breather.
+      interval: { work: 15, rest: 0, rounds: 3 },
       music: {
         bpm: 140,
         style:
           "motorik krautrock, hypnotic driving rhythm, analog synth, no vocals",
         theme:
-          "Nine minutes at a roadside stop — shake the highway out of the legs and get back on the road",
+          "Four and a half minutes at a roadside stop, no pauses — shake the highway out of the legs and get back on the road",
       },
     },
     {
