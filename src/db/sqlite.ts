@@ -144,11 +144,14 @@ export class SqlitePersistence implements Persistence {
       try {
         await this.sqlite.execute(`BEGIN;\n${stmts.join("\n")}\nCOMMIT;`);
       } catch (err) {
-        // The failing statement aborts the batch before COMMIT, leaving
-        // the transaction open on whichever connection ran it. Best
-        // effort — the pool may hand us a different one, and the error
-        // the user needs to see is the original one either way.
-        await this.sqlite.execute("ROLLBACK").catch(() => undefined);
+        // No explicit ROLLBACK. The failing statement aborts before COMMIT
+        // so nothing from this file is durable, and SQLite discards the open
+        // transaction when the connection closes — which is exactly what a
+        // relaunch does. Issuing one here would be a guess anyway: the sqlx
+        // pool can hand it a different connection than the one that ran the
+        // batch. A failed migration is already a hard stop (we throw, the
+        // app shows the error card, nothing else writes), and the backfill
+        // above recovers databases damaged before this was transactional.
         throw new Error(`Migration ${name} failed: ${errorText(err)}`);
       }
     }

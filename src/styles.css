@@ -961,9 +961,48 @@ input.invalid,
   }
 }
 
+/* Landscape on a phone. The two-step lookahead is the point of the queue —
+   with rests this short, "rest, then burpees" is the useful information, so
+   it gets compacted rather than dropped. The countdown gives up size first;
+   it is still the largest thing on screen. */
 @media (max-height: 460px) {
+  .wod-time {
+    font-size: 44px;
+  }
+
+  .wod-exname {
+    font-size: 16px;
+    margin-top: 2px;
+  }
+
+  .wod-stepbar {
+    margin-top: 6px;
+  }
+
   .wod-queue {
+    margin-top: 6px;
+    padding-top: 6px;
+    gap: 4px;
+  }
+
+  .wod-queue-label {
     display: none;
+  }
+
+  .wod-queue-anim {
+    display: none;
+  }
+
+  .wod-queue-row {
+    padding: 3px 10px;
+  }
+
+  .wod-queue-name {
+    font-size: 13px;
+  }
+
+  .wod-controls {
+    padding-top: 6px;
   }
 }
 

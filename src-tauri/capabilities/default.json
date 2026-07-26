@@ -10,6 +10,7 @@
     "sql:default",
     "sql:allow-execute",
     "sql:allow-select",
+    "process:allow-exit",
     {
       "identifier": "http:default",
       "allow": [

@@ -35,23 +35,18 @@ const TABS: { id: Tab; label: string; Icon: typeof IconHome }[] = [
 ];
 
 /**
- * Quit the app. Registering a Back handler suppresses Android's native
- * exit entirely (see lib/back.ts), so the root has to do the quitting
- * itself — and the only API for it lives in `@tauri-apps/plugin-process`,
- * which Varg does not depend on. The specifier is kept in a variable so
- * the bundler leaves the import alone; if the plugin is ever added this
- * starts working, and until then Back at Home is simply inert, which is
- * strictly better than the old behaviour of killing a running workout.
+ * Quit the app. Registering a Back handler suppresses Android's native exit
+ * entirely (see lib/back.ts), so once every overlay has declined the press
+ * the root has to do the quitting itself. Imported lazily so a plain browser
+ * (vite dev) never pays for a Tauri-only module, and guarded because outside
+ * Tauri there is no process to exit.
  */
 async function exitApp(): Promise<void> {
   try {
-    const specifier = "@tauri-apps/plugin-process";
-    const mod = (await import(/* @vite-ignore */ specifier)) as {
-      exit: (code?: number) => Promise<void>;
-    };
-    await mod.exit(0);
+    const { exit } = await import("@tauri-apps/plugin-process");
+    await exit(0);
   } catch {
-    // Plugin absent, or not running under Tauri — leave it to the platform.
+    // Not running under Tauri — leave it to the platform.
   }
 }
 

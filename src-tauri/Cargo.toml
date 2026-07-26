@@ -19,6 +19,9 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 tauri-plugin-http = "2"
+# Android Back at the root has to quit the app itself: registering a back
+# handler suppresses the platform's native exit. See src/lib/back.ts.
+tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

@@ -82,9 +82,10 @@ function applyMigrations(): string[] {
       `INSERT INTO __migrations (name, applied_at) VALUES (${quote(f)}, ${quote(new Date().toISOString())});`,
     );
     try {
+      // Mirrors SqlitePersistence.migrate(): one atomic batch, no explicit
+      // ROLLBACK — the aborted transaction dies with the connection.
       sqlite.run(`BEGIN;\n${stmts.join("\n")}\nCOMMIT;`);
     } catch (err) {
-      sqlite.run("ROLLBACK");
       throw new Error(`SMOKE FAIL: migration ${f} failed: ${String(err)}`);
     }
     fresh.push(f);

@@ -267,14 +267,20 @@ export default function WodPlayer({
   // The stop dialog covers the Pause button, so without this the timeline
   // runs on behind the modal: you lose exactly as much workout as you
   // spend deciding, and a long enough deliberation ends it outright.
+  // Decided inside the updater, not from `clock` in this closure: if a Pause
+  // tap and this one ever land in the same JS task, a stale closure reads the
+  // workout as running, "pauses" an already-paused clock — which resumes it —
+  // and the timeline runs on behind the modal.
   const wasAutoPaused = useRef(false);
   const openConfirmStop = useCallback(() => {
     setConfirmStop(true);
-    if (clock.pausedAt === null) {
+    const now = Date.now();
+    setClock((c) => {
+      if (c.pausedAt !== null) return c;
       wasAutoPaused.current = true;
-      togglePause();
-    }
-  }, [clock.pausedAt, togglePause]);
+      return { ...c, pausedAt: now };
+    });
+  }, []);
 
   const keepGoing = useCallback(() => {
     setConfirmStop(false);
