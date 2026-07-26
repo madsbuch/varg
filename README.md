@@ -123,7 +123,7 @@ The workflow prefers these repository secrets
 
 | Secret                      | Meaning                                             |
 | --------------------------- | --------------------------------------------------- |
-| `ANDROID_KEY_BASE64`        | base64 of your keystore — `base64 -w0 varg.keystore` |
+| `ANDROID_KEY_BASE64`        | base64 of your keystore (one line, no wrapping)     |
 | `ANDROID_KEY_ALIAS`         | key alias inside the keystore                       |
 | `ANDROID_KEY_PASSWORD`      | key password                                        |
 | `ANDROID_KEYSTORE_PASSWORD` | keystore/store password (optional; falls back to the key password) |
@@ -132,12 +132,17 @@ The workflow prefers these repository secrets
 > **Configure signing** step in the workflow — that's the only place they're
 > referenced.
 
+The release key for this app lives at `~/.tauri/keystores/varg-upload.jks`
+(alias `varg`, password in `varg-upload.credentials.txt` beside it). It is
+**not** in the repo, and it can never be replaced without breaking in-place
+updates for everyone who has the app installed — back it up.
+
 ### Generating a keystore (if you need one)
 
 ```bash
-keytool -genkey -v -keystore varg.keystore -alias varg \
-  -keyalg RSA -keysize 2048 -validity 10000
-base64 -w0 varg.keystore     # → paste into ANDROID_KEY_BASE64
+keytool -genkeypair -v -keystore varg-upload.jks -alias varg \
+  -keyalg RSA -keysize 4096 -validity 10000
+base64 < varg-upload.jks | tr -d '\n'   # → ANDROID_KEY_BASE64 (macOS-safe)
 ```
 
 ### Cutting a release
