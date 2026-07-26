@@ -646,10 +646,41 @@ textarea:focus {
   margin: 0 auto;
 }
 
+/* Work is olive, rest is brass — the whole screen changes colour so the
+   phase is legible from across the room, mid-burpee. */
+.wod {
+  --phase: var(--accent);
+}
+
+.wod.resting {
+  --phase: var(--gold);
+  background: #ece3c8;
+}
+
 .wod-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+}
+
+.wod-top .chip {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Whole-workout progress. */
+.wod-progress {
+  height: 4px;
+  margin-top: 10px;
+  border-radius: 3px;
+  background: var(--panel-3);
+  overflow: hidden;
+}
+
+.wod-progress > div {
+  height: 100%;
+  background: var(--phase);
+  transition: width 0.1s linear;
 }
 
 .wod-center {
@@ -659,6 +690,7 @@ textarea:focus {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  min-height: 0;
 }
 
 .wod-phase {
@@ -666,10 +698,11 @@ textarea:focus {
   font-weight: 800;
   letter-spacing: 0.3em;
   text-transform: uppercase;
+  color: var(--phase);
 }
 
 .wod-time {
-  font-size: 84px;
+  font-size: 76px;
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -681,11 +714,22 @@ textarea:focus {
 }
 
 .wod-anim {
+  flex-shrink: 0;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 20px;
-  padding: 14px;
-  margin-top: 14px;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+/* The rest block is visibly not a station: brass frame, dashed edge. */
+.wod.resting .wod-anim {
+  border-style: dashed;
+  border-color: #c0a95e;
+}
+
+.wod.resting .wod-anim .ex-anim {
+  color: var(--gold);
 }
 
 .wod-exname {
@@ -693,10 +737,119 @@ textarea:focus {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  margin-top: 4px;
+  margin-top: 6px;
   text-align: center;
 }
 
-.wod-controls {
+/* Progress through the current step. */
+.wod-stepbar {
+  flex-shrink: 0;
+  width: 180px;
+  height: 5px;
+  margin-top: 10px;
+  border-radius: 3px;
+  background: var(--panel-3);
+  overflow: hidden;
+}
+
+.wod-stepbar > div {
+  height: 100%;
+  background: var(--phase);
+  transition: width 0.1s linear;
+}
+
+/* --- Up next queue --- */
+.wod-queue {
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
   padding-top: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.wod-queue-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.wod-queue-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+/* The step after next is context, not instruction — fade it back. */
+.wod-queue-row.dim {
+  opacity: 0.6;
+}
+
+.wod-queue-row.is-rest {
+  border-style: dashed;
+  background: transparent;
+}
+
+.wod-queue-row.is-rest .ex-anim {
+  color: var(--gold);
+}
+
+.wod-queue-row.last {
+  justify-content: center;
+  border-style: dashed;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.wod-queue-anim {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+}
+
+.wod-queue-name {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wod-queue-secs {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.wod-controls {
+  padding-top: 12px;
+}
+
+.wod-controls .btn.ghost {
+  width: 64px;
+  flex: 0 0 auto;
+  font-size: 15px;
+}
+
+/* Stopping mid-workout is destructive — confirm in place. */
+.wod-confirm {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(59, 53, 33, 0.5);
+}
+
+.wod-confirm .card {
+  width: 100%;
+  max-width: 380px;
 }

@@ -52,6 +52,23 @@ const gearC = (cx: number[], cy: number[], r: number): CirclePart => ({
 });
 
 const DEFS = {
+  /**
+   * Not an exercise: the rest block's own figure. Deliberately still —
+   * a standing athlete breathing — so a glance can never confuse it
+   * with a station.
+   */
+  rest: {
+    dur: 3.2,
+    parts: [
+      p(["M44 88 L46 74 L48 62 M56 88 L54 74 L52 62"]),
+      p(["M50 62 L50 40", "M50 62 L50 38"]),
+      p([
+        "M50 44 L40 54 L46 60 M50 44 L60 54 L54 60",
+        "M50 42 L39 53 L46 59 M50 42 L61 53 L54 59",
+      ]),
+      head([50, 50], [33, 31]),
+    ],
+  },
   squat: {
     dur: 2.2,
     parts: [
@@ -60,6 +77,17 @@ const DEFS = {
       p(["M48 32 L40 30 M48 32 L58 30", "M50 46 L42 44 M50 46 L60 44"]),
       p(["M32 30 L64 30", "M34 44 L66 44"], { gear: true }),
       head([52, 54], [25, 39]),
+    ],
+  },
+  airSquat: {
+    dur: 2.2,
+    parts: [
+      // Torso stays upright at the bottom — that is what separates an air
+      // squat from a hinge at a glance.
+      p(["M46 88 L47 72 L46 56", "M46 88 L58 74 L42 68"]),
+      p(["M46 56 L48 32", "M42 68 L47 46"]),
+      p(["M48 36 L45 50 M48 36 L53 50", "M46 50 L62 44 M46 50 L62 48"]),
+      head([52, 50], [25, 39]),
     ],
   },
   hinge: {
@@ -161,6 +189,16 @@ const DEFS = {
       head([50, 50], [32, 42]),
     ],
   },
+  benchDip: {
+    dur: 1.8,
+    parts: [
+      p(["M14 56 L46 56 M20 56 L20 86 M40 56 L40 86"], { gear: true }),
+      p(["M44 56 L46 52 L50 48", "M44 56 L41 64 L50 64"]),
+      p(["M50 48 L56 70", "M50 64 L56 78"]),
+      p(["M56 70 L78 76 L82 88", "M56 78 L78 80 L82 88"]),
+      head([54, 54], [41, 57]),
+    ],
+  },
   situp: {
     dur: 1.8,
     parts: [
@@ -169,12 +207,22 @@ const DEFS = {
       head([17, 37], [78, 57]),
     ],
   },
+  backLift: {
+    dur: 2.2,
+    parts: [
+      p(["M58 84 L34 82", "M58 84 L34 70"]),
+      p(["M58 84 L84 82", "M58 84 L84 70"]),
+      p(["M34 82 L18 84", "M34 70 L18 62"]),
+      head([28, 28], [74, 62]),
+    ],
+  },
   flutter: {
     dur: 0.9,
     parts: [
       p(["M20 80 L46 80"]),
-      p(["M46 80 L60 72", "M46 80 L62 84"]),
-      p(["M46 80 L62 84", "M46 80 L60 72"]),
+      // Scissoring legs that never cross paths — see runInPlace.
+      p(["M46 80 L64 68", "M46 80 L64 74"]),
+      p(["M46 80 L64 88", "M46 80 L64 82"]),
       head([15], [78]),
     ],
   },
@@ -228,12 +276,44 @@ const DEFS = {
     dur: 0.8,
     parts: [
       p(["M46 60 L50 36"]),
+      // Lead leg stays in front, trail leg stays behind — see runInPlace.
       p([
-        "M46 60 L56 72 L54 86 M46 60 L38 74 L30 80",
-        "M46 60 L40 74 L44 88 M46 60 L54 70 L62 78",
+        "M46 60 L58 70 L62 82 M46 60 L40 74 L32 80",
+        "M46 60 L50 74 L52 88 M46 60 L38 70 L30 66",
       ]),
-      p(["M50 38 L60 44 M50 38 L40 50", "M50 38 L40 44 M50 38 L60 50"]),
+      p(["M50 38 L60 42 M50 38 L40 50", "M50 38 L58 50 M50 38 L42 42"]),
       head([54], [29]),
+    ],
+  },
+  runInPlace: {
+    dur: 0.7,
+    parts: [
+      p(["M50 64 L50 40", "M50 62 L50 38"]),
+      // Each limb stays on its own side of the body. Mirroring two limbs
+      // across the centre line makes them coincide exactly halfway
+      // through the morph, and the figure flattens into a stick for half
+      // the loop — the same reason `run` used to look broken.
+      p([
+        "M50 64 L44 72 L44 88 M50 64 L58 58 L54 70",
+        "M50 62 L42 58 L46 70 M50 62 L56 72 L56 88",
+      ]),
+      p([
+        "M50 44 L41 48 L45 56 M50 44 L59 48 L55 38",
+        "M50 42 L40 46 L44 36 M50 42 L58 46 L54 54",
+      ]),
+      head([50, 50], [33, 31]),
+    ],
+  },
+  boxing: {
+    dur: 0.9,
+    parts: [
+      p(["M38 88 L42 74 L48 62 M64 88 L58 74 L52 62"]),
+      p(["M50 62 L50 42", "M52 62 L52 42"]),
+      p([
+        "M50 46 L62 44 L76 46 M50 46 L47 40 L55 34",
+        "M52 46 L58 40 L54 32 M52 46 L62 48 L78 50",
+      ]),
+      head([53, 55], [35, 34]),
     ],
   },
   ruck: {

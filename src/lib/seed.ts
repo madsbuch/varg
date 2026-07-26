@@ -29,6 +29,10 @@ export const EX = {
   assaultBike: "ex-assault-bike",
   farmerCarry: "ex-farmer-carry",
   hangingLegRaise: "ex-hanging-leg-raise",
+  benchDip: "ex-bench-dip",
+  backLift: "ex-back-lift",
+  runInPlace: "ex-run-in-place",
+  airBoxing: "ex-air-boxing",
 } as const;
 
 export function seedExercises(): Exercise[] {
@@ -57,7 +61,9 @@ export function seedExercises(): Exercise[] {
     e(EX.chinUp, "Chin-up", "bodyweight", "reps", ["back", "biceps"]),
     e(EX.pushUp, "Push-up", "bodyweight", "reps", ["chest", "triceps"]),
     e(EX.dip, "Dip", "bodyweight", "reps", ["chest", "triceps"]),
+    e(EX.benchDip, "Bench Dip", "bodyweight", "reps", ["triceps", "chest"]),
     e(EX.sitUp, "Sit-up", "core", "reps", ["core"]),
+    e(EX.backLift, "Back Lift", "core", "reps", ["lower back", "glutes"]),
     e(EX.flutterKick, "Flutter Kick", "core", "reps", ["core"]),
     e(EX.hangingLegRaise, "Hanging Leg Raise", "core", "reps", ["core"]),
     e(EX.lunge, "Walking Lunge", "bodyweight", "reps", ["quads", "glutes"]),
@@ -65,6 +71,8 @@ export function seedExercises(): Exercise[] {
     e(EX.boxJump, "Box Jump", "conditioning", "reps", ["legs"]),
     e(EX.plank, "Plank", "core", "time", ["core"]),
     e(EX.run, "Run", "cardio", "distance_time", ["conditioning"]),
+    e(EX.runInPlace, "Run on the Spot", "cardio", "time", ["conditioning"]),
+    e(EX.airBoxing, "Air Boxing", "cardio", "time", ["conditioning", "shoulders"]),
     e(EX.ruck, "Ruck March", "ruck", "distance_time", ["conditioning", "legs"]),
     e(EX.row, "Row (Erg)", "cardio", "distance_time", ["conditioning"]),
     e(EX.assaultBike, "Assault Bike", "cardio", "distance_time", ["conditioning"]),
@@ -110,6 +118,41 @@ export function seedSplits(): Split[] {
 
 export function seedTemplates(): Template[] {
   return [
+    {
+      id: "tpl-varg-18",
+      name: "Varg 18",
+      branch: "Varg",
+      description:
+        "Twelve stations, strength alternating with cardio — no station " +
+        "repeats back to back. Cardio alternates run on the spot and air boxing.",
+      // No total here: the card computes and shows the real clock time,
+      // and two numbers that disagree by ten seconds is worse than one.
+      scheme: "3 rounds · 12 stations · 20 s work / 10 s rest",
+      // Strength station, cardio, strength station, cardio… The two cardio
+      // exercises alternate, and there are six cardio slots per round, so
+      // the pattern stays in phase across round boundaries too.
+      exerciseIds: [
+        EX.sitUp,
+        EX.runInPlace,
+        EX.pushUp,
+        EX.airBoxing,
+        EX.backLift,
+        EX.runInPlace,
+        EX.airSquat,
+        EX.airBoxing,
+        EX.benchDip,
+        EX.runInPlace,
+        EX.burpee,
+        EX.airBoxing,
+      ],
+      interval: { work: 20, rest: 10, rounds: 3 },
+      music: {
+        bpm: 160,
+        style: "hard electronic, punchy drums, dark synth bass, no vocals",
+        theme:
+          "Eighteen minutes of short brutal intervals — wolf-pack pace, never a full breath",
+      },
+    },
     {
       id: "tpl-dk-grund",
       name: "Grundtræning",

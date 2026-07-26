@@ -40,9 +40,15 @@ Built with **Tauri 2 · Bun · TypeScript · React**, targeting **Android**.
   stick-figure demonstration (pure SVG/SMIL, fully offline) and concise
   execution cues.
 - **Interval WOD player** — configurable work/rest/rounds (30/30, Tabata
-  20/10, 40/20 presets), synthesized audio cues (3-2-1 ticks, work/rest/
-  finish tones via Web Audio — no assets), the current exercise's animation
-  on screen, pause/skip, screen wake-lock, and one-tap logging to history.
+  20/10, 40/20, 20/10 presets, or build your own circuit — an exercise may
+  repeat, so you can put cardio between every station). Shows what you are
+  doing *right now* (rest is its own block with its own still figure, never
+  the next exercise's animation) plus the next two steps, rest included.
+  Synthesized audio cues (3-2-1 ticks, work/rest/finish tones via Web Audio
+  — no assets), whole-workout and per-step progress, back/pause/skip, screen
+  wake-lock re-acquired on resume, and one-tap logging to history. Timing is
+  anchored to the wall clock, so a re-render or a spell in standby can never
+  desync the workout.
 - **Offline-first** — all data lives in an on-device SQLite database.
 - **Desert field theme** — light sand/canvas palette with olive-drab accents.
 
@@ -108,15 +114,33 @@ bun run icons          # writes assets/icon.png, then runs `tauri icon`
 
 ## Signed releases (CI)
 
-Pushing a tag like `v0.1.0` (or dispatching the workflow manually) runs
-[`.github/workflows/release.yml`](.github/workflows/release.yml), which builds a
-**signed** APK + AAB and attaches them to a GitHub Release.
+[`.github/workflows/release.yml`](.github/workflows/release.yml) builds a
+**signed** APK on every merge to `main` — no version bump needed — and
+publishes two kinds of release:
+
+| Release      | When                                                        | Contents  |
+| ------------ | ----------------------------------------------------------- | --------- |
+| `latest`     | every merge to `main`; marked *pre-release*                 | APK       |
+| `v<x.y.z>`   | when the `package.json` version first lands on `main`, or when you push a `v*` tag; keeps the **Latest** badge | APK + AAB |
+
+The rolling build always lives at the same URL —
+`github.com/madsbuch/varg/releases/tag/latest` — so you can bookmark it on
+the phone and re-download to update.
 
 **No secrets configured?** The workflow still ships: it generates an
 *ephemeral* keystore for that run and signs with it. The APK installs fine,
-but the signature differs between releases, so Android won't apply one
-release as an in-place update over another. Add the secrets below for a
-stable signature.
+but the signature differs between builds, so Android won't apply one build
+as an in-place update over another. Add the secrets below for a stable
+signature. Every run prints the signing certificate to the job summary —
+if that fingerprint ever changes, in-place updates have broken.
+
+### versionCode
+
+Tauri derives `versionCode` from semver (`0.5.6` → `5006`), which would give
+every build between two bumps the same code. The workflow instead pins
+`versionCode = 10000 + <commit count>`: strictly increasing per build, and
+above every semver-derived code already shipped, so no build is ever seen as
+a downgrade.
 
 The workflow prefers these repository secrets
 (**Settings → Secrets and variables → Actions**):
@@ -147,13 +171,18 @@ base64 < varg-upload.jks | tr -d '\n'   # → ANDROID_KEY_BASE64 (macOS-safe)
 
 ### Cutting a release
 
+A merge to `main` is enough to get a new build — it lands on the `latest`
+release. To cut a *versioned* release, either bump `version` in
+`package.json` and merge, or tag by hand:
+
 ```bash
-git tag v0.1.0
-git push origin v0.1.0       # CI builds, signs, and publishes the release
+git tag v0.6.0
+git push origin v0.6.0       # CI builds, signs, and publishes v0.6.0
 ```
 
 You can also trigger the workflow manually from the **Actions** tab
-(*Release Android → Run workflow*) and pass a tag.
+(*Release Android → Run workflow*): pass a tag to cut that version, or leave
+it empty to just refresh the rolling build.
 
 ## License
 

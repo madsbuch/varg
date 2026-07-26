@@ -21,7 +21,7 @@ import type {
   Session,
   Split,
 } from "../types";
-import { loadData, STORAGE_KEY } from "../lib/store";
+import { loadData, mergeBuiltIns, STORAGE_KEY } from "../lib/store";
 import type { Persistence } from "./persistence";
 import * as t from "./schema";
 
@@ -230,6 +230,19 @@ export class SqlitePersistence implements Persistence {
         manual: p.manual,
       })),
     };
+
+    // Built-ins shipped in an app update are not in this device's DB yet.
+    // Without this, a new template's stations silently do not exist and
+    // the workout runs short. Merge, then write the new rows through.
+    const knownExercises = new Set(data.exercises.map((e) => e.id));
+    const knownSplits = new Set(data.splits.map((s) => s.id));
+    mergeBuiltIns(data);
+    for (const ex of data.exercises) {
+      if (!knownExercises.has(ex.id)) await this.saveExercise(ex);
+    }
+    for (const sp of data.splits) {
+      if (!knownSplits.has(sp.id)) await this.saveSplit(sp);
+    }
 
     return data;
   }

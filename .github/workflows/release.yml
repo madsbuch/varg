@@ -1,14 +1,18 @@
 name: Release Android
 
-# Builds a signed Android APK + AAB and attaches them to a GitHub Release.
+# Builds a signed Android APK on every merge to main and publishes it as a
+# rolling `latest` prerelease — no version bump required.
 #
-# Triggered by pushing to main (releases v<package.json version> if that
-# tag doesn't exist yet — bump the version to cut a release), by pushing
-# a tag like `v0.1.0`, or run manually.
+# Two kinds of release come out of this workflow:
+#
+#   latest    refreshed on every push to main, marked prerelease.
+#             Permanent download URL: /releases/tag/latest
+#   v<x.y.z>  cut when the package.json version lands on main for the first
+#             time, or when you push a `v*` tag by hand. Keeps the "Latest"
+#             badge, and also ships an AAB.
 #
 # Required repository secrets (Settings → Secrets and variables → Actions):
 #   ANDROID_KEY_BASE64        base64 of your keystore (.jks/.keystore)
-#                             e.g. `base64 -w0 varg.keystore | pbcopy`
 #   ANDROID_KEY_ALIAS         the key alias inside the keystore
 #   ANDROID_KEY_PASSWORD      the key password
 #   ANDROID_KEYSTORE_PASSWORD the keystore (store) password
@@ -24,48 +28,74 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to create (e.g. v0.1.0)"
-        required: true
-        default: "v0.1.0"
+        description: "Versioned tag to cut (e.g. v0.6.0). Leave empty for a rolling build."
+        required: false
+        default: ""
         type: string
 
 permissions:
   contents: write
 
+concurrency:
+  # A newer merge supersedes an in-flight build of an older one.
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  tag:
+  meta:
     runs-on: ubuntu-latest
     outputs:
-      value: ${{ steps.resolve.outputs.value }}
-      release: ${{ steps.resolve.outputs.release }}
+      rolling: ${{ steps.resolve.outputs.rolling }}
+      versioned: ${{ steps.resolve.outputs.versioned }}
+      version_tag: ${{ steps.resolve.outputs.version_tag }}
     steps:
       - uses: actions/checkout@v4
-      - name: Resolve release tag
+
+      - name: Resolve what to publish
         id: resolve
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
           set -euo pipefail
-          RELEASE=true
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.tag }}"
+          ROLLING=false
+          VERSIONED=false
+          VERSION_TAG=""
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${INPUT_TAG:-}" ]; then
+            VERSIONED=true
+            VERSION_TAG="$INPUT_TAG"
           elif [ "${{ github.ref_type }}" = "tag" ]; then
-            TAG="${GITHUB_REF_NAME}"
+            VERSIONED=true
+            VERSION_TAG="${GITHUB_REF_NAME}"
           else
-            # Push to main: release v<package.json version> once per version.
-            TAG="v$(jq -r .version package.json)"
-            if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
-              echo "Tag $TAG already exists — nothing to release."
-              RELEASE=false
+            # Push to main (or a manual run with no tag): always refresh the
+            # rolling build, and additionally cut v<package.json version> the
+            # first time that version reaches main.
+            ROLLING=true
+            CANDIDATE="v$(jq -r .version package.json)"
+            if git ls-remote --exit-code --tags origin "refs/tags/$CANDIDATE" >/dev/null 2>&1; then
+              echo "Tag $CANDIDATE already exists — rolling build only."
+            else
+              echo "Version $CANDIDATE is new — cutting a versioned release too."
+              VERSIONED=true
+              VERSION_TAG="$CANDIDATE"
             fi
           fi
-          echo "value=$TAG" >> "$GITHUB_OUTPUT"
-          echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "rolling=$ROLLING"
+            echo "versioned=$VERSIONED"
+            echo "version_tag=$VERSION_TAG"
+          } >> "$GITHUB_OUTPUT"
 
   android:
     runs-on: ubuntu-latest
-    needs: tag
-    if: needs.tag.outputs.release == 'true'
+    needs: meta
     steps:
       - uses: actions/checkout@v4
+        with:
+          # versionCode is derived from the commit count — needs full history.
+          fetch-depth: 0
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -98,6 +128,21 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Pin a monotonic versionCode
+        # Tauri derives versionCode from semver (0.5.6 → 5006), so every build
+        # between two version bumps would carry the same code and the phone
+        # couldn't tell them apart. Commit count is strictly increasing and
+        # independent of the version, and the 10000 offset keeps it above the
+        # highest semver-derived code already shipped (5006 for v0.5.6).
+        run: |
+          set -euo pipefail
+          CODE=$(( 10000 + $(git rev-list --count HEAD) ))
+          jq --argjson c "$CODE" '.bundle.android.versionCode = $c' \
+            src-tauri/tauri.conf.json > /tmp/conf.json
+          mv /tmp/conf.json src-tauri/tauri.conf.json
+          echo "VERSION_CODE=$CODE" >> "$GITHUB_ENV"
+          echo "versionCode=$CODE"
 
       - name: Generate icons
         run: bun run icons
@@ -151,7 +196,7 @@ jobs:
               echo "### ⚠️ Signed with an ephemeral keystore"
               echo "No \`ANDROID_KEY_*\` secrets are configured, so this APK is signed"
               echo "with a one-off key generated during the build. Installs fine, but"
-              echo "the next release won't install as an update over this one."
+              echo "the next build won't install as an update over this one."
               echo "Add the secrets from the README to get a stable signature."
             } >> "$GITHUB_STEP_SUMMARY"
             KEYSTORE="$RUNNER_TEMP/varg-ephemeral.keystore"
@@ -181,35 +226,88 @@ jobs:
           echo "----- build.gradle.kts (head) -----"
           sed -n '1,60p' "$GRADLE_DIR/app/build.gradle.kts"
 
-      - name: Build signed APK + AAB
-        run: bun run tauri android build --apk --aab
-
-      - name: Collect artifacts
-        id: collect
+      - name: Build signed APK (+ AAB for versioned releases)
+        # The AAB is only useful for a store upload, so rolling builds skip it.
         run: |
           set -euo pipefail
-          OUT=dist-artifacts
-          mkdir -p "$OUT"
-          TAG="${{ needs.tag.outputs.value }}"
-          find src-tauri/gen/android -path '*/outputs/apk/*/release/*.apk' -exec cp {} "$OUT/varg-${TAG}.apk" \; || true
-          find src-tauri/gen/android -path '*/outputs/bundle/*.aab' -exec cp {} "$OUT/varg-${TAG}.aab" \; || true
-          echo "Artifacts:"; ls -la "$OUT"
-          if [ -z "$(ls -A "$OUT")" ]; then
-            echo "::error::No APK/AAB produced."
+          if [ "${{ needs.meta.outputs.versioned }}" = "true" ]; then
+            bun run tauri android build --apk --aab
+          else
+            bun run tauri android build --apk
+          fi
+
+      - name: Collect artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          find src-tauri/gen/android -path '*/outputs/apk/*/release/*.apk' -exec cp {} build/varg.apk \; || true
+          find src-tauri/gen/android -path '*/outputs/bundle/*.aab' -exec cp {} build/varg.aab \; || true
+          if [ ! -f build/varg.apk ]; then
+            echo "::error::No APK produced."
             find src-tauri/gen/android -name '*.apk' -o -name '*.aab' || true
             exit 1
           fi
+          echo "Artifacts:"; ls -la build
+
+      - name: Verify the signing certificate
+        # Catches a silent regression to ephemeral signing: if this fingerprint
+        # ever changes, installs will start requiring an uninstall first.
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME/build-tools/"* | sort -V | tail -1)
+          "$BUILD_TOOLS/apksigner" verify --print-certs build/varg.apk | tee /tmp/certs.txt
+          {
+            echo "### Signing certificate"
+            echo '```'
+            grep -i "DN:\|SHA-256 digest" /tmp/certs.txt
+            echo '```'
+            echo "versionCode \`${VERSION_CODE}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: varg-android
-          path: dist-artifacts/*
+          path: build/*
 
-      - name: Publish GitHub Release
+      - name: Publish rolling build
+        if: needs.meta.outputs.rolling == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cp build/varg.apk varg-latest.apk
+          cat > /tmp/notes.md <<EOF
+          Rolling build of \`main\`, refreshed on every merge — always the newest code.
+
+          Built from ${GITHUB_SHA} · versionCode ${VERSION_CODE}
+
+          Installs in place over any other build signed with the release key;
+          no uninstall needed.
+          EOF
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest varg-latest.apk \
+            --title "Varg (latest build)" \
+            --prerelease \
+            --notes-file /tmp/notes.md
+
+      - name: Stage versioned artifacts
+        if: needs.meta.outputs.versioned == 'true'
+        run: |
+          set -euo pipefail
+          TAG="${{ needs.meta.outputs.version_tag }}"
+          mkdir -p dist-artifacts
+          cp build/varg.apk "dist-artifacts/varg-${TAG}.apk"
+          if [ -f build/varg.aab ]; then
+            cp build/varg.aab "dist-artifacts/varg-${TAG}.aab"
+          fi
+          ls -la dist-artifacts
+
+      - name: Publish versioned release
+        if: needs.meta.outputs.versioned == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.tag.outputs.value }}
-          name: Varg ${{ needs.tag.outputs.value }}
+          tag_name: ${{ needs.meta.outputs.version_tag }}
+          name: Varg ${{ needs.meta.outputs.version_tag }}
           generate_release_notes: true
           files: dist-artifacts/*

@@ -48,6 +48,25 @@ function setHasData(s: WorkoutSet): boolean {
   );
 }
 
+/**
+ * Clock time an interval prescription actually takes: every station once
+ * per round, with a rest between them but none after the very last one.
+ */
+function intervalSeconds(
+  stations: number,
+  { work, rest, rounds }: { work: number; rest: number; rounds: number },
+): number {
+  const steps = stations * rounds;
+  return steps * work + Math.max(0, steps - 1) * rest;
+}
+
+/** Template groups, in display order. Each template lands in the first match. */
+const SECTIONS: { label: string; match: (t: Template) => boolean }[] = [
+  { label: "Varg", match: (t) => t.branch === "Varg" },
+  { label: "Forsvaret", match: (t) => t.branch === "Forsvaret" },
+  { label: "Hero WODs & service tests", match: () => true },
+];
+
 export default function Train() {
   const { data } = useApp();
   const active = useMemo(
@@ -71,6 +90,7 @@ function StartScreen() {
   const [showSplit, setShowSplit] = useState(false);
   const [wodSetup, setWodSetup] = useState(false);
   const [runningWod, setRunningWod] = useState<WodConfig | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
   const templates = useMemo(() => seedTemplates(), []);
   const history = data.sessions.filter((s) => s.finishedAt);
 
@@ -87,7 +107,16 @@ function StartScreen() {
       const exercises = tpl.exerciseIds
         .map((id) => exById.get(id))
         .filter((e): e is Exercise => !!e);
-      if (exercises.length === 0) return;
+      // Never quietly run a short version of a prescribed circuit: a
+      // dropped station changes the whole workout.
+      if (exercises.length !== tpl.exerciseIds.length) {
+        setStartError(
+          `${tpl.name} needs ${String(tpl.exerciseIds.length)} stations but only ` +
+            `${String(exercises.length)} exist on this device. Reinstalling or ` +
+            `updating the app restores the built-in exercises.`,
+        );
+        return;
+      }
       unlockAudio(); // must happen inside the tap gesture
       setRunningWod({
         exercises,
@@ -144,20 +173,33 @@ function StartScreen() {
         </>
       )}
 
-      <div className="section-label">Forsvaret</div>
-      {templates
-        .filter((t) => t.branch === "Forsvaret")
-        .map((t) => (
-          <TemplateCard key={t.id} t={t} onStart={() => { startFromTemplate(t.id); }} />
-        ))}
+      {SECTIONS.map((section, si) => {
+        const inSection = templates.filter(
+          (t) => SECTIONS.findIndex((s) => s.match(t)) === si,
+        );
+        if (inSection.length === 0) return null;
+        return (
+          <div key={section.label}>
+            <div className="section-label">{section.label}</div>
+            {inSection.map((t) => (
+              <TemplateCard
+                key={t.id}
+                t={t}
+                onStart={() => { startFromTemplate(t.id); }}
+              />
+            ))}
+          </div>
+        );
+      })}
 
-      <div className="section-label">Hero WODs & service tests</div>
-      {templates
-        .filter((t) => t.branch !== "Forsvaret")
-        .map((t) => (
-          <TemplateCard key={t.id} t={t} onStart={() => { startFromTemplate(t.id); }} />
-        ))}
-
+      {startError && (
+        <Sheet title="Can't start" onClose={() => { setStartError(null); }}>
+          <p className="muted" style={{ marginTop: 0 }}>{startError}</p>
+          <button className="btn" onClick={() => { setStartError(null); }}>
+            OK
+          </button>
+        </Sheet>
+      )}
       {showSplit && <SplitPicker onClose={() => { setShowSplit(false); }} />}
       {wodSetup && (
         <WodConfigSheet
@@ -176,6 +218,9 @@ function StartScreen() {
 }
 
 function TemplateCard({ t, onStart }: { t: Template; onStart: () => void }) {
+  const duration = t.interval
+    ? intervalSeconds(t.exerciseIds.length, t.interval)
+    : null;
   return (
     <div className="card" style={{ marginBottom: 10 }}>
       <div className="row">
@@ -188,6 +233,12 @@ function TemplateCard({ t, onStart }: { t: Template; onStart: () => void }) {
       <div className="sub" style={{ marginTop: 4, fontSize: 13 }}>
         {t.scheme}
       </div>
+      {duration !== null && (
+        <div className="chip accent" style={{ marginTop: 8 }}>
+          <IconClock style={{ width: 14, height: 14 }} /> {formatSeconds(duration)}{" "}
+          on the clock
+        </div>
+      )}
       <button
         className="btn sm primary"
         style={{ width: "100%", marginTop: 10 }}
@@ -205,6 +256,7 @@ const WOD_PRESETS = [
   { label: "30/30 × 4", work: 30, rest: 30, rounds: 4 },
   { label: "Tabata 20/10 × 8", work: 20, rest: 10, rounds: 8 },
   { label: "40/20 × 5", work: 40, rest: 20, rounds: 5 },
+  { label: "20/10 × 3", work: 20, rest: 10, rounds: 3 },
 ];
 
 function WodConfigSheet({
@@ -225,15 +277,28 @@ function WodConfigSheet({
     return Number.isFinite(n) && n > 0 ? Math.round(n) : fallback;
   };
 
+  const plan = {
+    work: num(work, 30),
+    rest: Math.max(0, Number(rest) || 0),
+    rounds: num(rounds, 4),
+  };
+  const duration = intervalSeconds(exercises.length, plan);
+
+  const move = (from: number, delta: number) => {
+    setExercises((list) => {
+      const to = from + delta;
+      if (to < 0 || to >= list.length) return list;
+      const next = [...list];
+      const [moved] = next.splice(from, 1);
+      if (moved) next.splice(to, 0, moved);
+      return next;
+    });
+  };
+
   const start = () => {
     if (exercises.length === 0) return;
     unlockAudio(); // must happen inside the tap gesture
-    onStart({
-      exercises,
-      work: num(work, 30),
-      rest: Math.max(0, Number(rest) || 0),
-      rounds: num(rounds, 4),
-    });
+    onStart({ exercises, ...plan });
   };
 
   return (
@@ -266,33 +331,63 @@ function WodConfigSheet({
         </Field>
       </div>
 
-      <div className="section-label" style={{ marginTop: 4 }}>
-        Exercises (in order)
+      <div className="row" style={{ marginTop: 4 }}>
+        <div className="section-label" style={{ margin: 0 }}>
+          Stations (in order)
+        </div>
+        {exercises.length > 0 && (
+          <span className="chip accent">
+            <IconClock style={{ width: 14, height: 14 }} />{" "}
+            {formatSeconds(duration)}
+          </span>
+        )}
       </div>
       {exercises.length === 0 && (
-        <div className="faint" style={{ fontSize: 13, marginBottom: 8 }}>
-          Add at least one exercise.
+        <div className="faint" style={{ fontSize: 13, margin: "8px 0" }}>
+          Add at least one station. The same exercise can appear more than
+          once — that is how you put cardio between every station.
         </div>
       )}
       {exercises.map((ex, i) => (
-        <div key={ex.id} className="row" style={{ padding: "6px 0" }}>
+        // Keyed by position, not id: a circuit may repeat an exercise.
+        <div key={`${ex.id}-${String(i)}`} className="row" style={{ padding: "6px 0" }}>
           <span>
             <span className="faint">{i + 1}. </span>
             {ex.name}
           </span>
-          <button
-            className="link faint"
-            style={{ fontSize: 12 }}
-            onClick={() =>
-              { setExercises((list) => list.filter((e) => e.id !== ex.id)); }
-            }
-          >
-            remove
-          </button>
+          <span style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            <button
+              className="check"
+              aria-label="Move up"
+              disabled={i === 0}
+              style={{ opacity: i === 0 ? 0.35 : 1 }}
+              onClick={() => { move(i, -1); }}
+            >
+              ↑
+            </button>
+            <button
+              className="check"
+              aria-label="Move down"
+              disabled={i === exercises.length - 1}
+              style={{ opacity: i === exercises.length - 1 ? 0.35 : 1 }}
+              onClick={() => { move(i, 1); }}
+            >
+              ↓
+            </button>
+            <button
+              className="link faint"
+              style={{ fontSize: 12, paddingLeft: 6 }}
+              onClick={() =>
+                { setExercises((list) => list.filter((_, j) => j !== i)); }
+              }
+            >
+              remove
+            </button>
+          </span>
         </div>
       ))}
       <button className="btn sm ghost" onClick={() => { setPicking(true); }}>
-        <IconPlus /> Add exercise
+        <IconPlus /> Add station
       </button>
 
       <div className="divider" />
@@ -306,7 +401,6 @@ function WodConfigSheet({
 
       {picking && (
         <ExercisePicker
-          exclude={exercises.map((e) => e.id)}
           onPick={(ex) => {
             setExercises((list) => [...list, ex]);
             setPicking(false);

@@ -12,6 +12,8 @@ import { eq } from "drizzle-orm";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as t from "../src/db/schema";
+import { seedExercises, seedTemplates } from "../src/lib/seed";
+import { hasLibraryEntry } from "../src/lib/library";
 
 const sqlite = new Database(":memory:");
 const db = drizzle(sqlite);
@@ -121,5 +123,21 @@ db.insert(t.settings)
   .run();
 const units = db.select().from(t.settings).where(eq(t.settings.key, "units")).all();
 assert(units.length === 1 && units[0].value === "imperial", "settings upsert");
+
+// --- built-in content coverage ---
+// Every built-in exercise must have its OWN animation and cues. Falling
+// back to the category archetype silently shows the wrong movement (this
+// is how Air Squat ended up demonstrating a push-up), so it is a failure.
+const seeded = seedExercises();
+const uncovered = seeded.filter((e) => !hasLibraryEntry(e.id)).map((e) => e.name);
+assert(uncovered.length === 0, `exercises without an animation: ${uncovered.join(", ")}`);
+
+// Every template must reference exercises that actually exist, or the
+// player silently drops stations and the prescribed timing is wrong.
+const seededIds = new Set(seeded.map((e) => e.id));
+for (const tpl of seedTemplates()) {
+  const missing = tpl.exerciseIds.filter((id) => !seededIds.has(id));
+  assert(missing.length === 0, `${tpl.name} references unknown exercises: ${missing.join(", ")}`);
+}
 
 console.log("DB smoke test passed ✔");

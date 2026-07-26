@@ -101,6 +101,14 @@ const LIB: Record<string, LibraryEntry> = {
       "Short fast steps; stop before your grip fails.",
     ],
   },
+  [EX.airSquat]: {
+    anim: "airSquat",
+    cues: [
+      "Feet shoulder width, weight through the whole foot.",
+      "Hips back and down past parallel, chest tall.",
+      "Arms out front for balance; stand fully at the top.",
+    ],
+  },
   [EX.pullUp]: {
     anim: "pullup",
     cues: [
@@ -133,12 +141,28 @@ const LIB: Record<string, LibraryEntry> = {
       "Press to lockout without swinging.",
     ],
   },
+  [EX.benchDip]: {
+    anim: "benchDip",
+    cues: [
+      "Hands on the bench edge behind you, fingers forward.",
+      "Elbows straight back, lower until upper arms are parallel.",
+      "Press up through the heels of the hands — shoulders down, not shrugged.",
+    ],
+  },
   [EX.sitUp]: {
     anim: "situp",
     cues: [
       "Knees bent, feet anchored or free.",
       "Curl the trunk — chest to knees.",
       "Lower with control; no neck pulling.",
+    ],
+  },
+  [EX.backLift]: {
+    anim: "backLift",
+    cues: [
+      "Face down, arms reaching forward, forehead near the deck.",
+      "Lift chest, arms and legs together — squeeze the glutes.",
+      "Look at the floor, never crank the neck back. Lower slow.",
     ],
   },
   [EX.flutterKick]: {
@@ -197,6 +221,22 @@ const LIB: Record<string, LibraryEntry> = {
       "Relax shoulders and hands.",
     ],
   },
+  [EX.runInPlace]: {
+    anim: "runInPlace",
+    cues: [
+      "Knees to hip height, land on the balls of the feet.",
+      "Quick light cadence — noise means you're stamping.",
+      "Arms driving, shoulders loose, torso upright.",
+    ],
+  },
+  [EX.airBoxing]: {
+    anim: "boxing",
+    cues: [
+      "Hands up by the cheeks, chin tucked, elbows in.",
+      "Punch straight from the guard and snap it back — don't wind up.",
+      "Rotate hip and shoulder into every shot; keep the feet moving.",
+    ],
+  },
   [EX.ruck]: {
     anim: "ruck",
     cues: [
@@ -252,4 +292,13 @@ const CATEGORY_FALLBACK: Record<Category, LibraryEntry> = {
 
 export function libraryFor(ex: Exercise): LibraryEntry {
   return LIB[ex.id] ?? CATEGORY_FALLBACK[ex.category];
+}
+
+/**
+ * Does this exercise have its own animation and cues, rather than the
+ * category archetype? Built-ins must — a fallback demonstrates the wrong
+ * movement. `bun run db:smoke` asserts full coverage.
+ */
+export function hasLibraryEntry(exerciseId: string): boolean {
+  return exerciseId in LIB;
 }
