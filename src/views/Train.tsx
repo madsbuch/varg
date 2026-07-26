@@ -314,6 +314,22 @@ function WodConfigSheet({
 
   const start = () => {
     if (exercises.length === 0) return;
+    // Marking the field red is not enough on its own — the fallback still
+    // ran, so "abc" in Rest started a circuit with NO rest at all, which is
+    // the same silent substitution the comma bug used to cause. Refuse.
+    const bad = [
+      badNum(work) && "Work",
+      badNum(rest) && "Rest",
+      badNum(rounds) && "Rounds",
+    ].filter((x): x is string => typeof x === "string");
+    if (bad.length > 0) {
+      setStartError(
+        `${bad.join(", ")} ${bad.length === 1 ? "is" : "are"} not a number. ` +
+          `Fix ${bad.length === 1 ? "it" : "them"} before starting — Varg ` +
+          `won't guess and run a different workout.`,
+      );
+      return;
+    }
     // Say no out loud rather than clamping: a silently shortened circuit is
     // a different workout, and the athlete never asked for it.
     if (intervals > MAX_WOD_INTERVALS) {

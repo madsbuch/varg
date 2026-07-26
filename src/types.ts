@@ -25,6 +25,12 @@ export interface Exercise {
   metric: Metric;
   muscles: string[];
   builtIn: boolean;
+  /**
+   * Superseded by a corrected built-in with a different id. Kept so old
+   * sessions and PRs still resolve, but never offered when picking an
+   * exercise. Set by mergeBuiltIns on load, not stored in seed content.
+   */
+  deprecated?: boolean | undefined;
 }
 
 /** A single logged set inside a session entry. */

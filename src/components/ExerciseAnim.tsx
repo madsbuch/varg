@@ -364,7 +364,11 @@ const DEFS = {
         "M78 86 L64 76 L50 66",
       ]),
       p(["M46 56 L48 32", "M40 68 L44 52", "M50 66 L34 64"]),
-      p(["M48 34 L46 52", "M44 52 L36 84", "M34 64 L34 86"]),
+      // The standing arm used to run from (48,34) down to (46,52), retracing
+      // the torso above it — inside the 4-unit stroke, so the whole figure
+      // rendered as one bare vertical line plus a head. Swing it out to the
+      // side where it reads as an arm.
+      p(["M48 34 L57 48", "M44 52 L36 84", "M34 64 L34 86"]),
       head([52, 48, 28], [25, 46, 62]),
     ],
   },

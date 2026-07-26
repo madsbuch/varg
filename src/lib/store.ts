@@ -7,7 +7,7 @@ import type {
   Split,
   WorkoutSet,
 } from "../types";
-import { seedExercises, seedSplits } from "./seed";
+import { EX, seedExercises, seedSplits } from "./seed";
 import { recomputePRs } from "./prs";
 
 export const STORAGE_KEY = "varg.data.v1";
@@ -42,8 +42,33 @@ export function mergeBuiltIns(data: AppData): AppData {
   for (const sp of seedSplits()) {
     if (!splitIds.has(sp.id)) data.splits.push(sp);
   }
+
+  // Retire superseded built-ins. A semantic correction to an existing
+  // exercise ships as a NEW id (mergeBuiltIns can only add, never rewrite),
+  // which leaves an upgraded device holding both — two rows with the same
+  // name, subtitle and animation, one of them the version with the bug.
+  // The old row has to stay so existing history and PRs keep resolving, so
+  // it is renamed instead of deleted, and it is never offered as a choice.
+  for (const ex of data.exercises) {
+    const successor = SUPERSEDED[ex.id];
+    if (!successor) continue;
+    ex.deprecated = true;
+    if (!ex.name.endsWith(DEPRECATED_SUFFIX)) {
+      ex.name = `${ex.name}${DEPRECATED_SUFFIX}`;
+    }
+  }
   return data;
 }
+
+const DEPRECATED_SUFFIX = " (old)";
+
+/**
+ * Built-in ids replaced by a corrected version, mapped to their successor.
+ * Only ever grows — an entry here is a promise to a device in the field.
+ */
+const SUPERSEDED: Record<string, string> = {
+  [EX.farmerCarry]: EX.farmerCarryDistance,
+};
 
 export function loadData(): AppData {
   if (typeof localStorage === "undefined") return freshData();

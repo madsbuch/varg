@@ -33,6 +33,8 @@ export default function Library() {
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     return data.exercises
+      // See ExercisePicker: superseded built-ins are data, not choices.
+      .filter((e) => !e.deprecated)
       .filter((e) => cat === "all" || e.category === cat)
       .filter(
         (e) =>

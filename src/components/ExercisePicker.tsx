@@ -37,6 +37,9 @@ export default function ExercisePicker({
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     return data.exercises
+      // Superseded built-ins stay in the data so old sessions resolve, but
+      // offering them would let the athlete pick the version with the bug.
+      .filter((e) => !e.deprecated)
       .filter((e) => !exclude.includes(e.id))
       .filter((e) => !term || e.name.toLowerCase().includes(term))
       .sort((a, b) => a.name.localeCompare(b.name));

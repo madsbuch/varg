@@ -12,7 +12,15 @@
  */
 import Database from "@tauri-apps/plugin-sql";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
-import { eq, getTableColumns, getTableName, inArray, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  getTableColumns,
+  getTableName,
+  inArray,
+  notInArray,
+  sql,
+} from "drizzle-orm";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import type {
   AppData,
@@ -97,7 +105,30 @@ export class SqlitePersistence implements Persistence {
       "SELECT name FROM __migrations",
     );
     const applied = new Set(appliedRows.map((r) => r.name));
-    for (const path of Object.keys(migrationFiles).sort()) {
+
+    // Repair devices damaged by the pre-0.5.7 migrator, which ran statements
+    // one at a time and wrote its bookkeeping row only after the whole file
+    // succeeded. A failure part-way through left real tables behind with no
+    // __migrations row, and because the generated SQL is bare CREATE TABLE,
+    // every later launch died on "table already exists" — permanently, with
+    // no way out of the error screen. If the first migration is unapplied but
+    // its tables already exist, adopt them instead of re-running the file.
+    const names = Object.keys(migrationFiles).sort();
+    const first = names[0]?.split("/").pop();
+    if (first && !applied.has(first)) {
+      const existing = await this.sqlite.select<{ name: string }[]>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'exercises'",
+      );
+      if (existing.length > 0) {
+        await this.sqlite.execute(
+          "INSERT OR IGNORE INTO __migrations (name, applied_at) VALUES ($1, $2)",
+          [first, new Date().toISOString()],
+        );
+        applied.add(first);
+      }
+    }
+
+    for (const path of names) {
       const name = path.split("/").pop() ?? path;
       if (applied.has(name)) continue;
       const stmts = (migrationFiles[path] ?? "")
@@ -323,47 +354,89 @@ export class SqlitePersistence implements Persistence {
       .values(row)
       .onConflictDoUpdate({ target: t.splits.id, set: row });
 
-    // Replace day structure wholesale — simple and small.
-    await this.db.delete(t.splitDayExercises).where(
-      inArray(
-        t.splitDayExercises.dayId,
-        this.db
-          .select({ id: t.splitDays.id })
-          .from(t.splitDays)
-          .where(eq(t.splitDays.splitId, split.id)),
-      ),
-    );
-    await this.db.delete(t.splitDays).where(eq(t.splitDays.splitId, split.id));
-
-    if (split.days.length > 0) {
-      await this.db.insert(t.splitDays).values(
-        split.days.map((d, i) => ({
-          id: d.id,
-          splitId: split.id,
-          name: d.name,
-          position: i,
-        })),
-      );
-      // Deduped on (dayId, exerciseId), which is the table's primary key.
-      // A day listing the same exercise twice is a UNIQUE violation inside
-      // load(), and because the splits/split_days rows above have already
-      // committed, the next launch finds the split "known" and skips this
-      // write forever — the split renders with empty days, permanently.
-      // db-smoke rejects it in seed content; splits are user-editable, so
-      // the write path must not be fatal either.
-      const dayEx: { dayId: string; exerciseId: string; position: number }[] = [];
-      for (const d of split.days) {
-        const seen = new Set<string>();
-        for (const exId of d.exerciseIds) {
-          if (seen.has(exId)) continue;
-          seen.add(exId);
-          dayEx.push({ dayId: d.id, exerciseId: exId, position: seen.size - 1 });
-        }
-      }
-      if (dayEx.length > 0) {
-        await this.db.insert(t.splitDayExercises).values(dayEx);
+    // Upsert then prune — never the reverse. Deleting the day structure
+    // first autocommits, so a rejected insert (SQLITE_BUSY, the WebView
+    // suspended mid-IPC) or an Android process kill in that window left the
+    // split permanently empty: mergeBuiltIns only adds splits whose id is
+    // MISSING, and the id survives, so nothing ever repaired it.
+    //
+    // Deduped on (dayId, exerciseId), the table's primary key. A day listing
+    // the same exercise twice is a UNIQUE violation inside load(); db-smoke
+    // rejects it in seed content, but splits are user-editable so the write
+    // path must not be fatal either.
+    const dayEx: { dayId: string; exerciseId: string; position: number }[] = [];
+    for (const d of split.days) {
+      const seen = new Set<string>();
+      for (const exId of d.exerciseIds) {
+        if (seen.has(exId)) continue;
+        seen.add(exId);
+        dayEx.push({ dayId: d.id, exerciseId: exId, position: seen.size - 1 });
       }
     }
+
+    if (split.days.length > 0) {
+      await this.db
+        .insert(t.splitDays)
+        .values(
+          split.days.map((d, i) => ({
+            id: d.id,
+            splitId: split.id,
+            name: d.name,
+            position: i,
+          })),
+        )
+        .onConflictDoUpdate({
+          target: t.splitDays.id,
+          set: {
+            splitId: sql`excluded.split_id`,
+            name: sql`excluded.name`,
+            position: sql`excluded.position`,
+          },
+        });
+    }
+    if (dayEx.length > 0) {
+      await this.db
+        .insert(t.splitDayExercises)
+        .values(dayEx)
+        .onConflictDoUpdate({
+          target: [t.splitDayExercises.dayId, t.splitDayExercises.exerciseId],
+          set: { position: sql`excluded.position` },
+        });
+    }
+
+    // Only now remove what actually disappeared. Both deletes are scoped to
+    // this split, so a concurrent edit to another split is untouched.
+    const dayIds = split.days.map((d) => d.id);
+    const keptPairs = new Set(dayEx.map((x) => `${x.dayId} ${x.exerciseId}`));
+    const staleRows = await this.sqlite.select<
+      { day_id: string; exercise_id: string }[]
+    >(
+      `SELECT sde.day_id, sde.exercise_id FROM split_day_exercises sde
+         JOIN split_days sd ON sd.id = sde.day_id
+        WHERE sd.split_id = $1`,
+      [split.id],
+    );
+    for (const r of staleRows) {
+      if (keptPairs.has(`${r.day_id} ${r.exercise_id}`)) continue;
+      await this.db
+        .delete(t.splitDayExercises)
+        .where(
+          and(
+            eq(t.splitDayExercises.dayId, r.day_id),
+            eq(t.splitDayExercises.exerciseId, r.exercise_id),
+          ),
+        );
+    }
+    await this.db
+      .delete(t.splitDays)
+      .where(
+        dayIds.length > 0
+          ? and(
+              eq(t.splitDays.splitId, split.id),
+              notInArray(t.splitDays.id, dayIds),
+            )
+          : eq(t.splitDays.splitId, split.id),
+      );
   }
 
   async deleteSplit(id: string): Promise<void> {

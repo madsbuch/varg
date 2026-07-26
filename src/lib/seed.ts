@@ -217,7 +217,10 @@ export function seedTemplates(): Template[] {
         "only — nothing goes on the tarmac. Opens the hips the seat closed " +
         "down, unlocks the shoulders, moves blood without soaking your shirt " +
         "for the next leg.",
-      scheme: "3 rounds · 6 stations · 20 s work / 10 s rest — 3 min a round",
+      // No round length here either. Rounds 1 and 2 are 3:00, but the player
+      // drops the trailing rest so round 3 is 2:50 — and the card already
+      // shows the real total. See the note on tpl-varg-18.
+      scheme: "3 rounds · 6 stations · 20 s work / 10 s rest",
       // Ordered for a body that has just been folded into a car seat: start
       // with the shoulders while everything is still cold, alternate lower
       // and upper, and put the two hip-openers where the legs are warm.
