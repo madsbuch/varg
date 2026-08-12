@@ -224,6 +224,62 @@ const LIB: Record<string, LibraryEntry> = {
       "Reverse direction halfway through.",
     ],
   },
+  [EX.ankleRock]: {
+    anim: "ankleRock",
+    cues: [
+      "Half-kneel, front foot flat and fully planted.",
+      "Drive the front knee forward past the toes, heel glued down.",
+      "Rock back to neutral and repeat — feel the stretch low in the calf.",
+    ],
+  },
+  [EX.catCow]: {
+    anim: "catCow",
+    cues: [
+      "Hands under shoulders, knees under hips.",
+      "Cow: drop the belly, lift the chest and tailbone.",
+      "Cat: round the spine to the ceiling, tuck the chin — flow between the two.",
+    ],
+  },
+  [EX.hip90Switch]: {
+    anim: "hip90Switch",
+    cues: [
+      "Seated, both knees bent to roughly 90°.",
+      "Rotate through the hips to switch the front and back leg — chest stays tall.",
+      "Keep it slow; stop short of any pinch, then switch sides.",
+    ],
+  },
+  [EX.worldsGreatestStretch]: {
+    anim: "worldsGreatestStretch",
+    cues: [
+      "Long lunge, back knee down, front foot flat.",
+      "Drop the back hip low, then rotate the chest and reach the same-side arm to the ceiling.",
+      "Follow the hand with your eyes; alternate sides each round.",
+    ],
+  },
+  [EX.hipFlexorStretch]: {
+    anim: "hipFlexorStretch",
+    cues: [
+      "Half-kneel, back knee under the hip, front foot flat ahead.",
+      "Tuck the tailbone under and shift forward until the front of the back hip stretches.",
+      "Reach both arms overhead for more — breathe, don't bounce.",
+    ],
+  },
+  [EX.openBook]: {
+    anim: "openBook",
+    cues: [
+      "Lie on your side, knees stacked and bent to 90°.",
+      "Reach the top arm across the body, then open it to the far side, letting the gaze follow.",
+      "Let the upper back rotate; keep the knees pinned together.",
+    ],
+  },
+  [EX.downDogCobra]: {
+    anim: "downDogCobra",
+    cues: [
+      "From all fours, lift the hips high into an inverted V — heels reaching for the floor.",
+      "Flow forward and down into Cobra: hips to the deck, chest lifted, shoulders down.",
+      "Press through the hands each way; keep the neck long, not cranked back.",
+    ],
+  },
   [EX.burpee]: {
     anim: "burpee",
     cues: [
