@@ -3,7 +3,7 @@
  * exercise, plus concise form cues. Custom exercises fall back to an
  * archetype for their category.
  */
-import type { AnimKey } from "../components/ExerciseAnim";
+import type { AnimKey } from "../components/exerciseAnimDefs";
 import type { Category, Exercise } from "../types";
 import { EX } from "./seed";
 

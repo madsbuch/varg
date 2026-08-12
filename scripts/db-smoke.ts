@@ -19,6 +19,7 @@ import { join } from "node:path";
 import * as t from "../src/db/schema";
 import { seedExercises, seedSplits, seedTemplates } from "../src/lib/seed";
 import { hasLibraryEntry } from "../src/lib/library";
+import { DEFS } from "../src/components/exerciseAnimDefs";
 import * as prsModule from "../src/lib/prs";
 import { estimate1RM } from "../src/lib/units";
 import * as typesModule from "../src/types";
@@ -332,6 +333,154 @@ for (const tpl of seedTemplates()) {
     `${where}: runs ${Math.round(seconds / 60)} min, over the ${MAX_DURATION / 60} min ceiling`,
   );
 }
+
+// --- animation geometry ---
+// The animations are the one piece of built-in content with no textual
+// tell: a figure can be fully wired up, name the right exercise and still
+// draw a shape nobody would recognise. These are the failure modes CLAUDE.md
+// describes in prose, checked numerically — the whole shipped library passes
+// them, so a new figure that trips one is new breakage.
+//
+// SMIL interpolates a path's `d` number by number, so a frame pair can be
+// sampled by lerping the coordinate lists.
+interface Vec {
+  x: number;
+  y: number;
+}
+
+/** Split a path's `d` into subpaths of points, plus its command signature. */
+function parsePath(d: string): { cmds: string; subs: Vec[][] } {
+  const toks = d.match(/[MLZz]|-?\d+(?:\.\d+)?/g) ?? [];
+  const subs: Vec[][] = [];
+  const cmds: string[] = [];
+  let cur: Vec[] = [];
+  for (let i = 0; i < toks.length; i++) {
+    const tk = toks[i];
+    if (tk === "M" || tk === "L") {
+      if (tk === "M" && cur.length > 0) {
+        subs.push(cur);
+        cur = [];
+      }
+      cmds.push(tk);
+      cur.push({ x: Number(toks[++i]), y: Number(toks[++i]) });
+    } else if (tk === "Z" || tk === "z") {
+      cmds.push("Z");
+    }
+  }
+  if (cur.length > 0) subs.push(cur);
+  return { cmds: cmds.join(""), subs };
+}
+
+function lerpFrames(a: string, b: string, t: number): string {
+  const nums = (s: string) => (s.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+  const from = nums(a);
+  const to = nums(b);
+  const cmds = a.match(/[MLZz]/g) ?? [];
+  const vals = from.map((v, i) => v + (to[i] - v) * t);
+  let vi = 0;
+  return cmds
+    .map((c) =>
+      c === "Z" || c === "z" ? "Z" : `${c}${vals[vi++]} ${vals[vi++]}`,
+    )
+    .join(" ");
+}
+
+/**
+ * How far apart two limbs read: the widest gap between corresponding
+ * vertices. Limbs are allowed to share a joint (a shoulder, a hip), so the
+ * max — not the min — is what says whether they draw as two lines.
+ */
+function limbGap(a: Vec[], b: Vec[]): number {
+  let widest = 0;
+  for (let i = 0; i < Math.min(a.length, b.length); i++)
+    widest = Math.max(widest, Math.hypot(a[i].x - b[i].x, a[i].y - b[i].y));
+  return widest;
+}
+
+// Strokes are 4 units wide in a 100-unit box, so a limb pair reads as one
+// line below roughly 8 units of separation. CLAUDE.md sets the bar at 10 for
+// an animated pair (runInPlace measures 14) sampled across the whole morph.
+const SAMPLES = [0, 0.25, 0.5, 0.75, 1];
+const PAIR_MIN = 10;
+const PART_MIN = 8;
+
+for (const [key, def] of Object.entries(DEFS)) {
+  const paths = def.parts.filter((part) => part.kind === "path");
+
+  for (const part of paths) {
+    // SMIL needs an identical command structure in every frame or the morph
+    // is undefined — the figure jumps or vanishes rather than animating.
+    const shapes = part.frames.map((f) => parsePath(f).cmds);
+    assert(
+      new Set(shapes).size === 1,
+      `animation "${key}": frames have different command structures (${[...new Set(shapes)].join(" vs ")}) — every frame of a path must have the same M/L sequence`,
+    );
+    for (const frame of part.frames)
+      for (const sub of parsePath(frame).subs)
+        for (const pt of sub)
+          assert(
+            pt.x >= 0 && pt.x <= 100 && pt.y >= 0 && pt.y <= 100,
+            `animation "${key}": point ${pt.x},${pt.y} is outside the 100x100 box`,
+          );
+  }
+
+  // A single path holding two subpaths is a limb pair (two legs, two arms).
+  // Mirroring one across the centre line makes them coincide exactly halfway
+  // through the morph and the figure flattens into a stick for half the loop.
+  for (const part of paths) {
+    if (part.gear) continue;
+    if (parsePath(part.frames[0]).subs.length !== 2) continue;
+    let narrowest = Infinity;
+    for (let i = 0; i < part.frames.length; i++) {
+      const from = part.frames[i];
+      const to = part.frames[(i + 1) % part.frames.length];
+      const ts = part.frames.length === 1 ? [0] : SAMPLES;
+      for (const t of ts) {
+        const subs = parsePath(lerpFrames(from, to, t)).subs;
+        narrowest = Math.min(narrowest, limbGap(subs[0], subs[1]));
+      }
+    }
+    assert(
+      narrowest >= PAIR_MIN,
+      `animation "${key}": a limb pair closes to ${narrowest.toFixed(2)} units mid-morph (needs ${PAIR_MIN}) — ` +
+        `the two limbs render as one line. Keep each limb on its own side of the body, or use three frames.`,
+    );
+  }
+
+  // Two separate parts tracing the same line is the same bug wearing a
+  // different hat: one limb is drawn straight on top of another and simply
+  // disappears. This is how World's Greatest Stretch shipped with one arm.
+  for (let i = 0; i < paths.length; i++) {
+    for (let j = i + 1; j < paths.length; j++) {
+      const A = paths[i];
+      const B = paths[j];
+      if (A.gear || B.gear) continue;
+      const sa = parsePath(A.frames[0]).subs;
+      const sb = parsePath(B.frames[0]).subs;
+      if (sa.length !== 1 || sb.length !== 1) continue;
+      if (sa[0].length !== sb[0].length) continue;
+      let narrowest = Infinity;
+      const frames = Math.max(A.frames.length, B.frames.length);
+      for (let f = 0; f < frames; f++) {
+        const da = parsePath(A.frames[f % A.frames.length]).subs[0];
+        const db = parsePath(B.frames[f % B.frames.length]).subs[0];
+        narrowest = Math.min(narrowest, limbGap(da, db));
+      }
+      assert(
+        narrowest >= PART_MIN,
+        `animation "${key}": parts ${i} and ${j} are never more than ${narrowest.toFixed(2)} units apart ` +
+          `(needs ${PART_MIN}) — they draw as a single limb. Move one to the other side of the body.`,
+      );
+    }
+  }
+}
+
+// Every animation referenced from library.ts must exist, and every animation
+// defined here should be reachable — an orphan is usually a rename that left
+// an exercise pointing at the wrong figure.
+const animKeys = new Set(Object.keys(DEFS));
+assert(animKeys.has("rest"), "the rest block's own figure is missing from DEFS");
+console.log(`audited ${animKeys.size} animations`);
 
 // Every metric must map to a declared PR direction, and the declaration must
 // match what recomputePRs actually keeps. Before this landed, types.ts

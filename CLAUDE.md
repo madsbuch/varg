@@ -103,7 +103,9 @@ What follows from that:
 
 Figures live in a 100×100 box with the ground at y≈88. A part is either a
 path whose `d` morphs between frames or a circle whose centre moves. Every
-frame of a path must have an identical command structure.
+frame of a path must have an identical command structure. The geometry lives
+in [`src/components/exerciseAnimDefs.ts`](src/components/exerciseAnimDefs.ts),
+kept free of JSX so `bun run db:smoke` can audit it.
 
 The trap: **two frames that mirror a limb across the centre line collapse to a
 straight line at the midpoint of the interpolation**, so the figure spends
@@ -119,6 +121,21 @@ stay at or above 10** across the whole loop — `runInPlace` measures 14; the
 Ruck and Farmer's Carry legs measured 2.00 at t = 0.5 and merged for about a
 quarter of every 1.4 s loop. Mirroring an arm across the body's centre line
 has the same failure mode as mirroring a leg.
+
+`bun run db:smoke` now enforces all three numerically — command structure per
+frame, the 10-unit pair threshold sampled across the morph, and an 8-unit
+floor between two *separate* parts, which is the same bug wearing a different
+hat: one limb drawn on top of another simply disappears. World's Greatest
+Stretch shipped for exactly one commit with its two arms 2.83 units apart.
+
+**None of that says the figure is legible.** The guards catch limbs that
+vanish; they cannot see a figure whose joints do not connect, whose head
+floats beside the neck, or that draws a convincing table instead of a person
+on all fours — every one of which shipped in that same commit. Render the
+thing and look at it before you call it done: sample the interpolation to
+stills, put a known-good figure (`runInPlace`, `lunge`) beside it, and check
+that a stranger would name the movement. If a pose cannot be read in this
+style, change the pose, not the label.
 
 ---
 
