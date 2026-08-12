@@ -67,6 +67,13 @@ export const EX = {
   kneeLift: "ex-knee-lift",
   reverseLunge: "ex-reverse-lunge",
   armCircles: "ex-arm-circles",
+  ankleRock: "ex-ankle-rock",
+  catCow: "ex-cat-cow",
+  hip90Switch: "ex-hip-90-switch",
+  worldsGreatestStretch: "ex-worlds-greatest-stretch",
+  hipFlexorStretch: "ex-hip-flexor-stretch",
+  openBook: "ex-open-book",
+  downDogCobra: "ex-down-dog-cobra",
 } as const;
 
 export function seedExercises(): Exercise[] {
@@ -153,6 +160,32 @@ export function seedExercises(): Exercise[] {
     e(EX.armCircles, "Arm Circles", "bodyweight", "time", [
       "shoulders",
       "upper back",
+    ]),
+    e(EX.ankleRock, "Ankle Rock", "bodyweight", "time", ["ankles", "calves"]),
+    e(EX.catCow, "Cat-Cow", "core", "time", ["spine", "core"]),
+    e(EX.hip90Switch, "90/90 Hip Switch", "bodyweight", "time", [
+      "hips",
+      "glutes",
+    ]),
+    e(
+      EX.worldsGreatestStretch,
+      "World's Greatest Stretch",
+      "bodyweight",
+      "time",
+      ["hips", "spine", "hamstrings"],
+    ),
+    e(
+      EX.hipFlexorStretch,
+      "Kneeling Hip Flexor Stretch",
+      "bodyweight",
+      "time",
+      ["hip flexors", "quads"],
+    ),
+    e(EX.openBook, "Open Book", "core", "time", ["spine", "shoulders"]),
+    e(EX.downDogCobra, "Down Dog to Cobra", "bodyweight", "time", [
+      "shoulders",
+      "spine",
+      "calves",
     ]),
     e(EX.burpee, "Burpee", "conditioning", "reps", ["full body"]),
     e(EX.boxJump, "Box Jump", "conditioning", "reps", ["legs"]),
@@ -498,6 +531,66 @@ export function seedTemplates(): Template[] {
         bpm: 172,
         style: "heavy metal, barbell-slamming riffs",
         theme: "Five brutal barbell rounds in tribute — heavy and fast",
+      },
+    },
+    {
+      id: "tpl-varg-mobility-5",
+      name: "Varg Mobility 5",
+      branch: "Varg",
+      description:
+        "Daily mobility, short form. Six stations through ankles, hips, " +
+        "spine and shoulders, straight through with no rest — the station " +
+        "change is the breather. Floor work included; do it every day, not " +
+        "just leg day.",
+      scheme: "1 round · 6 stations · 50 s work, no rest — 5 min flow",
+      // Ankles, then shoulders, then onto the floor for spine, hip and a
+      // combined hip-and-spine rotation, closing on a flow that opens
+      // shoulders, spine and ankles together. The 20-minute version below
+      // uses the same order plus the two static holds this one drops to
+      // stay moving.
+      exerciseIds: [
+        EX.ankleRock,
+        EX.armCircles,
+        EX.catCow,
+        EX.hip90Switch,
+        EX.worldsGreatestStretch,
+        EX.downDogCobra,
+      ],
+      interval: { work: 50, rest: 0, rounds: 1 },
+      music: {
+        bpm: 90,
+        style: "calm ambient, soft pads, minimal percussion, no vocals",
+        theme:
+          "Five minutes to unlock stiff joints before the day starts — unhurried, deliberate breath",
+      },
+    },
+    {
+      id: "tpl-varg-mobility-20",
+      name: "Varg Mobility 20",
+      branch: "Varg",
+      description:
+        "Daily mobility, full form. Eight stations through ankles, hips, " +
+        "spine and shoulders across three rounds, straight through with no " +
+        "rest. Floor work included — the long version for a rest day or a " +
+        "stiff morning.",
+      scheme: "3 rounds · 8 stations · 50 s work, no rest — 20 min flow",
+      exerciseIds: [
+        EX.ankleRock,
+        EX.armCircles,
+        EX.catCow,
+        EX.hip90Switch,
+        EX.worldsGreatestStretch,
+        EX.hipFlexorStretch,
+        EX.openBook,
+        EX.downDogCobra,
+      ],
+      interval: { work: 50, rest: 0, rounds: 3 },
+      music: {
+        bpm: 80,
+        style:
+          "spacious ambient drone, slow evolving textures, gentle rhythmic pulse, no vocals",
+        theme:
+          "Twenty minutes moving through hips, spine, shoulders and ankles — patient, full range, a wolf stretching out before the hunt",
       },
     },
     {

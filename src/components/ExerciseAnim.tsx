@@ -466,6 +466,83 @@ const DEFS = {
       gearC([69, 45], [68, 62], 3),
     ],
   },
+  ankleRock: {
+    dur: 2.0,
+    parts: [
+      // Back knee stays down and still — only the front ankle rocks.
+      p(["M50 88 L46 78 L44 70"]),
+      p(["M58 88 L58 76 L56 64", "M58 88 L64 74 L64 60"]),
+      p(["M54 40 L56 60", "M60 38 L62 58"]),
+      head([56, 60], [33, 31]),
+    ],
+  },
+  catCow: {
+    dur: 2.4,
+    parts: [
+      p(["M70 60 L70 82"]),
+      p(["M30 62 L30 82"]),
+      // Spine sags (cow) and rounds (cat) between the fixed shoulder and
+      // hip supports.
+      p(["M30 62 L50 70 L70 60", "M30 62 L50 50 L70 60"]),
+      head([80, 76], [52, 66]),
+    ],
+  },
+  hip90Switch: {
+    dur: 2.2,
+    parts: [
+      p(["M50 78 L50 50"]),
+      p(["M50 78 L38 82 L30 88"]),
+      // One leg sweeps in → tabletop → out, all on the same side. The cue
+      // text carries the side switch, same pattern as kneeLift and boxing.
+      p([
+        "M50 78 L58 80 L52 88",
+        "M50 78 L66 72 L70 84",
+        "M50 78 L70 82 L84 78",
+      ]),
+      head([50], [44]),
+    ],
+  },
+  worldsGreatestStretch: {
+    dur: 2.6,
+    parts: [
+      p(["M46 88 L48 74 L46 60 M60 88 L58 78 L54 66"]),
+      p(["M46 60 L50 40"]),
+      // Rotating arm sweeps a full arc — low, open left, overhead right —
+      // never mirrored against a second limb, so no midpoint collapse.
+      p(["M50 40 L46 60", "M50 40 L28 22", "M50 40 L66 22"]),
+      p(["M50 40 L44 58"]),
+      head([52], [34]),
+    ],
+  },
+  hipFlexorStretch: {
+    dur: 2.8,
+    parts: [
+      p(["M46 88 L48 74 L46 60 M60 88 L58 78 L54 66"]),
+      p(["M46 60 L48 38", "M46 60 L46 34"]),
+      p(["M48 38 L42 18 M48 38 L54 18", "M46 34 L40 12 M46 34 L52 12"]),
+      head([50, 49], [33, 29]),
+    ],
+  },
+  openBook: {
+    dur: 2.4,
+    parts: [
+      p(["M20 78 L38 76 L52 82"]),
+      p(["M38 76 L58 60"]),
+      // Top arm rotates open across the chest and back — one limb, one
+      // side, same safe pattern as the other rotational sweeps above.
+      p(["M58 60 L50 66", "M58 60 L54 40", "M58 60 L74 48"]),
+      head([64], [54]),
+    ],
+  },
+  downDogCobra: {
+    dur: 2.6,
+    parts: [
+      // Hips are the high apex in Down Dog, low and trailing in Cobra.
+      p(["M26 86 L34 66 L50 50", "M24 86 L40 80 L58 60"]),
+      p(["M50 50 L74 84", "M58 60 L70 82"]),
+      head([54, 62], [42, 52]),
+    ],
+  },
   bike: {
     dur: 1.0,
     parts: [
