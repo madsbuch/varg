@@ -22,7 +22,7 @@ const LIB: Record<string, LibraryEntry> = {
     ],
   },
   [EX.frontSquat]: {
-    anim: "squat",
+    anim: "frontSquat",
     cues: [
       "Bar racked on front delts, elbows high.",
       "Torso as upright as possible all the way down.",
@@ -62,7 +62,7 @@ const LIB: Record<string, LibraryEntry> = {
     ],
   },
   [EX.powerClean]: {
-    anim: "hinge",
+    anim: "powerClean",
     cues: [
       "Set up like a deadlift, shoulders over the bar.",
       "Explode with the hips, shrug, pull under.",
@@ -86,7 +86,7 @@ const LIB: Record<string, LibraryEntry> = {
     ],
   },
   [EX.wallBall]: {
-    anim: "thruster",
+    anim: "wallBall",
     cues: [
       "Full squat holding the ball at the chest.",
       "Drive up and throw to the target in one rhythm.",

@@ -620,10 +620,22 @@ input.invalid,
 
 .ex-anim .ex-limb {
   stroke: currentColor;
-  stroke-width: 4;
+  stroke-width: 3.5;
   stroke-linecap: round;
   stroke-linejoin: round;
   fill: none;
+}
+
+.ex-anim .ex-far {
+  opacity: 0.42;
+}
+
+.ex-anim .ex-phase {
+  fill: var(--muted);
+  font-size: 5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-anchor: middle;
 }
 
 .ex-anim .ex-head {
@@ -1020,4 +1032,16 @@ input.invalid,
 .wod-confirm .card {
   width: 100%;
   max-width: 380px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet,
+  .wod-top .check.music.blocked {
+    animation: none;
+  }
+
+  .wod-progress > div,
+  .wod-stepbar > div {
+    transition: none;
+  }
 }

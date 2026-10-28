@@ -48,8 +48,8 @@ should shape what you build:
 1. Add any missing exercises to `EX` and `seedExercises()` in
    [`src/lib/seed.ts`](src/lib/seed.ts). Ids are permanent — they are foreign
    keys in the user's database. Never rename or reuse one.
-2. Add an animation to `DEFS` in
-   [`src/components/ExerciseAnim.tsx`](src/components/ExerciseAnim.tsx) and
+2. Add an animation to `MOTIONS` in
+   [`src/lib/exercise-motion.ts`](src/lib/exercise-motion.ts) and
    an entry with cues to `LIB` in [`src/lib/library.ts`](src/lib/library.ts).
    Every built-in exercise must have its own — the category fallback exists
    for user-created exercises only, and demonstrating the wrong movement is a
@@ -82,7 +82,7 @@ install, and you will not notice, because your dev database is fresh.
 What follows from that:
 
 - **Templates, animations and cues are pure code.** They are never persisted;
-  they are resolved from `seedTemplates()`, `DEFS` and `LIB` on every render.
+  they are resolved from `seedTemplates()`, `MOTIONS` and `LIB` on every render.
   Editing a template's stations, timing, scheme, description or music reaches
   every install on the next build. Fix those in place.
 - **A semantic correction to an existing built-in exercise ships as a NEW
@@ -99,24 +99,34 @@ What follows from that:
 
 ### Writing animations
 
-Figures live in a 100×100 box with the ground at y≈88. A part is either a
-path whose `d` morphs between frames or a circle whose centre moves. Every
-frame of a path must have an identical command structure.
+Choreography lives in [`src/lib/exercise-motion.ts`](src/lib/exercise-motion.ts).
+The stage is 100×100 with contact points at y=88 and a ground line at y=90.
+Every pose uses a shared skeleton: 23-unit torso, 12+12-unit arms, and
+17+17-unit legs. Elbows and knees are solved **after** sampling the timeline.
+Do not go back to hand-morphing independent limb paths: that disconnects
+joints and makes limbs shrink in the intermediate frames.
 
-The trap: **two frames that mirror a limb across the centre line collapse to a
-straight line at the midpoint of the interpolation**, so the figure spends
-half of every loop looking like a stick. Keep each limb on its own side of the
-body, or use three frames. This is why `run`, `runInPlace` and `flutter` are
-written the way they are.
+- Author the whole movement, including recovery, landing and reset. Timing
+  comes from explicit timeline positions; use arcs for swings and pedals.
+- Keep supporting hands, feet and knees planted. Targets must be reachable;
+  solver clamping is numerical protection, not an authoring shortcut.
+- Keep the same bend branch through a timeline. A branch change while a
+  joint is bent produces an instantaneous flip. Interpolate free arms around
+  the shoulder when a straight target interpolation would cross the joint.
+- Use the lighter far-side limb to preserve depth during crossings. Do not
+  pin both legs to opposite sides merely to avoid overlap: that destroys the
+  alternating gait. Seated hip rotations use floor-plane foreshortening.
+- Distinct movements need distinct definitions: Power Clean is not a hinge,
+  Wall Ball is not a barbell thruster, and front/back racks differ.
+- `ExerciseAnim` caches solved frames and uses native SVG/SMIL playback.
+  Keep the path command structures and equipment counts stable throughout
+  each loop. Hide a thrown ball during reset instead of reversing its flight.
+- Run `bun run test`, `bun run build` and `bun run db:smoke`. The animation
+  tests cover lengths, contacts, clipping, continuous loops, joint flips,
+  native interpolation, equipment release and built-in mappings. Also inspect
+  full cycles at 62 px (library) and 170 px (player); geometry checks cannot
+  judge whether an exercise is recognizable.
 
-The threshold is numeric, so check it rather than eyeballing frame 0. Strokes
-are 4 units wide in a 100-unit box, so a pair of limbs reads as one line below
-roughly 8 units of separation. Sample the interpolation (t = 0, 0.25, 0.5,
-0.75, 1) and require the **minimum max-per-vertex gap between the two limbs to
-stay at or above 10** across the whole loop — `runInPlace` measures 14; the
-Ruck and Farmer's Carry legs measured 2.00 at t = 0.5 and merged for about a
-quarter of every 1.4 s loop. Mirroring an arm across the body's centre line
-has the same failure mode as mirroring a leg.
 
 ---
 
@@ -144,6 +154,6 @@ has the same failure mode as mirroring a leg.
 ```bash
 bun run build      # tsc --noEmit && eslint src && vite build
 bun run db:smoke   # migrations (applied twice) + CRUD + built-in content guards
-bun run test       # partial workout recording, skips, pauses and standby
+bun run test       # recording semantics + animation geometry and choreography
 bun run dev        # browser at :1420, localStorage backend
 ```
