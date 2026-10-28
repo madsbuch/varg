@@ -15,9 +15,10 @@
  * derived from Date.now() and the current step falls out of it.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Exercise, WorkoutSet } from "../types";
 import { useApp } from "../lib/app-context";
-import { deleteSession, newSession, uid, upsertSession } from "../lib/store";
+import { deleteSession, upsertSession } from "../lib/store";
+import { advanceProgress, buildSteps, newWodProgress, recordedSession, READY_SECS } from "../lib/wod";
+import type { Step, StepKind, WodConfig } from "../lib/wod";
 import { libraryFor } from "../lib/library";
 import { useBackHandler } from "../lib/back";
 import type { AnimKey } from "./ExerciseAnim";
@@ -36,65 +37,10 @@ import ExerciseAnim from "./ExerciseAnim";
 import { IconCheck, IconClose, IconMusic } from "./icons";
 import { formatSeconds } from "../lib/units";
 
-export interface WodConfig {
-  exercises: Exercise[];
-  work: number; // seconds
-  rest: number; // seconds
-  rounds: number;
-  title?: string; // template name; falls back to "WOD work/rest"
-  trackKey?: string; // battle-track cache key — plays during the WOD if cached
-}
-
-type StepKind = "ready" | "work" | "rest";
-
-interface Step {
-  kind: StepKind;
-  /** The station this step is about. For rest/ready: the one coming up. */
-  exercise: Exercise | undefined;
-  round: number; // 1-based; for rest, the round the NEXT station belongs to
-  secs: number;
-  at: number; // seconds from workout start
-}
-
-const READY_SECS = 5;
-
 /** The workout's position on the wall clock. */
 interface Clock {
   anchor: number; // ms timestamp where elapsed == 0
   pausedAt: number | null; // ms timestamp the clock is frozen at
-}
-
-/**
- * Expand a config into the flat list of steps, each stamped with its
- * absolute offset so the current step is a lookup, not a countdown.
- */
-function buildSteps(cfg: WodConfig): Step[] {
-  const steps: Step[] = [];
-  let at = 0;
-  const push = (s: Omit<Step, "at">) => {
-    steps.push({ ...s, at });
-    at += s.secs;
-  };
-
-  push({ kind: "ready", exercise: cfg.exercises[0], round: 1, secs: READY_SECS });
-
-  for (let r = 1; r <= cfg.rounds; r++) {
-    cfg.exercises.forEach((ex, i) => {
-      push({ kind: "work", exercise: ex, round: r, secs: cfg.work });
-      const isVeryLast = r === cfg.rounds && i === cfg.exercises.length - 1;
-      if (isVeryLast || cfg.rest <= 0) return;
-      // Rest belongs to whatever comes after it — that is what the athlete
-      // needs to see, and what the round counter should already be showing.
-      const wraps = i === cfg.exercises.length - 1;
-      push({
-        kind: "rest",
-        exercise: cfg.exercises[wraps ? 0 : i + 1],
-        round: wraps ? r + 1 : r,
-        secs: cfg.rest,
-      });
-    });
-  }
-  return steps;
 }
 
 /**
@@ -127,21 +73,6 @@ function stepAnim(step: Step): AnimKey {
   return "rest";
 }
 
-/**
- * One logged set for one pass through a station.
- *
- * The player knows the prescription, not the performance: it can say the
- * station ran for `work` seconds, it cannot say what happened inside it.
- * So only time-shaped metrics carry a number, and nothing is checked off
- * — `prs.ts` gates PR detection on `done`, and a 60 s plank station must
- * not mint a "Plank — Best hold 1:00" the athlete never held.
- */
-function prescribedSet(ex: Exercise, work: number): WorkoutSet {
-  const set: WorkoutSet = { id: uid("set"), done: false };
-  if (ex.metric === "time" || ex.metric === "distance_time") set.seconds = work;
-  return set;
-}
-
 const PHASE_LABEL: Record<StepKind, string> = {
   ready: "Get ready",
   work: "Work",
@@ -171,6 +102,11 @@ export default function WodPlayer({
     pausedAt: null,
   }));
   const [elapsed, setElapsed] = useState(0);
+  const [startedAt] = useState(() => new Date().toISOString());
+  const progress = useRef(newWodProgress());
+  const [stoppedEarly, setStoppedEarly] = useState(false);
+  const [recordedDuration, setRecordedDuration] = useState(0);
+  const [hasWork, setHasWork] = useState(false);
   // Finishing always logs, so the only thing the completion screen needs
   // to re-render on is whether the athlete removed the session again. The
   // id itself only has to survive re-renders, not drive them.
@@ -179,7 +115,7 @@ export default function WodPlayer({
   const [confirmStop, setConfirmStop] = useState(false);
 
   const paused = clock.pausedAt !== null;
-  const done = elapsed >= total;
+  const done = stoppedEarly || elapsed >= total;
 
   // The lead-in countdown is not workout time. Report the same figure the
   // template card promises: stations and rests, nothing else.
@@ -195,6 +131,9 @@ export default function WodPlayer({
     const read = () => {
       const now = clock.pausedAt ?? Date.now();
       const e = Math.max(0, (now - clock.anchor) / 1000);
+      advanceProgress(progress.current, steps, e);
+      setRecordedDuration(progress.current.duration);
+      setHasWork(progress.current.work.some((seconds) => seconds > 0));
       setElapsed(e);
       return e;
     };
@@ -204,7 +143,7 @@ export default function WodPlayer({
       if (read() >= total) clearInterval(id);
     }, 100);
     return () => { clearInterval(id); };
-  }, [clock, total]);
+  }, [clock, total, steps]);
 
   // Which step the clock is inside. Derived every render — that is the
   // whole point: no state to fall behind, no catch-up loop to run.
@@ -246,11 +185,12 @@ export default function WodPlayer({
   // the state transition itself stays pure.
   const seek = useCallback((seconds: number) => {
     const now = Date.now();
-    setClock((c) => ({
-      ...c,
-      anchor: (c.pausedAt ?? now) - Math.max(0, seconds) * 1000,
-    }));
-  }, []);
+    const current = (clock.pausedAt ?? now) - clock.anchor;
+    advanceProgress(progress.current, steps, current / 1000);
+    progress.current.position = Math.max(0, seconds);
+    setRecordedDuration(progress.current.duration);
+    setClock({ ...clock, anchor: (clock.pausedAt ?? now) - Math.max(0, seconds) * 1000 });
+  }, [clock, steps]);
 
   const togglePause = useCallback(() => {
     // Resuming is a user gesture, and it is the moment a context suspended
@@ -451,30 +391,21 @@ export default function WodPlayer({
   }, [done]);
 
   const logSession = useCallback(() => {
-    const s = newSession(
-      config.title ?? `WOD ${String(config.work)}/${String(config.rest)}`,
-    );
-    s.note = `${String(config.rounds)} rounds · ${String(config.work)}s on / ${String(config.rest)}s off`;
-    s.finishedAt = new Date().toISOString();
-    // A station can appear more than once per round (cardio between every
-    // exercise); that is more sets of one exercise, not a second entry.
-    const perRound = new Map<string, Exercise>();
-    const stations = new Map<string, number>();
-    for (const ex of config.exercises) {
-      perRound.set(ex.id, ex);
-      stations.set(ex.id, (stations.get(ex.id) ?? 0) + 1);
-    }
-    s.entries = [...perRound.values()].map((ex) => ({
-      id: uid("entry"),
-      exerciseId: ex.id,
-      sets: Array.from(
-        { length: config.rounds * (stations.get(ex.id) ?? 1) },
-        () => prescribedSet(ex, config.work),
-      ),
-    }));
-    update((d) => upsertSession(d, s));
-    return s.id;
-  }, [config, update]);
+    const session = recordedSession(config, steps, progress.current, startedAt, stoppedEarly);
+    if (session.entries.length === 0) return null;
+    update((d) => upsertSession(d, session));
+    return session.id;
+  }, [config, steps, startedAt, stoppedEarly, update]);
+
+  const stopAndSave = () => {
+    // Freeze at the dialog's pause time, including the fraction since the last tick.
+    const at = ((clock.pausedAt ?? Date.now()) - clock.anchor) / 1000;
+    advanceProgress(progress.current, steps, at);
+    setRecordedDuration(progress.current.duration);
+    setConfirmStop(false);
+    setHasWork(progress.current.work.some((seconds) => seconds > 0));
+    setStoppedEarly(true);
+  };
 
   // Finishing the workout saves it. The X in the corner is the same icon
   // in the same slot that opens the guarded stop sheet mid-workout, and it
@@ -502,23 +433,24 @@ export default function WodPlayer({
     return (
       <div className="wod">
         <div className="wod-top">
-          <span className="eyebrow">Mission complete</span>
+          <span className="eyebrow">{stoppedEarly ? "Workout stopped" : "Mission complete"}</span>
           <button className="check" onClick={onClose} aria-label="Close">
             <IconClose />
           </button>
         </div>
         <div className="wod-center">
           <div className="wod-phase" style={{ color: "var(--gold)" }}>
-            Complete
+            {stoppedEarly ? "Stopped early" : "Complete"}
           </div>
-          <div className="wod-time">{formatSeconds(workTotal)}</div>
+          <div className="wod-time">{formatSeconds(recordedDuration)}</div>
           <div className="muted" style={{ textAlign: "center" }}>
-            {config.rounds} rounds · {config.exercises.length} stations ·{" "}
-            {config.work}s on / {config.rest}s off
+            Recorded time · only performed intervals are saved
           </div>
         </div>
         <div className="wod-controls">
-          {discarded ? (
+          {!hasWork ? (
+            <div className="muted">No work intervals recorded.</div>
+          ) : discarded ? (
             <button className="btn primary" onClick={relog}>
               Log as session
             </button>
@@ -664,15 +596,18 @@ export default function WodPlayer({
           <div className="card">
             <h3 style={{ fontSize: 17 }}>Stop the workout?</h3>
             <p className="muted" style={{ fontSize: 14 }}>
-              {formatSeconds(workElapsed)} of {formatSeconds(workTotal)} done. Nothing
-              is logged if you stop now.
+              {formatSeconds(recordedDuration)} recorded. Save only the intervals
+              you performed, including time in the current station.
             </p>
+            <button className="btn primary" style={{ marginTop: 12 }} onClick={stopAndSave}>
+              Stop &amp; save
+            </button>
             <div className="btn-row" style={{ marginTop: 12 }}>
               <button className="btn ghost" onClick={keepGoing}>
                 Keep going
               </button>
               <button className="btn danger" onClick={onClose}>
-                Stop
+                Discard
               </button>
             </div>
           </div>

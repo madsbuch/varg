@@ -1006,7 +1006,7 @@ input.invalid,
   }
 }
 
-/* Stopping mid-workout is destructive — confirm in place. */
+/* Pause in place while choosing whether to save or discard a workout. */
 .wod-confirm {
   position: absolute;
   inset: 0;

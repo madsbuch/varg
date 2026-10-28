@@ -19,11 +19,10 @@ import { bestPRFor } from "../lib/prs";
 import { musicProfileFor } from "../lib/music";
 import { scrollContentTop } from "../lib/scroll";
 import { BattleTrack } from "../components/BattleTrack";
-import ExercisePicker from "../components/ExercisePicker";
 import WodPlayer from "../components/WodPlayer";
-import type { WodConfig } from "../components/WodPlayer";
+import type { WodConfig } from "../lib/wod";
 import { unlockAudio } from "../lib/beep";
-import { ConfirmSheet, EmptyState, Field, Sheet } from "../components/ui";
+import { ConfirmSheet, Sheet } from "../components/ui";
 import {
   IconCheck,
   IconClock,
@@ -34,7 +33,6 @@ import {
 } from "../components/icons";
 import {
   estimate1RM,
-  formatRelative,
   formatSeconds,
   kmFromMeters,
   metersFromKm,
@@ -90,15 +88,9 @@ export default function Train() {
 function StartScreen() {
   const { data, update } = useApp();
   const [showSplit, setShowSplit] = useState(false);
-  const [wodSetup, setWodSetup] = useState(false);
   const [runningWod, setRunningWod] = useState<WodConfig | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const templates = useMemo(() => seedTemplates(), []);
-  const history = data.sessions.filter((s) => s.finishedAt);
-
-  const startBlank = () => {
-    update((d) => upsertSession(d, newSession(defaultSessionName())));
-  };
 
   const startFromTemplate = (templateId: string) => {
     const tpl = templates.find((t) => t.id === templateId);
@@ -143,37 +135,10 @@ function StartScreen() {
       <h2 className="screen-title">Workout library</h2>
 
       <div className="btn-row" style={{ flexWrap: "wrap" }}>
-        <button className="btn sm" onClick={startBlank}>
-          <IconPlus /> Empty session
-        </button>
         <button className="btn sm" onClick={() => { setShowSplit(true); }}>
           <IconDumbbell /> From a split
         </button>
-        <button className="btn sm" onClick={() => { setWodSetup(true); }}>
-          <IconClock /> Interval WOD
-        </button>
       </div>
-
-      <div className="section-label">History</div>
-      {history.length === 0 ? (
-        <EmptyState
-          icon={<IconFlag />}
-          title="No sessions yet"
-          hint="Your logged sessions will appear here."
-        />
-      ) : (
-        <>
-          {history.slice(0, 5).map((s) => (
-            <HistoryRow key={s.id} session={s} />
-          ))}
-          {history.length > 5 && (
-            <div className="faint" style={{ fontSize: 12, marginTop: 6 }}>
-              + {history.length - 5} older session
-              {history.length - 5 === 1 ? "" : "s"}
-            </div>
-          )}
-        </>
-      )}
 
       {SECTIONS.map((section, si) => {
         const inSection = templates.filter(
@@ -203,15 +168,6 @@ function StartScreen() {
         </Sheet>
       )}
       {showSplit && <SplitPicker onClose={() => { setShowSplit(false); }} />}
-      {wodSetup && (
-        <WodConfigSheet
-          onStart={(cfg) => {
-            setWodSetup(false);
-            setRunningWod(cfg);
-          }}
-          onClose={() => { setWodSetup(false); }}
-        />
-      )}
       {runningWod && (
         <WodPlayer config={runningWod} onClose={() => { setRunningWod(null); }} />
       )}
@@ -249,218 +205,6 @@ function TemplateCard({ t, onStart }: { t: Template; onStart: () => void }) {
         {t.interval ? "Start guided" : "Start"}
       </button>
     </div>
-  );
-}
-
-/* ------------------------------ WOD config ------------------------------ */
-
-const WOD_PRESETS = [
-  { label: "30/30 × 4", work: 30, rest: 30, rounds: 4 },
-  { label: "Tabata 20/10 × 8", work: 20, rest: 10, rounds: 8 },
-  { label: "40/20 × 5", work: 40, rest: 20, rounds: 5 },
-  { label: "20/10 × 3", work: 20, rest: 10, rounds: 3 },
-];
-
-/**
- * Ceiling on stations × rounds. The player materialises two step objects
- * per interval, so a pasted 10⁶ builds millions of them and stalls the
- * first paint. 500 intervals is hours of clock time — far past any real
- * circuit, but nothing a fat finger reaches (45 rounds still fits).
- */
-const MAX_WOD_INTERVALS = 500;
-
-/** Flags a field whose text isn't a number, so the fallback isn't silent. */
-function badNum(s: string): string | undefined {
-  return s.trim() !== "" && parseDecimal(s) === undefined ? "invalid" : undefined;
-}
-
-function WodConfigSheet({
-  onStart,
-  onClose,
-}: {
-  onStart: (cfg: WodConfig) => void;
-  onClose: () => void;
-}) {
-  const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [work, setWork] = useState("30");
-  const [rest, setRest] = useState("30");
-  const [rounds, setRounds] = useState("4");
-  const [picking, setPicking] = useState(false);
-  const [startError, setStartError] = useState<string | null>(null);
-
-  const num = (s: string, fallback: number) => {
-    const n = parseDecimal(s);
-    return n != null && n > 0 ? Math.round(n) : fallback;
-  };
-
-  const plan = {
-    work: num(work, 30),
-    rest: Math.max(0, Math.round(parseDecimal(rest) ?? 0)),
-    rounds: num(rounds, 4),
-  };
-  const duration = intervalSeconds(exercises.length, plan);
-  const intervals = exercises.length * plan.rounds;
-
-  const move = (from: number, delta: number) => {
-    setExercises((list) => {
-      const to = from + delta;
-      if (to < 0 || to >= list.length) return list;
-      const next = [...list];
-      const [moved] = next.splice(from, 1);
-      if (moved) next.splice(to, 0, moved);
-      return next;
-    });
-  };
-
-  const start = () => {
-    if (exercises.length === 0) return;
-    // Marking the field red is not enough on its own — the fallback still
-    // ran, so "abc" in Rest started a circuit with NO rest at all, which is
-    // the same silent substitution the comma bug used to cause. Refuse.
-    const bad = [
-      badNum(work) && "Work",
-      badNum(rest) && "Rest",
-      badNum(rounds) && "Rounds",
-    ].filter((x): x is string => typeof x === "string");
-    if (bad.length > 0) {
-      setStartError(
-        `${bad.join(", ")} ${bad.length === 1 ? "is" : "are"} not a number. ` +
-          `Fix ${bad.length === 1 ? "it" : "them"} before starting — Varg ` +
-          `won't guess and run a different workout.`,
-      );
-      return;
-    }
-    // Say no out loud rather than clamping: a silently shortened circuit is
-    // a different workout, and the athlete never asked for it.
-    if (intervals > MAX_WOD_INTERVALS) {
-      setStartError(
-        `${String(exercises.length)} stations × ${String(plan.rounds)} rounds ` +
-          `is ${String(intervals)} intervals. Varg tops out at ` +
-          `${String(MAX_WOD_INTERVALS)} — split a circuit this long into ` +
-          `several WODs.`,
-      );
-      return;
-    }
-    unlockAudio(); // must happen inside the tap gesture
-    onStart({ exercises, ...plan });
-  };
-
-  return (
-    <Sheet title="Interval WOD" onClose={onClose}>
-      <div className="scroll-x">
-        {WOD_PRESETS.map((p) => (
-          <button
-            key={p.label}
-            className="chip"
-            onClick={() => {
-              setWork(String(p.work));
-              setRest(String(p.rest));
-              setRounds(String(p.rounds));
-            }}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="btn-row" style={{ marginTop: 12 }}>
-        <Field label="Work (s)">
-          <input className={badNum(work)} inputMode="numeric" value={work} onChange={(e) => { setWork(e.target.value); }} />
-        </Field>
-        <Field label="Rest (s)">
-          <input className={badNum(rest)} inputMode="numeric" value={rest} onChange={(e) => { setRest(e.target.value); }} />
-        </Field>
-        <Field label="Rounds">
-          <input className={badNum(rounds)} inputMode="numeric" value={rounds} onChange={(e) => { setRounds(e.target.value); }} />
-        </Field>
-      </div>
-
-      <div className="row" style={{ marginTop: 4 }}>
-        <div className="section-label" style={{ margin: 0 }}>
-          Stations (in order)
-        </div>
-        {exercises.length > 0 && (
-          <span className="chip accent">
-            <IconClock style={{ width: 14, height: 14 }} />{" "}
-            {formatSeconds(duration)}
-          </span>
-        )}
-      </div>
-      {exercises.length === 0 && (
-        <div className="faint" style={{ fontSize: 13, margin: "8px 0" }}>
-          Add at least one station. The same exercise can appear more than
-          once — that is how you put cardio between every station.
-        </div>
-      )}
-      {exercises.map((ex, i) => (
-        // Keyed by position, not id: a circuit may repeat an exercise.
-        <div key={`${ex.id}-${String(i)}`} className="row" style={{ padding: "6px 0" }}>
-          <span>
-            <span className="faint">{i + 1}. </span>
-            {ex.name}
-          </span>
-          <span style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <button
-              className="check"
-              aria-label="Move up"
-              disabled={i === 0}
-              style={{ opacity: i === 0 ? 0.35 : 1 }}
-              onClick={() => { move(i, -1); }}
-            >
-              ↑
-            </button>
-            <button
-              className="check"
-              aria-label="Move down"
-              disabled={i === exercises.length - 1}
-              style={{ opacity: i === exercises.length - 1 ? 0.35 : 1 }}
-              onClick={() => { move(i, 1); }}
-            >
-              ↓
-            </button>
-            <button
-              className="link faint"
-              style={{ fontSize: 12, paddingLeft: 6 }}
-              onClick={() =>
-                { setExercises((list) => list.filter((_, j) => j !== i)); }
-              }
-            >
-              remove
-            </button>
-          </span>
-        </div>
-      ))}
-      <button className="btn sm ghost" onClick={() => { setPicking(true); }}>
-        <IconPlus /> Add station
-      </button>
-
-      <div className="divider" />
-      <button
-        className="btn primary"
-        disabled={exercises.length === 0}
-        onClick={start}
-      >
-        Start WOD
-      </button>
-
-      {picking && (
-        <ExercisePicker
-          onPick={(ex) => {
-            setExercises((list) => [...list, ex]);
-            setPicking(false);
-          }}
-          onClose={() => { setPicking(false); }}
-        />
-      )}
-      {startError && (
-        <Sheet title="Can't start" onClose={() => { setStartError(null); }}>
-          <p className="muted" style={{ marginTop: 0 }}>{startError}</p>
-          <button className="btn" onClick={() => { setStartError(null); }}>
-            OK
-          </button>
-        </Sheet>
-      )}
-    </Sheet>
   );
 }
 
@@ -525,51 +269,10 @@ function SplitPicker({ onClose }: { onClose: () => void }) {
   );
 }
 
-function HistoryRow({ session }: { session: Session }) {
-  const { update } = useApp();
-  const [confirming, setConfirming] = useState(false);
-  const totalSets = session.entries.reduce((a, e) => a + e.sets.length, 0);
-  return (
-    <div className="list-item">
-      <div>
-        <div className="title">{session.name}</div>
-        <div className="sub">
-          {session.entries.length} exercises · {totalSets} sets ·{" "}
-          {formatRelative(session.finishedAt ?? session.date)}
-        </div>
-      </div>
-      <button
-        className="check"
-        aria-label="Delete session"
-        onClick={() => { setConfirming(true); }}
-      >
-        <IconTrash />
-      </button>
-      {confirming && (
-        <ConfirmSheet
-          title="Delete session"
-          message={`Delete "${session.name}"? PRs will be recalculated.`}
-          confirmLabel="Delete"
-          onConfirm={() => { update((d) => deleteSession(d, session.id)); }}
-          onClose={() => { setConfirming(false); }}
-        />
-      )}
-    </div>
-  );
-}
-
-function defaultSessionName(): string {
-  const now = new Date();
-  const hour = now.getHours();
-  const part = hour < 11 ? "Morning" : hour < 17 ? "Midday" : "Evening";
-  return `${part} PT`;
-}
-
 /* ---------------------------- Active session ---------------------------- */
 
 function ActiveSession({ session }: { session: Session }) {
   const { data, update } = useApp();
-  const [picking, setPicking] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmEmptyFinish, setConfirmEmptyFinish] = useState(false);
   const [confirmUnchecked, setConfirmUnchecked] = useState(false);
@@ -580,17 +283,6 @@ function ActiveSession({ session }: { session: Session }) {
 
   const patch = (fn: (s: Session) => Session) => {
     update((d) => upsertSession(d, fn(structuredClone(session))));
-  };
-
-  const addExercise = (ex: Exercise) => {
-    patch((s) => {
-      s.entries = [
-        ...s.entries,
-        newEntry(ex.id, ex.metric === "weight_reps" ? 3 : 1),
-      ];
-      return s;
-    });
-    setPicking(false);
   };
 
   const filledSets = session.entries.reduce(
@@ -635,6 +327,10 @@ function ActiveSession({ session }: { session: Session }) {
           }
         }
       }
+      // Empty planned sets and untouched exercises are not performed work.
+      s.entries = s.entries
+        .map((entry) => ({ ...entry, sets: entry.sets.filter((set) => set.done || setHasData(set)) }))
+        .filter((entry) => entry.sets.length > 0);
       s.finishedAt = new Date().toISOString();
       return upsertSession(d, s);
     });
@@ -706,10 +402,6 @@ function ActiveSession({ session }: { session: Session }) {
         })}
       </div>
 
-      <button className="btn" style={{ marginTop: 12 }} onClick={() => { setPicking(true); }}>
-        <IconPlus /> Add exercise
-      </button>
-
       <div className="divider" />
       <button className="btn primary" onClick={finish}>
         <IconFlag /> Finish session
@@ -722,9 +414,6 @@ function ActiveSession({ session }: { session: Session }) {
         <IconTrash /> Discard
       </button>
 
-      {picking && (
-        <ExercisePicker onPick={addExercise} onClose={() => { setPicking(false); }} />
-      )}
       {confirmDiscard && (
         <ConfirmSheet
           title="Discard session"

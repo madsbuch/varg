@@ -31,10 +31,6 @@ sets — and the messy work of turning an idea into a correct, animated,
 correctly-timed program happens where it can be reviewed, tested in CI, and
 kept in version control.
 
-The one thing you *can* build in the app is an ad-hoc **Interval WOD** on the
-Hunt screen: pick stations, set work/rest/rounds, go. It is a scratchpad for
-the session in front of you, not a saved program.
-
 Adding a program, the guardrails around it, and the animation conventions are
 documented in [CLAUDE.md](CLAUDE.md).
 
@@ -44,9 +40,10 @@ documented in [CLAUDE.md](CLAUDE.md).
 
 - **Personal records** — auto-detected from every session (estimated 1RM via
   Epley, top weight, max reps, best hold, longest distance) plus manual entry.
-- **Split builder** — build your own multi-day splits (Push/Pull/Legs,
+- **Training splits** — browse multi-day splits (Push/Pull/Legs,
   Upper/Lower, PT/Conditioning ship built-in) and start a session straight
-  from a split day.
+  from a split day. Programs are authored in code; the app has no split,
+  interval, or empty-workout builder.
 - **Workout library** — pick a template and go. Ships with a Træn med
   Forsvaret-inspired section (Grundtræning, Feltmarch, Kredsløbstræning)
   plus Murph, ACFT, USMC PFT, Navy PRT, Cindy, DT, Chad 1000x, and more.
@@ -65,14 +62,16 @@ documented in [CLAUDE.md](CLAUDE.md).
 - **Exercise library ("Manual")** — every exercise with an animated
   stick-figure demonstration (pure SVG/SMIL, fully offline) and concise
   execution cues.
-- **Interval WOD player** — configurable work/rest/rounds (30/30, Tabata
-  20/10, 40/20, 20/10 presets, or build your own circuit — an exercise may
-  repeat, so you can put cardio between every station). Shows what you are
+- **Interval WOD player** — runs each template's prescribed stations,
+  work/rest timing, and rounds. Shows what you are
   doing *right now* (rest is its own block with its own still figure, never
   the next exercise's animation) plus the next two steps, rest included.
   Synthesized audio cues (3-2-1 ticks, work/rest/finish tones via Web Audio
   — no assets), whole-workout and per-step progress, back/pause/skip, screen
-  wake-lock re-acquired on resume, and one-tap logging to history. Timing is
+  wake-lock re-acquired on resume, and automatic logging at completion.
+  Stop early and save only the intervals performed, including partial
+  station time; skipped time and pauses are excluded. Recent sessions live
+  on the Den tab, leaving Hunt focused on choosing a workout. Timing is
   anchored to the wall clock, so a re-render or a spell in standby can never
   desync the workout.
 - **Offline-first** — all data lives in an on-device SQLite database.

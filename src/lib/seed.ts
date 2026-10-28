@@ -6,9 +6,7 @@
  * Varg deliberately has no in-app program authoring. When the owner wants a
  * new workout they describe it in prose and an agent adds it here, then ships
  * a build. That is the intended workflow — not a gap waiting for a template
- * editor screen. (The ad-hoc "Interval WOD" sheet on the Hunt screen is a
- * scratchpad for throwing a circuit together on the spot; it does not persist
- * and it is not a program library.)
+ * editor screen. All workout authoring happens in this repository.
  *
  * Consequences, because nobody reviews this content in a form before it runs:
  *

@@ -25,10 +25,9 @@ should shape what you build:
 
 - **Do not propose or build in-app program authoring.** No template editors,
   no "create your own workout" screens, no program builders. This direction
-  has been considered and rejected. The one exception already in the app is
-  the ad-hoc *Interval WOD* sheet on the Hunt screen, for throwing together
-  a circuit on the spot — that is a scratchpad, not a program library, and
-  it does not persist.
+  has been considered and rejected. Splits are view-only, and the Hunt
+  screen starts existing templates or split days. There are no ad-hoc
+  interval or empty-session builders.
 - **The prose request is the spec.** Match it exactly: station order, work
   and rest seconds, round count, and any alternation the owner describes. If
   the arithmetic in the request does not come out (a stated total that is ten
@@ -93,9 +92,8 @@ What follows from that:
   path for Murph's squat. Changing a metric (say, Farmer's Carry from
   `weight_reps` to a carry metric) is a semantic correction, not a typo fix.
 - **Do not add a blanket "refresh all built-ins on open" pass.** Built-in
-  splits are user-editable — only the delete button is gated on `builtIn`
-  ([`src/views/Splits.tsx`](src/views/Splits.tsx)) — so overwriting seeded
-  rows would silently wipe the owner's customisations. That is the
+  splits were user-editable in earlier versions, so overwriting seeded
+  rows would silently wipe the owner's existing customisations. That is the
   silently-wrong outcome the philosophy above forbids, traded for a
   convenience.
 
@@ -146,5 +144,6 @@ has the same failure mode as mirroring a leg.
 ```bash
 bun run build      # tsc --noEmit && eslint src && vite build
 bun run db:smoke   # migrations (applied twice) + CRUD + built-in content guards
+bun run test       # partial workout recording, skips, pauses and standby
 bun run dev        # browser at :1420, localStorage backend
 ```

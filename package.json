@@ -15,6 +15,7 @@
     "android:init": "tauri android init",
     "android:dev": "tauri android dev",
     "android:build": "tauri android build --apk",
+    "test": "bun test scripts/wod.test.ts",
     "lint": "eslint src"
   },
   "dependencies": {
