@@ -216,6 +216,37 @@ input.invalid,
   margin-top: 12px;
 }
 
+.workout-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 10px;
+}
+.workout-card:hover { border-color: var(--accent); }
+.workout-card-link {
+  display: block;
+  margin-top: 12px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+.workout-stations { list-style: none; padding: 0; margin: 0; }
+.workout-stations > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 0;
+}
+.workout-station-number { width: 22px; padding-top: 22px; flex-shrink: 0; color: var(--faint); font-size: 13px; }
+.workout-station { flex: 1; min-width: 0; }
+.workout-station summary { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.workout-station summary svg { flex-shrink: 0; }
+.workout-station .sub { display: block; font-size: 12px; margin-top: 4px; }
+.workout-cues { padding-left: 20px; font-size: 13px; color: var(--muted); }
+.workout-cues li { margin: 8px 0; }
+.workout-start { position: sticky; bottom: -20px; background: var(--panel); padding: 14px 0; margin-top: 16px; }
+
 .section-label {
   font-size: 12px;
   font-weight: 700;

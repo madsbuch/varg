@@ -4,7 +4,7 @@
  * reports the composer's real state — including failures, loudly.
  * All Suno configuration lives on the Settings page.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MusicProfile } from "../types";
 import {
   deleteCachedTrack,
@@ -34,6 +34,7 @@ export function BattleTrack({
   const [error, setError] = useState("");
   const [confirmRegen, setConfirmRegen] = useState(false);
   const hasKey = !!loadMusicSettings().apiKey;
+  const audio = useRef<HTMLAudioElement>(null);
 
   useEffect(() => onEnsureStatus(setEnsure), []);
 
@@ -63,12 +64,13 @@ export function BattleTrack({
     () => (track ? URL.createObjectURL(track.blob) : undefined),
     [track],
   );
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    const player = audio.current;
+    return () => {
+      player?.pause();
       if (url) URL.revokeObjectURL(url);
-    },
-    [url],
-  );
+    };
+  }, [url]);
 
   const regenerate = async () => {
     const settings = loadMusicSettings();
@@ -112,7 +114,7 @@ export function BattleTrack({
         <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
           Composing tracks on Suno's servers
           {ensure.current ? ` — requesting: ${ensure.current}` : ""}… Locking
-          your phone is fine; this one starts playing as soon as it's ready.
+          your phone is fine; the player appears here as soon as it's ready.
         </div>
       );
     }
@@ -176,7 +178,7 @@ export function BattleTrack({
 
       {track && url ? (
         <>
-          <audio controls src={url} style={{ width: "100%", marginTop: 10 }} />
+          <audio ref={audio} controls preload="metadata" aria-label={`${workoutName} battle track`} src={url} style={{ width: "100%", marginTop: 10 }} />
           {busy ? (
             <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
               Composing a new track on Suno's servers — locking your phone is

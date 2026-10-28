@@ -19,6 +19,7 @@ import { bestPRFor } from "../lib/prs";
 import { musicProfileFor } from "../lib/music";
 import { scrollContentTop } from "../lib/scroll";
 import { BattleTrack } from "../components/BattleTrack";
+import { WorkoutDetails } from "../components/WorkoutDetails";
 import WodPlayer from "../components/WodPlayer";
 import type { WodConfig } from "../lib/wod";
 import { unlockAudio } from "../lib/beep";
@@ -88,6 +89,7 @@ export default function Train() {
 function StartScreen() {
   const { data, update } = useApp();
   const [showSplit, setShowSplit] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [runningWod, setRunningWod] = useState<WodConfig | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const templates = useMemo(() => seedTemplates(), []);
@@ -112,6 +114,7 @@ function StartScreen() {
         return;
       }
       unlockAudio(); // must happen inside the tap gesture
+      setSelectedTemplate(null);
       setRunningWod({
         exercises,
         ...tpl.interval,
@@ -152,13 +155,22 @@ function StartScreen() {
               <TemplateCard
                 key={t.id}
                 t={t}
-                onStart={() => { startFromTemplate(t.id); }}
+                onOpen={() => { setSelectedTemplate(t); }}
               />
             ))}
           </div>
         );
       })}
 
+      {selectedTemplate && (
+        <WorkoutDetails
+          key={selectedTemplate.id}
+          template={selectedTemplate}
+          exercises={data.exercises}
+          onStart={() => { startFromTemplate(selectedTemplate.id); }}
+          onClose={() => { setSelectedTemplate(null); }}
+        />
+      )}
       {startError && (
         <Sheet title="Can't start" onClose={() => { setStartError(null); }}>
           <p className="muted" style={{ marginTop: 0 }}>{startError}</p>
@@ -175,36 +187,30 @@ function StartScreen() {
   );
 }
 
-function TemplateCard({ t, onStart }: { t: Template; onStart: () => void }) {
+function TemplateCard({ t, onOpen }: { t: Template; onOpen: () => void }) {
   const duration = t.interval
     ? intervalSeconds(t.exerciseIds.length, t.interval)
     : null;
   return (
-    <div className="card" style={{ marginBottom: 10 }}>
-      <div className="row">
-        <h3 style={{ fontSize: 16 }}>{t.name}</h3>
+    <button className="card workout-card" onClick={onOpen} aria-label={`View ${t.name}`}>
+      <span className="row">
+        <strong style={{ fontSize: 16 }}>{t.name}</strong>
         <span className="chip gold">{t.branch}</span>
-      </div>
-      <div className="sub muted" style={{ marginTop: 6, fontSize: 13 }}>
+      </span>
+      <span className="sub muted" style={{ display: "block", marginTop: 6, fontSize: 13 }}>
         {t.description}
-      </div>
-      <div className="sub" style={{ marginTop: 4, fontSize: 13 }}>
+      </span>
+      <span className="sub" style={{ display: "block", marginTop: 4, fontSize: 13 }}>
         {t.scheme}
-      </div>
+      </span>
       {duration !== null && (
-        <div className="chip accent" style={{ marginTop: 8 }}>
+        <span className="chip accent" style={{ marginTop: 8 }}>
           <IconClock style={{ width: 14, height: 14 }} /> {formatSeconds(duration)}{" "}
           on the clock
-        </div>
+        </span>
       )}
-      <button
-        className="btn sm primary"
-        style={{ width: "100%", marginTop: 10 }}
-        onClick={onStart}
-      >
-        {t.interval ? "Start guided" : "Start"}
-      </button>
-    </div>
+      <span className="workout-card-link">View workout & music →</span>
+    </button>
   );
 }
 
