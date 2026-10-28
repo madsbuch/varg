@@ -184,8 +184,8 @@ with this key; back up their data before replacing such an installation.
 `versionCode = 100000 + GITHUB_RUN_NUMBER`, above the old commit-count codes
 (the last rolling release before this change used `10039`). Each new push or
 manual workflow run gets a higher code without a package-version bump.
-A rerun keeps its original code. An old commit cannot replace a newer main
-build's release.
+A rerun keeps its original code. Neither an old commit nor a lower version
+code can replace a newer published build.
 
 The workflow checks the keystore certificate before building and verifies
 the APK certificate, `com.varg.workout` app identifier, and version code

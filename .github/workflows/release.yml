@@ -156,6 +156,15 @@ jobs:
             echo "A newer commit is on main; leaving the current release alone."
             exit 0
           fi
+          # Re-running an older workflow on the same commit must not lower
+          # the version code after a newer manual run has already published.
+          if gh release view latest --json body > "$RUNNER_TEMP/current-release.json"; then
+            PUBLISHED_CODE=$(jq -r '.body | capture("versionCode (?<code>[0-9]+)").code' "$RUNNER_TEMP/current-release.json")
+            if [ "$VERSION_CODE" -lt "$PUBLISHED_CODE" ]; then
+              echo "A higher version code is already published; leaving it in place."
+              exit 0
+            fi
+          fi
           cat > "$RUNNER_TEMP/notes.md" <<EOF
           Latest Varg Android build, updated on every push to main.
 
