@@ -1,101 +1,30 @@
 name: Release Android
 
-# Builds a signed Android APK on every merge to main and publishes it as a
-# rolling `latest` prerelease — no version bump required.
-#
-# Two kinds of release come out of this workflow:
-#
-#   latest    refreshed on every push to main, marked prerelease.
-#             Permanent download URL: /releases/tag/latest
-#   v<x.y.z>  cut when the package.json version lands on main for the first
-#             time, or when you push a `v*` tag by hand. Keeps the "Latest"
-#             badge, and also ships an AAB.
-#
-# Required repository secrets (Settings → Secrets and variables → Actions):
-#   ANDROID_KEY_BASE64        base64 of your keystore (.jks/.keystore)
-#   ANDROID_KEY_ALIAS         the key alias inside the keystore
-#   ANDROID_KEY_PASSWORD      the key password
-#   ANDROID_KEYSTORE_PASSWORD the keystore (store) password
-#                             (optional — falls back to ANDROID_KEY_PASSWORD)
-#
-# If your secrets use different names, adjust the `env:` block in the
-# "Configure signing" step below — that's the only place they're referenced.
-
+# One permanent release and one signing identity. Never generate a fallback key.
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "Versioned tag to cut (e.g. v0.6.0). Leave empty for a rolling build."
-        required: false
-        default: ""
-        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  # A newer merge supersedes an in-flight build of an older one.
-  group: release-${{ github.ref }}
+  group: release-android
   cancel-in-progress: true
 
+env:
+  # Public certificate fingerprint, verified against the existing latest APK
+  # and ~/.tauri/keystores/varg-upload.jks. Changing this breaks upgrades.
+  ANDROID_SIGNING_SHA256: 3cfecd7836895a978210db2f475cb62dbe65a1e2e79f71c4a52975ee600d24b8
+
 jobs:
-  meta:
-    runs-on: ubuntu-latest
-    outputs:
-      rolling: ${{ steps.resolve.outputs.rolling }}
-      versioned: ${{ steps.resolve.outputs.versioned }}
-      version_tag: ${{ steps.resolve.outputs.version_tag }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Resolve what to publish
-        id: resolve
-        env:
-          INPUT_TAG: ${{ github.event.inputs.tag }}
-        run: |
-          set -euo pipefail
-          ROLLING=false
-          VERSIONED=false
-          VERSION_TAG=""
-
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${INPUT_TAG:-}" ]; then
-            VERSIONED=true
-            VERSION_TAG="$INPUT_TAG"
-          elif [ "${{ github.ref_type }}" = "tag" ]; then
-            VERSIONED=true
-            VERSION_TAG="${GITHUB_REF_NAME}"
-          else
-            # Push to main (or a manual run with no tag): always refresh the
-            # rolling build, and additionally cut v<package.json version> the
-            # first time that version reaches main.
-            ROLLING=true
-            CANDIDATE="v$(jq -r .version package.json)"
-            if git ls-remote --exit-code --tags origin "refs/tags/$CANDIDATE" >/dev/null 2>&1; then
-              echo "Tag $CANDIDATE already exists — rolling build only."
-            else
-              echo "Version $CANDIDATE is new — cutting a versioned release too."
-              VERSIONED=true
-              VERSION_TAG="$CANDIDATE"
-            fi
-          fi
-
-          {
-            echo "rolling=$ROLLING"
-            echo "versioned=$VERSIONED"
-            echo "version_tag=$VERSION_TAG"
-          } >> "$GITHUB_OUTPUT"
-
   android:
     runs-on: ubuntu-latest
-    needs: meta
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-        with:
-          # versionCode is derived from the commit count — needs full history.
-          fetch-depth: 0
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -105,6 +34,9 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
 
       - name: Install NDK + platforms
         run: |
@@ -130,25 +62,18 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Pin a monotonic versionCode
-        # Tauri derives versionCode from semver (0.5.6 → 5006), so every build
-        # between two version bumps would carry the same code and the phone
-        # couldn't tell them apart. Commit count is strictly increasing and
-        # independent of the version, and the 10000 offset keeps it above the
-        # highest semver-derived code already shipped (5006 for v0.5.6).
+        # Existing releases used 10000 + commit count (10039 at migration).
+        # A higher offset and workflow run number also cover manual releases.
         run: |
           set -euo pipefail
-          CODE=$(( 10000 + $(git rev-list --count HEAD) ))
+          CODE=$((100000 + GITHUB_RUN_NUMBER))
           jq --argjson c "$CODE" '.bundle.android.versionCode = $c' \
-            src-tauri/tauri.conf.json > /tmp/conf.json
-          mv /tmp/conf.json src-tauri/tauri.conf.json
+            src-tauri/tauri.conf.json > "$RUNNER_TEMP/tauri.conf.json"
+          mv "$RUNNER_TEMP/tauri.conf.json" src-tauri/tauri.conf.json
           echo "VERSION_CODE=$CODE" >> "$GITHUB_ENV"
-          echo "versionCode=$CODE"
 
       - name: Generate icons
         run: bun run icons
-
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2" --locked || true
 
       - name: Initialise Android project
         run: bun run tauri android init --ci
@@ -180,88 +105,38 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        run: |
-          set -euo pipefail
-          GRADLE_DIR="src-tauri/gen/android"
+        run: python3 scripts/configure-signing.py
 
-          if [ -z "${ANDROID_KEY_BASE64:-}" ]; then
-            # No signing secrets configured: generate an EPHEMERAL keystore so
-            # the release still ships a signed, installable APK. The signature
-            # changes every run, so Android won't in-place update between
-            # releases until real secrets are added (see README "Signed
-            # releases"). Loud, but not fatal.
-            echo "::warning::No ANDROID_KEY_BASE64 secret found — signing with an EPHEMERAL keystore."
-            echo "::warning::Add ANDROID_KEY_BASE64 / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD repo secrets for a stable signature."
-            {
-              echo "### ⚠️ Signed with an ephemeral keystore"
-              echo "No \`ANDROID_KEY_*\` secrets are configured, so this APK is signed"
-              echo "with a one-off key generated during the build. Installs fine, but"
-              echo "the next build won't install as an update over this one."
-              echo "Add the secrets from the README to get a stable signature."
-            } >> "$GITHUB_STEP_SUMMARY"
-            KEYSTORE="$RUNNER_TEMP/varg-ephemeral.keystore"
-            ANDROID_KEY_ALIAS="varg"
-            ANDROID_KEY_PASSWORD="$(openssl rand -hex 16)"
-            echo "::add-mask::$ANDROID_KEY_PASSWORD"
-            STORE_PW="$ANDROID_KEY_PASSWORD"
-            keytool -genkeypair -v -keystore "$KEYSTORE" \
-              -alias "$ANDROID_KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 \
-              -storepass "$STORE_PW" -keypass "$ANDROID_KEY_PASSWORD" \
-              -dname "CN=Varg Release, O=Varg"
-          else
-            KEYSTORE="$RUNNER_TEMP/varg.keystore"
-            echo "$ANDROID_KEY_BASE64" | base64 -d > "$KEYSTORE"
-            STORE_PW="${ANDROID_KEYSTORE_PASSWORD:-$ANDROID_KEY_PASSWORD}"
-          fi
-          {
-            echo "keyAlias=$ANDROID_KEY_ALIAS"
-            echo "password=$ANDROID_KEY_PASSWORD"
-            echo "storePassword=$STORE_PW"
-            echo "storeFile=$KEYSTORE"
-          } > "$GRADLE_DIR/keystore.properties"
+      - name: Build signed APK
+        run: bun run tauri android build --apk
 
-          # Inject a release signingConfig into the generated build.gradle.kts.
-          python3 scripts/inject-signing.py "$GRADLE_DIR/app/build.gradle.kts"
-
-          echo "----- build.gradle.kts (head) -----"
-          sed -n '1,60p' "$GRADLE_DIR/app/build.gradle.kts"
-
-      - name: Build signed APK (+ AAB for versioned releases)
-        # The AAB is only useful for a store upload, so rolling builds skip it.
-        run: |
-          set -euo pipefail
-          if [ "${{ needs.meta.outputs.versioned }}" = "true" ]; then
-            bun run tauri android build --apk --aab
-          else
-            bun run tauri android build --apk
-          fi
-
-      - name: Collect artifacts
+      - name: Collect artifact
         run: |
           set -euo pipefail
           mkdir -p build
-          find src-tauri/gen/android -path '*/outputs/apk/*/release/*.apk' -exec cp {} build/varg.apk \; || true
-          find src-tauri/gen/android -path '*/outputs/bundle/*.aab' -exec cp {} build/varg.aab \; || true
-          if [ ! -f build/varg.apk ]; then
-            echo "::error::No APK produced."
-            find src-tauri/gen/android -name '*.apk' -o -name '*.aab' || true
+          mapfile -t APKS < <(find src-tauri/gen/android/app/build/outputs/apk/universal/release -name '*.apk')
+          if [ "${#APKS[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one universal release APK, found ${#APKS[@]}."
             exit 1
           fi
-          echo "Artifacts:"; ls -la build
+          cp "${APKS[0]}" build/varg-latest.apk
 
-      - name: Verify the signing certificate
-        # Catches a silent regression to ephemeral signing: if this fingerprint
-        # ever changes, installs will start requiring an uninstall first.
+      - name: Verify APK identity and version
         run: |
           set -euo pipefail
-          BUILD_TOOLS=$(ls -d "$ANDROID_HOME/build-tools/"* | sort -V | tail -1)
-          "$BUILD_TOOLS/apksigner" verify --print-certs build/varg.apk | tee /tmp/certs.txt
+          TOOLS="$ANDROID_HOME/build-tools/34.0.0"
+          "$TOOLS/apksigner" verify --print-certs build/varg-latest.apk > "$RUNNER_TEMP/certs.txt"
+          ACTUAL=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/certs.txt")
+          if [ "$ACTUAL" != "$ANDROID_SIGNING_SHA256" ]; then
+            echo "::error::APK signing certificate does not match the existing Varg release key."
+            exit 1
+          fi
+          "$TOOLS/aapt" dump badging build/varg-latest.apk > "$RUNNER_TEMP/apk-info.txt"
+          grep -q "^package: name='com.varg.workout' versionCode='$VERSION_CODE'" "$RUNNER_TEMP/apk-info.txt"
           {
-            echo "### Signing certificate"
-            echo '```'
-            grep -i "DN:\|SHA-256 digest" /tmp/certs.txt
-            echo '```'
-            echo "versionCode \`${VERSION_CODE}\`"
+            echo "### Verified release"
+            echo "versionCode: $VERSION_CODE"
+            echo "Signing certificate SHA-256: $ACTUAL"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload build artifacts
@@ -270,44 +145,39 @@ jobs:
           name: varg-android
           path: build/*
 
-      - name: Publish rolling build
-        if: needs.meta.outputs.rolling == 'true'
+      - name: Publish latest release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          cp build/varg.apk varg-latest.apk
-          cat > /tmp/notes.md <<EOF
-          Rolling build of \`main\`, refreshed on every merge — always the newest code.
+          # An old manual rerun must never replace a newer main build.
+          MAIN_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          if [ "$MAIN_SHA" != "$GITHUB_SHA" ]; then
+            echo "A newer commit is on main; leaving the current release alone."
+            exit 0
+          fi
+          cat > "$RUNNER_TEMP/notes.md" <<EOF
+          Latest Varg Android build, updated on every push to main.
 
           Built from ${GITHUB_SHA} · versionCode ${VERSION_CODE}
 
-          Installs in place over any other build signed with the release key;
-          no uninstall needed.
+          Download **varg-latest.apk** below and install it over your existing
+          release-key-signed Varg installation. Your workout data stays in place.
+
+          Signing certificate SHA-256: ${ANDROID_SIGNING_SHA256}
           EOF
-          gh release delete latest --yes --cleanup-tag || true
-          gh release create latest varg-latest.apk \
-            --title "Varg (latest build)" \
-            --prerelease \
-            --notes-file /tmp/notes.md
-
-      - name: Stage versioned artifacts
-        if: needs.meta.outputs.versioned == 'true'
-        run: |
-          set -euo pipefail
-          TAG="${{ needs.meta.outputs.version_tag }}"
-          mkdir -p dist-artifacts
-          cp build/varg.apk "dist-artifacts/varg-${TAG}.apk"
-          if [ -f build/varg.aab ]; then
-            cp build/varg.aab "dist-artifacts/varg-${TAG}.aab"
+          git tag -f latest "$GITHUB_SHA"
+          git push origin refs/tags/latest --force
+          # Preserve the release and its permanent download URL across builds.
+          if gh release view latest >/dev/null 2>&1; then
+            gh release upload latest build/varg-latest.apk --clobber
+            gh release edit latest --title "Varg (latest build)" \
+              --prerelease=false --latest --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create latest build/varg-latest.apk --verify-tag \
+              --title "Varg (latest build)" --latest --notes-file "$RUNNER_TEMP/notes.md"
           fi
-          ls -la dist-artifacts
 
-      - name: Publish versioned release
-        if: needs.meta.outputs.versioned == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.meta.outputs.version_tag }}
-          name: Varg ${{ needs.meta.outputs.version_tag }}
-          generate_release_notes: true
-          files: dist-artifacts/*
+      - name: Remove signing files
+        if: always()
+        run: rm -f "$RUNNER_TEMP/varg.keystore" src-tauri/gen/android/keystore.properties

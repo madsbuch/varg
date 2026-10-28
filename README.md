@@ -139,75 +139,60 @@ bun run icons          # writes assets/icon.png, then runs `tauri icon`
 
 ## Signed releases (CI)
 
-[`.github/workflows/release.yml`](.github/workflows/release.yml) builds a
-**signed** APK on every merge to `main` — no version bump needed — and
-publishes two kinds of release:
+[`.github/workflows/release.yml`](.github/workflows/release.yml) publishes one
+permanent **latest** release on every push to `main`, or when run manually
+from Actions. It updates the existing release and APK in place; versioned
+releases and AABs are no longer created.
 
-| Release      | When                                                        | Contents  |
-| ------------ | ----------------------------------------------------------- | --------- |
-| `latest`     | every merge to `main`; marked *pre-release*                 | APK       |
-| `v<x.y.z>`   | when the `package.json` version first lands on `main`, or when you push a `v*` tag; keeps the **Latest** badge | APK + AAB |
+- Release: <https://github.com/madsbuch/varg/releases/tag/latest>
+- APK: <https://github.com/madsbuch/varg/releases/download/latest/varg-latest.apk>
 
-The rolling build always lives at the same URL —
-`github.com/madsbuch/varg/releases/tag/latest` — so you can bookmark it on
-the phone and re-download to update.
+Download the APK and install it over the existing Varg app. Android preserves
+local workout data when the app identifier and signing certificate match.
+The workflow verifies both before publishing. It never generates temporary
+keys or publishes an unsigned build.
 
-**No secrets configured?** The workflow still ships: it generates an
-*ephemeral* keystore for that run and signs with it. The APK installs fine,
-but the signature differs between builds, so Android won't apply one build
-as an in-place update over another. Add the secrets below for a stable
-signature. Every run prints the signing certificate to the job summary —
-if that fingerprint ever changes, in-place updates have broken.
+### Stable signing identity
 
-### versionCode
+Repository secrets under **Settings → Secrets and variables → Actions**:
 
-Tauri derives `versionCode` from semver (`0.5.6` → `5006`), which would give
-every build between two bumps the same code. The workflow instead pins
-`versionCode = 10000 + <commit count>`: strictly increasing per build, and
-above every semver-derived code already shipped, so no build is ever seen as
-a downgrade.
+| Secret | Meaning |
+| --- | --- |
+| `ANDROID_KEY_BASE64` | Base64 of the existing Varg keystore |
+| `ANDROID_KEY_ALIAS` | Key alias inside that keystore |
+| `ANDROID_KEY_PASSWORD` | Key password |
+| `ANDROID_KEYSTORE_PASSWORD` | Store password; defaults to the key password |
 
-The workflow prefers these repository secrets
-(**Settings → Secrets and variables → Actions**):
+The existing key is `~/.tauri/keystores/varg-upload.jks`; its credentials are
+in `varg-upload.credentials.txt` beside it. Keep a secure backup. **Do not
+replace this key**, because doing so breaks updates for existing installs.
 
-| Secret                      | Meaning                                             |
-| --------------------------- | --------------------------------------------------- |
-| `ANDROID_KEY_BASE64`        | base64 of your keystore (one line, no wrapping)     |
-| `ANDROID_KEY_ALIAS`         | key alias inside the keystore                       |
-| `ANDROID_KEY_PASSWORD`      | key password                                        |
-| `ANDROID_KEYSTORE_PASSWORD` | keystore/store password (optional; falls back to the key password) |
+The public certificate SHA-256 fingerprint is pinned in the workflow:
 
-> If your existing secrets use different names, edit the `env:` block of the
-> **Configure signing** step in the workflow — that's the only place they're
-> referenced.
-
-The release key for this app lives at `~/.tauri/keystores/varg-upload.jks`
-(alias `varg`, password in `varg-upload.credentials.txt` beside it). It is
-**not** in the repo, and it can never be replaced without breaking in-place
-updates for everyone who has the app installed — back it up.
-
-### Generating a keystore (if you need one)
-
-```bash
-keytool -genkeypair -v -keystore varg-upload.jks -alias varg \
-  -keyalg RSA -keysize 4096 -validity 10000
-base64 < varg-upload.jks | tr -d '\n'   # → ANDROID_KEY_BASE64 (macOS-safe)
+```text
+3cfecd7836895a978210db2f475cb62dbe65a1e2e79f71c4a52975ee600d24b8
 ```
 
-### Cutting a release
+This fingerprint matches the previously published rolling APK and the local
+release keystore. Missing secrets, a different certificate, a wrong app ID,
+or an incorrect version code fail the release before publication. Builds
+installed with an older, different signing key cannot be upgraded in place
+with this key; back up their data before replacing such an installation.
 
-A merge to `main` is enough to get a new build — it lands on the `latest`
-release. To cut a *versioned* release, either bump `version` in
-`package.json` and merge, or tag by hand:
+### Version codes and release checks
 
-```bash
-git tag v0.6.0
-git push origin v0.6.0       # CI builds, signs, and publishes v0.6.0
-```
+`versionCode = 100000 + GITHUB_RUN_NUMBER`, above the old commit-count codes
+(the last rolling release before this change used `10039`). Each new push or
+manual workflow run gets a higher code without a package-version bump.
+A rerun keeps its original code. An old commit cannot replace a newer main
+build's release.
 
-You can also trigger the workflow manually from the **Actions** tab
-(*Release Android → Run workflow*): pass a tag to cut that version, or leave
-it empty to just refresh the rolling build.
+The workflow checks the keystore certificate before building and verifies
+the APK certificate, `com.varg.workout` app identifier, and version code
+before uploading. The job summary records the public fingerprint and code.
+
+To ship: push to `main`. To rebuild current main: **Actions → Release Android
+→ Run workflow**. No release tag or version bump is required.
 
 ## License
 
