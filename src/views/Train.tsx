@@ -25,6 +25,7 @@ import ForTimePlayer from "../components/ForTimePlayer";
 import type { WodConfig } from "../lib/wod";
 import type { ForTimeConfig } from "../lib/fortime";
 import { bestForTime } from "../lib/fortime";
+import { loadFavorites, saveFavorites } from "../lib/favorites";
 import { unlockAudio } from "../lib/beep";
 import { ConfirmSheet, Sheet } from "../components/ui";
 import {
@@ -33,6 +34,7 @@ import {
   IconDumbbell,
   IconFlag,
   IconPlus,
+  IconStar,
   IconTrash,
 } from "../components/icons";
 import {
@@ -64,12 +66,30 @@ function intervalSeconds(
   return steps * work + Math.max(0, steps - 1) * rest;
 }
 
-/** Template groups, in display order. Each template lands in the first match. */
-const SECTIONS: { label: string; match: (t: Template) => boolean }[] = [
-  { label: "Varg", match: (t) => t.branch === "Varg" },
-  { label: "Forsvaret", match: (t) => t.branch === "Forsvaret" },
-  { label: "Hero WODs & service tests", match: () => true },
+/** How a template runs when started — the library's filter categories. */
+type Kind = "interval" | "forTime" | "logged";
+function kindOf(t: Template): Kind {
+  return t.interval ? "interval" : t.forTime ? "forTime" : "logged";
+}
+
+type Filter = "all" | "favorites" | Kind;
+const FILTERS: { id: Filter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "favorites", label: "★ Favorites" },
+  { id: "interval", label: "Intervals" },
+  { id: "forTime", label: "For time" },
+  { id: "logged", label: "Logged" },
 ];
+const FILTER_KEY = "varg.hunt.filter.v1";
+
+function loadFilter(): Filter {
+  try {
+    const f = localStorage.getItem(FILTER_KEY);
+    return FILTERS.some((x) => x.id === f) ? (f as Filter) : "all";
+  } catch {
+    return "all";
+  }
+}
 
 export default function Train() {
   const { data } = useApp();
@@ -96,7 +116,41 @@ function StartScreen() {
   const [runningWod, setRunningWod] = useState<WodConfig | null>(null);
   const [runningForTime, setRunningForTime] = useState<ForTimeConfig | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
-  const templates = useMemo(() => seedTemplates(), []);
+  // Alphabetical, Danish collation so æ/ø/å sort where a Dane expects, and
+  // numeric so "Mobility 5" comes before "Mobility 20".
+  const templates = useMemo(
+    () => seedTemplates().sort((a, b) => a.name.localeCompare(b.name, "da", { numeric: true })),
+    [],
+  );
+  const [favorites, setFavorites] = useState(loadFavorites);
+  const [filter, setFilter] = useState<Filter>(loadFilter);
+  const [query, setQuery] = useState("");
+
+  const toggleFavorite = (id: string) => {
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      saveFavorites(next);
+      return next;
+    });
+  };
+  const chooseFilter = (f: Filter) => {
+    setFilter(f);
+    try {
+      localStorage.setItem(FILTER_KEY, f);
+    } catch {
+      // remembered for this session only
+    }
+  };
+
+  const q = query.trim().toLowerCase();
+  const shown = templates.filter((t) => {
+    if (filter === "favorites" && !favorites.has(t.id)) return false;
+    if (filter !== "all" && filter !== "favorites" && kindOf(t) !== filter) return false;
+    if (!q) return true;
+    return [t.name, t.branch, t.scheme, t.description].some((x) => x.toLowerCase().includes(q));
+  });
 
   const startFromTemplate = (templateId: string) => {
     const tpl = templates.find((t) => t.id === templateId);
@@ -168,25 +222,45 @@ function StartScreen() {
         </button>
       </div>
 
-      {SECTIONS.map((section, si) => {
-        const inSection = templates.filter(
-          (t) => SECTIONS.findIndex((s) => s.match(t)) === si,
-        );
-        if (inSection.length === 0) return null;
-        return (
-          <div key={section.label}>
-            <div className="section-label">{section.label}</div>
-            {inSection.map((t) => (
-              <TemplateCard
-                key={t.id}
-                t={t}
-                best={t.forTime ? bestForTime(data.sessions, t.id, t.forTime.stages.length) : undefined}
-                onOpen={() => { setSelectedTemplate(t); }}
-              />
-            ))}
-          </div>
-        );
-      })}
+      <input
+        className="hunt-search"
+        type="search"
+        placeholder="Search workouts"
+        aria-label="Search workouts"
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); }}
+      />
+      <div className="filter-row" role="group" aria-label="Filter workouts">
+        {FILTERS.map((f) => (
+          <button
+            key={f.id}
+            className={`filter-chip ${filter === f.id ? "on" : ""}`}
+            aria-pressed={filter === f.id}
+            onClick={() => { chooseFilter(f.id); }}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {shown.length === 0 && (
+        <p className="muted" style={{ textAlign: "center", marginTop: 24 }}>
+          {filter === "favorites" && favorites.size === 0
+            ? "No favorites yet — tap the star on a workout to add it."
+            : "No workouts match."}
+        </p>
+      )}
+      {shown.map((t) => (
+        <TemplateCard
+          key={t.id}
+          t={t}
+          favorite={favorites.has(t.id)}
+          best={t.forTime ? bestForTime(data.sessions, t.id, t.forTime.stages.length) : undefined}
+          onOpen={() => { setSelectedTemplate(t); }}
+          onStart={() => { startFromTemplate(t.id); }}
+          onToggleFavorite={() => { toggleFavorite(t.id); }}
+        />
+      ))}
 
       {selectedTemplate && (
         <WorkoutDetails
@@ -216,36 +290,62 @@ function StartScreen() {
   );
 }
 
-function TemplateCard({ t, best, onOpen }: { t: Template; best: number | undefined; onOpen: () => void }) {
+function TemplateCard({ t, favorite, best, onOpen, onStart, onToggleFavorite }: {
+  t: Template;
+  favorite: boolean;
+  best: number | undefined;
+  onOpen: () => void;
+  onStart: () => void;
+  onToggleFavorite: () => void;
+}) {
   const duration = t.interval
     ? intervalSeconds(t.exerciseIds.length, t.interval)
     : null;
+  // The card body opens the details sheet; star and Start now are their own
+  // buttons beside it, never nested inside it.
   return (
-    <button className="card workout-card" onClick={onOpen} aria-label={`View ${t.name}`}>
-      <span className="row">
-        <strong style={{ fontSize: 16 }}>{t.name}</strong>
-        <span className="chip gold">{t.branch}</span>
-      </span>
-      <span className="sub muted" style={{ display: "block", marginTop: 6, fontSize: 13 }}>
-        {t.description}
-      </span>
-      <span className="sub" style={{ display: "block", marginTop: 4, fontSize: 13 }}>
-        {t.scheme}
-      </span>
-      {duration !== null && (
-        <span className="chip accent" style={{ marginTop: 8 }}>
-          <IconClock style={{ width: 14, height: 14 }} /> {formatSeconds(duration)}{" "}
-          on the clock
+    <div className="card workout-card">
+      <button
+        className={`workout-star ${favorite ? "on" : ""}`}
+        onClick={onToggleFavorite}
+        aria-pressed={favorite}
+        aria-label={favorite ? `Unstar ${t.name}` : `Star ${t.name}`}
+      >
+        <IconStar filled={favorite} />
+      </button>
+      <button className="workout-card-body" onClick={onOpen} aria-label={`View ${t.name}`}>
+        <span className="row" style={{ paddingRight: 40 }}>
+          <strong style={{ fontSize: 16 }}>{t.name}</strong>
+          <span className="chip gold">{t.branch}</span>
         </span>
-      )}
-      {t.forTime && (
-        <span className="chip accent" style={{ marginTop: 8 }}>
-          <IconClock style={{ width: 14, height: 14 }} />{" "}
-          {best != null ? `Best ${formatSeconds(best)}` : "For time · no best yet"}
+        <span className="sub muted" style={{ display: "block", marginTop: 6, fontSize: 13 }}>
+          {t.description}
         </span>
-      )}
-      <span className="workout-card-link">View workout & music →</span>
-    </button>
+        <span className="sub" style={{ display: "block", marginTop: 4, fontSize: 13 }}>
+          {t.scheme}
+        </span>
+        {duration !== null && (
+          <span className="chip accent" style={{ marginTop: 8 }}>
+            <IconClock style={{ width: 14, height: 14 }} /> {formatSeconds(duration)}{" "}
+            on the clock
+          </span>
+        )}
+        {t.forTime && (
+          <span className="chip accent" style={{ marginTop: 8 }}>
+            <IconClock style={{ width: 14, height: 14 }} />{" "}
+            {best != null ? `Best ${formatSeconds(best)}` : "For time · no best yet"}
+          </span>
+        )}
+      </button>
+      <div className="workout-card-actions">
+        <button className="workout-card-link" onClick={onOpen}>
+          Details & music →
+        </button>
+        <button className="btn primary sm workout-start-now" onClick={onStart} aria-label={`Start ${t.name} now`}>
+          Start now
+        </button>
+      </div>
+    </div>
   );
 }
 
