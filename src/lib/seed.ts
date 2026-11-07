@@ -86,6 +86,14 @@ export const EX = {
   bridgePose: "ex-bridge-pose",
   seatedForwardFold: "ex-seated-forward-fold",
   savasana: "ex-savasana",
+  // DT's lifts as prescribed: it shipped mapped to Power Clean (from the
+  // floor) and Overhead Press (strict). Those ids stay — logged sessions
+  // reference them — and DT now points here.
+  hangPowerClean: "ex-hang-power-clean",
+  pushPress: "ex-push-press",
+  // Yoga's low lunge. Same shape as the Kneeling Hip Flexor Stretch, but
+  // the flow should say the pose's name, not the stretch's.
+  lowLunge: "ex-low-lunge",
 } as const;
 
 export function seedExercises(): Exercise[] {
@@ -123,6 +131,8 @@ export function seedExercises(): Exercise[] {
       "biceps",
     ]),
     e(EX.powerClean, "Power Clean", "strength", "weight_reps", ["full body"]),
+    e(EX.hangPowerClean, "Hang Power Clean", "strength", "weight_reps", ["full body", "traps"]),
+    e(EX.pushPress, "Push Press", "strength", "weight_reps", ["shoulders", "triceps", "legs"]),
     e(EX.thruster, "Thruster", "conditioning", "weight_reps", ["full body"]),
     e(EX.kettlebellSwing, "Kettlebell Swing", "conditioning", "weight_reps", [
       "posterior chain",
@@ -212,6 +222,7 @@ export function seedExercises(): Exercise[] {
     e(EX.bridgePose, "Bridge Pose", "bodyweight", "time", ["glutes", "hamstrings", "spine"]),
     e(EX.seatedForwardFold, "Seated Forward Fold", "bodyweight", "time", ["hamstrings", "back"]),
     e(EX.savasana, "Savasana", "bodyweight", "time", ["recovery"]),
+    e(EX.lowLunge, "Low Lunge", "bodyweight", "time", ["hip flexors", "quads"]),
     e(EX.burpee, "Burpee", "conditioning", "reps", ["full body"]),
     e(EX.boxJump, "Box Jump", "conditioning", "reps", ["legs"]),
     e(EX.boxStepUp, "Box Step-up", "conditioning", "reps", ["legs", "glutes"]),
@@ -442,7 +453,7 @@ export function seedTemplates(): Template[] {
       scheme: "20:00 flow · 25 poses · holds of 30–85 s · both sides",
       exerciseIds: [
         EX.childsPose, EX.catCow, EX.downwardDog, EX.upwardSalute,
-        EX.standingForwardFold, EX.plank, EX.downDogCobra, EX.hipFlexorStretch,
+        EX.standingForwardFold, EX.plank, EX.downDogCobra, EX.lowLunge,
         EX.chairPose, EX.warriorTwo, EX.trianglePose, EX.treePose,
         EX.worldsGreatestStretch, EX.boatPose, EX.pigeonPose,
         EX.seatedForwardFold, EX.bridgePose, EX.openBook, EX.savasana,
@@ -458,8 +469,8 @@ export function seedTemplates(): Template[] {
           { exerciseId: EX.standingForwardFold, seconds: 45 },
           { exerciseId: EX.plank, seconds: 30 },
           { exerciseId: EX.downDogCobra, seconds: 45 },
-          { exerciseId: EX.hipFlexorStretch, seconds: 45, side: "left" },
-          { exerciseId: EX.hipFlexorStretch, seconds: 45, side: "right" },
+          { exerciseId: EX.lowLunge, seconds: 45, side: "left" },
+          { exerciseId: EX.lowLunge, seconds: 45, side: "right" },
           { exerciseId: EX.chairPose, seconds: 45 },
           { exerciseId: EX.warriorTwo, seconds: 45, side: "left" },
           { exerciseId: EX.warriorTwo, seconds: 45, side: "right" },
@@ -677,8 +688,13 @@ export function seedTemplates(): Template[] {
       name: "Standard Ruck",
       branch: "Army Ranger / SF",
       description: "Foot-march standard: 19.3 km with a 16 kg dry pack.",
-      scheme: "19.3 km ruck · 16 kg load · target sub-3:00",
+      scheme: "19.3 km ruck · 16 kg load · target sub-3:00 — for time",
       exerciseIds: [EX.ruck],
+      // One stage on the stopwatch. With GPS on, the distance is measured
+      // with the phone in a pocket and the stage completes at 19.3 km.
+      forTime: {
+        stages: [{ exerciseId: EX.ruck, label: "19.3 km ruck", meters: 19300 }],
+      },
       music: {
         bpm: 130,
         style: "dark folk percussion, marching cadence, low drone",
@@ -692,14 +708,14 @@ export function seedTemplates(): Template[] {
       description: "In memory of USAF SSgt Timothy Davis.",
       scheme:
         "5 rounds: 12 deadlifts · 9 hang power cleans · 6 push press @ 70/48 kg — for time",
-      exerciseIds: [EX.deadlift, EX.powerClean, EX.overheadPress],
+      exerciseIds: [EX.deadlift, EX.hangPowerClean, EX.pushPress],
       // Five rounds of three movements: fifteen stages, round number in
       // each label so the athlete always knows where they are.
       forTime: {
         stages: [1, 2, 3, 4, 5].flatMap((r) => [
           { exerciseId: EX.deadlift, label: `Round ${String(r)} · 12 deadlifts`, reps: 12 },
-          { exerciseId: EX.powerClean, label: `Round ${String(r)} · 9 hang power cleans`, reps: 9 },
-          { exerciseId: EX.overheadPress, label: `Round ${String(r)} · 6 push press`, reps: 6 },
+          { exerciseId: EX.hangPowerClean, label: `Round ${String(r)} · 9 hang power cleans`, reps: 9 },
+          { exerciseId: EX.pushPress, label: `Round ${String(r)} · 6 push press`, reps: 6 },
         ]),
       },
       music: {

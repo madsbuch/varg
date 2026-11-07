@@ -100,11 +100,18 @@ export default function ForTimePlayer({
   const [measured, setMeasured] = useState<Record<number, number>>({});
   /** Stages reopened by Undo: measure on, but never auto-complete again. */
   const [reopened, setReopened] = useState<ReadonlySet<number>>(new Set());
+  /**
+   * Distance already run in a stage when its tracker last stopped — on a
+   * pause, a Done, or an Undo. Restarting carries on from here, so pausing
+   * for a phone call neither loses the distance nor counts the walk back.
+   */
+  const [carried, setCarried] = useState<Record<number, number>>({});
   const isGpsStage =
     gpsOn && !ready && !done && stage?.meters != null && exercise?.metric === "distance_time";
-  const gpsStageIdx = isGpsStage ? stageIdx : -1;
+  // Paused: the tracker is stopped, so distance walked meanwhile never counts.
+  const gpsStageIdx = isGpsStage && !paused ? stageIdx : -1;
   const gpsTarget = isGpsStage && !reopened.has(stageIdx) ? (stage.meters ?? 0) : 0;
-  const gpsResumeFrom = isGpsStage ? (measured[stageIdx] ?? 0) : 0;
+  const gpsResumeFrom = isGpsStage ? Math.max(measured[stageIdx] ?? 0, carried[stageIdx] ?? 0) : 0;
 
   // The poll callbacks need the current clock; a ref keeps the tracker
   // effect from restarting (and resetting the distance) on every pause.
@@ -152,9 +159,17 @@ export default function ForTimePlayer({
       alive = false;
       if (timer) clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
-      void stopRun().catch(() => undefined);
+      stopRun().then(
+        (last) => {
+          if (last.meters > 0) setCarried((c) => ({ ...c, [idx]: Math.max(c[idx] ?? 0, last.meters) }));
+        },
+        () => undefined,
+      );
     };
-  }, [gpsStageIdx, gpsTarget, gpsResumeFrom]);
+    // gpsResumeFrom is read once per (re)start; a pause or Undo restarts the
+    // tracker anyway, and a stopped tracker reporting its distance must not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gpsStageIdx, gpsTarget]);
 
   const stageGps = gps?.stageIdx === stageIdx && isGpsStage ? gps : null;
   const gpsMeters = stageGps?.status?.meters;
@@ -403,7 +418,12 @@ export default function ForTimePlayer({
         <div className="muted fortime-stage-time">
           {ready ? "First up" : `This stage ${formatSeconds(Math.max(0, work - stageStart))}`}
         </div>
-        {isGpsStage && <GpsLine gps={stageGps} seconds={Math.max(0, work - stageStart)} target={gpsTarget} />}
+        {isGpsStage && paused && (
+          <div className="fortime-gps muted">
+            GPS paused at {((Math.max(measured[stageIdx] ?? 0, carried[stageIdx] ?? 0, gps?.stageIdx === stageIdx ? (gps.status?.meters ?? 0) : 0)) / 1000).toFixed(2)} km
+          </div>
+        )}
+        {isGpsStage && !paused && <GpsLine gps={stageGps} seconds={Math.max(0, work - stageStart)} target={gpsTarget} />}
       </div>
 
       <div className="wod-queue">

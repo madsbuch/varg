@@ -114,6 +114,10 @@ const frontLow = pose([40, 72], 12, [53, 88], [50, 46], { farFoot: [41, 88], elb
 const overhead = pose(standHip, 0, [53, 88], [53, 10], { farFoot: [41, 88], farHand: [41, 10], elbows: [1, 1] });
 const hingeLow = pose([37, 65], 57, [51, 88], arms([37, 65], 57, 88), { farFoot: [43, 88], farHand: arms([37, 65], 57, 92), headLean: 45 });
 const hingeTop = pose(standHip, 0, [53, 88], arms(standHip, 0, 88), { farFoot: [41, 88], farHand: arms(standHip, 0, 92) });
+/** Standing hinge with the bar at mid-thigh: the start of a hang clean. */
+const hangPosition = pose([42, 59], 24, [52, 88], arms([42, 59], 24, 88), { farFoot: [44, 88], farHand: arms([42, 59], 24, 92), headLean: 12 });
+/** Push-press dip: knees forward, torso upright, bar still in the rack. */
+const pushDip = pose([45, 62], 3, [53, 88], [52, 35.5], { farFoot: [41, 88], elbows: [1, 1] });
 // Straight body pivots about the toes. Derive the hip and shoulder from
 // that line so the knees cannot sag during a push-up or plank.
 function floorHold(angle: number, hand: Point, elbows: Pair<Bend> = [-1, -1]): Pose {
@@ -273,6 +277,25 @@ export const MOTIONS = {
     equipment: (_t: number, s: Skeleton) => ({ balls: [ball(add(s.arms[1][2], [1, 4]), 4)], shapes: [gear(path([s.arms[1][2], add(s.arms[1][2], [1, 4])]))] }),
   },
   press: rep(2.8, frontTop, overhead, handBar),
+  // Hang power clean: starts standing with the bar at mid-thigh, not from
+  // the floor — a short hinge to the hang, explode, catch high in the rack,
+  // stand, return to the hips and re-hinge. The arms stay straight until the
+  // pull, exactly where they are straight in the keyframes either side.
+  hangPowerClean: {
+    dur: 3.4,
+    at: (t: number) => {
+      const p = timeline([[0, hangPosition], [0.12, hangPosition], [0.24, hingeTop], [0.32, pose([47, 53], 0, [53, 86], [55, 40], { farFoot: [41, 86], elbows: [-1, -1] })], [0.42, pose([44, 61], 6, [53, 88], [57, 42], { farFoot: [41, 88], elbows: [-1, -1] })], [0.54, frontTop], [0.68, frontTop], [0.76, pose(standHip, 0, [53, 88], [63, 45], { farFoot: [41, 88], farHand: [60, 44] })], [0.86, hingeTop], [1, hangPosition]])(t);
+      return t <= 0.24 || t >= 0.86 ? straightArms(p) : p;
+    },
+    equipment: handBar,
+  },
+  // Push press: a strict press would start the bar with the arms. Here the
+  // knees dip and drive first, and the bar leaves the shoulders on the legs.
+  pushPress: {
+    dur: 3,
+    at: timeline([[0, frontTop], [0.14, frontTop], [0.28, pushDip], [0.38, pushDip], [0.48, pose([47, 54], 0, [53, 87], [53, 21], { farFoot: [41, 87], elbows: [1, 1] })], [0.6, overhead], [0.74, overhead], [0.92, frontTop], [1, frontTop]]),
+    equipment: handBar,
+  },
   thruster: { dur: 3.2, at: timeline([[0, frontTop], [0.3, frontLow], [0.4, frontLow], [0.59, frontTop], [0.76, overhead], [0.84, overhead], [1, frontTop]]), equipment: handBar },
   wallBall: {
     dur: 3,

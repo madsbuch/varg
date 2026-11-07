@@ -29,8 +29,10 @@ import {
 import { parseDecimal } from "../lib/units";
 import { gpsAvailable, loadGpsEnabled, requestGpsPermission, saveGpsEnabled } from "../lib/gps";
 import {
-  KIE_VOICES,
   VOICE_MODELS,
+  isGemini,
+  previewLine,
+  voicesFor,
   allFlowLines,
   countReady,
   ensureVoiceClips,
@@ -228,22 +230,50 @@ function VoiceSetting({ hasKey }: { hasKey: boolean }) {
       .finally(() => { setBusy(null); refreshCount(); });
   };
 
+  const play = (src: string, revoke = false) => {
+    const a = new Audio(src);
+    if (revoke) a.onended = () => { URL.revokeObjectURL(src); };
+    return a.play();
+  };
   const hear = () => {
     setProblem(null);
-    const a = new Audio(previewUrl(settings.voiceId));
-    a.play().catch((e: unknown) => {
-      setProblem(`Could not play the sample: ${e instanceof Error ? e.message : String(e)}`);
-    });
+    if (!isGemini(settings.model)) {
+      // ElevenLabs voices have free samples on kie's CDN.
+      play(previewUrl(settings.voiceId)).catch((e: unknown) => {
+        setProblem(`Could not play the sample: ${e instanceof Error ? e.message : String(e)}`);
+      });
+      return;
+    }
+    // Gemini has none: generate a real line (a fraction of a credit).
+    setBusy("Speaking a sample on kie.ai…");
+    previewLine(settings, "Warrior two, left side")
+      .then((blob) => play(URL.createObjectURL(blob), true))
+      .catch((e: unknown) => { setProblem(e instanceof Error ? e.message : String(e)); })
+      .finally(() => { setBusy(null); });
   };
+  const { voices } = voicesFor(settings.model);
 
   return (
     <>
       <div className="section-label">Voice · {ready}/{total} lines ready</div>
       <div className="card">
         <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
-          Spoken pose names in the yoga flows, in an ElevenLabs voice. Lines
-          not generated yet are read by the phone's own voice.
+          Spoken pose names in the yoga flows, in a natural Gemini or
+          ElevenLabs voice. Lines not generated yet are read by the phone's
+          own voice.
         </div>
+        <Field label="Voice model">
+          <select
+            value={settings.model}
+            onChange={(e) => {
+              // Each model has its own voices; keep the voice only if it exists there.
+              const { voices: vs, fallback } = voicesFor(e.target.value);
+              change({ model: e.target.value, voiceId: vs.some((v) => v.voiceId === settings.voiceId) ? settings.voiceId : fallback });
+            }}
+          >
+            {VOICE_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+          </select>
+        </Field>
         <Field label="Voice">
           <div className="btn-row">
             <select
@@ -251,24 +281,16 @@ function VoiceSetting({ hasKey }: { hasKey: boolean }) {
               onChange={(e) => { change({ ...settings, voiceId: e.target.value }); }}
               style={{ flex: 1 }}
             >
-              {KIE_VOICES.map((v) => (
+              {voices.map((v) => (
                 <option key={v.voiceId} value={v.voiceId}>
                   {v.name}{v.description ? ` — ${v.description}` : ""}
                 </option>
               ))}
             </select>
-            <button className="btn sm" style={{ width: "auto" }} onClick={hear}>
+            <button className="btn sm" style={{ width: "auto" }} disabled={busy !== null || (isGemini(settings.model) && !hasKey)} onClick={hear}>
               Hear
             </button>
           </div>
-        </Field>
-        <Field label="Voice model">
-          <select
-            value={settings.model}
-            onChange={(e) => { change({ ...settings, model: e.target.value }); }}
-          >
-            {VOICE_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-          </select>
         </Field>
         <button className="btn primary" disabled={!hasKey || busy !== null} onClick={generate}>
           Generate voice lines
