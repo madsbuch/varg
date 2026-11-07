@@ -10,6 +10,12 @@ import { EX } from "./seed";
 interface LibraryEntry {
   anim: AnimKey;
   cues: string[];
+  /**
+   * For one-sided poses: which side the animation as drawn demonstrates.
+   * The player mirrors it for the other side. Front-facing figures show the
+   * athlete's left leg on screen-right, so this is declared, never guessed.
+   */
+  side?: "left" | "right";
 }
 
 const LIB: Record<string, LibraryEntry> = {
@@ -258,6 +264,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.hipFlexorStretch]: {
     anim: "hipFlexorStretch",
+    side: "right", // side view facing right; the near front foot is the right
     cues: [
       "Half-kneel, back knee under the hip, front foot flat ahead.",
       "Tuck the tailbone under and shift forward until the front of the back hip stretches.",
@@ -265,6 +272,7 @@ const LIB: Record<string, LibraryEntry> = {
     ],
   },
   [EX.openBook]: {
+    side: "right", // the near, opening arm is the right
     anim: "openBook",
     cues: [
       "Lie on your side, knees stacked and bent to 90°.",
@@ -278,6 +286,114 @@ const LIB: Record<string, LibraryEntry> = {
       "From all fours, lift the hips high into an inverted V — heels reaching for the floor.",
       "Flow forward and down into Cobra: hips to the deck, chest lifted, shoulders down.",
       "Press through the hands each way; keep the neck long, not cranked back.",
+    ],
+  },
+  [EX.childsPose]: {
+    anim: "childsPose",
+    cues: [
+      "Knees wide, big toes together, sit the hips back toward the heels.",
+      "Walk the hands forward and rest the forehead down; let the back go long.",
+      "Hips won't reach the heels? Put a folded jacket between them.",
+    ],
+  },
+  [EX.downwardDog]: {
+    anim: "downDog",
+    cues: [
+      "Hands shoulder-width, spread the fingers, push the floor away.",
+      "Hips up and back into an inverted V — length in the spine first.",
+      "Bend the knees as much as you need; heels drift toward the floor over time.",
+    ],
+  },
+  [EX.upwardSalute]: {
+    anim: "upwardSalute",
+    cues: [
+      "Stand tall, feet hip-width, weight even through both feet.",
+      "Inhale and sweep the arms forward and up overhead; ribs stay down.",
+      "Exhale and float them back down. Move with the breath.",
+    ],
+  },
+  [EX.standingForwardFold]: {
+    anim: "forwardFold",
+    cues: [
+      "Hinge from the hips, not the waist; let the head hang heavy.",
+      "Knees soft or well bent — the point is a long back, not straight legs.",
+      "Hands on shins, blocks or the floor, wherever they land.",
+    ],
+  },
+  [EX.chairPose]: {
+    anim: "chairPose",
+    cues: [
+      "Feet together, sit back as if onto a chair, knees behind the toes.",
+      "Arms reach up in line with the torso; weight in the heels.",
+      "Thighs burning is the pose. Lift the arms less if the shoulders pinch.",
+    ],
+  },
+  [EX.warriorTwo]: {
+    anim: "warriorTwo",
+    side: "left", // front-facing; the bent front knee on screen-right is the left leg
+    cues: [
+      "Wide stance: front foot forward, back foot turned in slightly.",
+      "Bend the front knee over the ankle; back leg straight and strong.",
+      "Arms level at shoulder height, gaze over the front hand, torso upright.",
+    ],
+  },
+  [EX.trianglePose]: {
+    anim: "trianglePose",
+    side: "left", // front-facing; reaching over the left leg, on screen-right
+    cues: [
+      "From a wide stance, both legs straight, reach forward over the front leg.",
+      "Lower hand to the shin or a block — not the floor if it bends the spine.",
+      "Top arm straight up, chest opens to the side; both sides of the waist long.",
+    ],
+  },
+  [EX.treePose]: {
+    anim: "treePose",
+    side: "right", // front-facing; the lifted foot is the right one, on screen-left
+    cues: [
+      "Stand on one leg; place the other foot on the inner calf or thigh — never the knee.",
+      "Press foot and leg into each other; hips level, tailbone down.",
+      "Hands together at the chest or overhead. Toes on the floor is a fine tree.",
+    ],
+  },
+  [EX.pigeonPose]: {
+    anim: "pigeonPose",
+    side: "right", // side view facing right; the near, folded front leg is the right
+    cues: [
+      "From all fours, bring one knee forward behind the wrist, shin across the mat.",
+      "Slide the back leg straight behind you; square the hips toward the floor.",
+      "Fold forward over the front leg. Knee complains? Pull the foot in closer to the hip.",
+    ],
+  },
+  [EX.boatPose]: {
+    anim: "boatPose",
+    cues: [
+      "Sit on the sit bones, lean back with a long, straight spine.",
+      "Lift the legs — shins parallel to the floor first, straight legs when you can.",
+      "Arms reach forward; breathe steadily, don't round the back to hold it.",
+    ],
+  },
+  [EX.bridgePose]: {
+    anim: "bridgePose",
+    cues: [
+      "On your back, knees bent, feet flat and hip-width near the hips.",
+      "Press through the feet and lift the hips; knees point straight ahead.",
+      "Arms long on the floor, shoulders tucked under. Lower slowly, vertebra by vertebra.",
+    ],
+  },
+  [EX.seatedForwardFold]: {
+    anim: "seatedForwardFold",
+    cues: [
+      "Sit tall with legs straight ahead, feet flexed.",
+      "Hinge forward from the hips, leading with the chest, not the head.",
+      "Hold the shins, ankles or feet. Bend the knees if the back rounds hard.",
+    ],
+  },
+  [EX.savasana]: {
+    anim: "savasana",
+    cues: [
+      "Lie on your back, legs relaxed apart, arms by your sides, palms up.",
+      "Let the whole body go heavy; breathe normally.",
+      "Stay still until the timer ends — this is where the session settles in.",
     ],
   },
   [EX.burpee]: {

@@ -12,7 +12,8 @@ function framesFor(key: AnimKey) {
   return frames;
 }
 
-function ExerciseAnim({ anim, size = 96 }: { anim: AnimKey; size?: number }) {
+/** `mirror` flips the figure left-to-right: the other side of a one-sided pose. */
+function ExerciseAnim({ anim, size = 96, mirror = false }: { anim: AnimKey; size?: number; mirror?: boolean }) {
   const ref = useRef<SVGSVGElement>(null);
   const [reducedMotion, setReducedMotion] = useState(() =>
     typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches,
@@ -40,6 +41,7 @@ function ExerciseAnim({ anim, size = 96 }: { anim: AnimKey; size?: number }) {
   return (
     <svg key={anim} ref={ref} viewBox="0 0 100 100" width={size} height={size} className="ex-anim" aria-hidden>
       <line x1="8" y1="90" x2="92" y2="90" className="ex-ground" />
+      <g transform={mirror ? "translate(100 0) scale(-1 1)" : undefined}>
       {first.shapes.map((part, i) => (
         <path key={i} d={part.d} opacity={part.opacity ?? 1} className={part.style === "gear" ? "ex-gear" : `ex-limb${part.style === "far" ? " ex-far" : ""}`}>
           {!reducedMotion && <animate attributeName="d" values={frames.map(f => required(f.shapes, i).d).join(";")} dur={dur} repeatCount="indefinite" />}
@@ -55,6 +57,7 @@ function ExerciseAnim({ anim, size = 96 }: { anim: AnimKey; size?: number }) {
           </>}
         </circle>
       ))}
+      </g>
       {anim === "sprintDragCarry" && CARRY_PHASES.map((label, i) => (
         <text key={i} x="50" y="98" className="ex-phase" opacity={i === 0 ? 1 : 0}>
           {label}

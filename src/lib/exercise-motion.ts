@@ -192,6 +192,66 @@ const burpeeStand = { ...standing(), elbows: [-1, -1] as const };
 const burpeeCrouch = pose([47, 73], -70, [58, 88], [28, 88], { farFoot: [52, 88], farHand: [24, 88], knees: [-1, -1], elbows: [-1, -1] });
 const burpeeJump = pose([47, 45], 0, [52, 77], [53, 2], { farFoot: [42, 77], farHand: [41, 2], elbows: [-1, 1] });
 
+/* --- Yoga holds -------------------------------------------------------------
+ * A held pose is still a loop: the figure breathes — a small, smooth rise
+ * and settle — so the demonstration never freezes. Contacts stay planted;
+ * only the hip, lean or a free limb moves, and by a unit or two.
+ */
+function breathe(dur: number, exhale: Pose, inhale: Pose): Motion {
+  return { dur, at: timeline([[0, exhale], [0.5, inhale], [1, exhale]]) };
+}
+/** Down Dog geometry: hands and toes planted, hips on a leg-length arc. */
+function dogAt(angle: number, headLean: number): Pose {
+  const toe: Point = [85, 88], hand: Point = [33, 88];
+  const hip = add(toe, vector(angle, 34));
+  const d = distance(hip, hand), along = (TORSO * TORSO - 24 * 24 + d * d) / (2 * d);
+  const axis: Point = [(hand[0] - hip[0]) / d, (hand[1] - hip[1]) / d];
+  const height = Math.sqrt(Math.max(0, TORSO * TORSO - along * along));
+  const shoulder = add(hip, [axis[0] * along - axis[1] * height, axis[1] * along + axis[0] * height]);
+  const lean = Math.atan2(shoulder[1] - hip[1], shoulder[0] - hip[0]) * 180 / Math.PI + 90;
+  return pose(hip, lean, toe, hand, { farFoot: toe, farHand: hand, headLean });
+}
+const childsPose = (hipY: number, lean: number) =>
+  pose([38, hipY], lean, [35, 88], [83, 88], { farFoot: [33, 88], farHand: [81, 88], knees: [-1, -1], elbows: [1, 1], headLean: lean });
+// Hips stacked just behind the heels, torso hanging in front of the legs.
+const forwardFold = (lean: number) =>
+  pose([44, 54.6], lean, [50, 88], [66, 88], { farFoot: [48, 88], farHand: [63, 88], knees: [-1, -1], elbows: [1, 1], headLean: lean + 15 });
+const chair = (hipY: number) => {
+  const hip: Point = [40, hipY];
+  return pose(hip, 30, [53, 88], arms(hip, 30, -60), { farFoot: [50, 88], farHand: arms(hip, 30, -64), knees: [-1, -1], elbows: [-1, -1] });
+};
+// Frontal poses: the figure faces the viewer, so "lean" tilts sideways and
+// both arms and legs spread left and right. The far limbs stay lighter.
+const warriorTwo = (hipY: number) => {
+  const hip: Point = [48, hipY];
+  return pose(hip, 0, [72, 88], arms(hip, 0, 0), { farFoot: [22, 88], farHand: arms(hip, 0, 180), knees: [1, -1], elbows: [-1, 1] });
+};
+const triangle = (lean: number) => {
+  const hip: Point = [49, 65], shoulder = shoulderAt(hip, lean);
+  return pose(hip, lean, [73.9, 88], reach(shoulder, 90, 90, 11.99), { farFoot: [24.1, 88], farHand: reach(shoulder, -90, -90, 11.99), knees: [-1, 1], elbows: [-1, 1], headLean: lean });
+};
+const tree = (sway: number) => {
+  const hip: Point = [50 + sway, 54.2];
+  return pose(hip, sway / 2, [50, 88], [50 + sway, 11], { farFoot: [51 + sway, 71], farHand: [50 + sway, 11], knees: [1, -1], elbows: [1, -1] });
+};
+const pigeon = (lean: number) =>
+  pose([44, 81], lean, [43, 88], [86, 88], { farFoot: [11, 87], farHand: [84, 88], knees: [1, -1], elbows: [1, 1], headLean: lean + 5 });
+const boat = (angle: number) => {
+  const hip: Point = [48, 85], lean = -45;
+  return pose(hip, lean, reach(hip, angle, angle, LEG), reach(shoulderAt(hip, lean), 0, 0), { farFoot: reach(hip, angle - 3, angle - 3, LEG), farHand: reach(shoulderAt(hip, lean), 3, 3), knees: [-1, -1], elbows: [1, 1] });
+};
+/** Bridge: shoulders fixed on the floor, hips lift on a torso-length arc. */
+const bridge = (angle: number) => {
+  const shoulder: Point = [26, 84];
+  const hip = add(shoulder, vector(angle, TORSO));
+  const lean = Math.atan2(shoulder[1] - hip[1], shoulder[0] - hip[0]) * 180 / Math.PI + 90;
+  return pose(hip, lean, [64, 88], [44, 88], { farFoot: [61, 88], farHand: [41, 88], knees: [-1, -1], elbows: [1, 1], headLean: -110 });
+};
+const seatedFold = (lean: number) =>
+  pose([40, 85], lean, [73.9, 86], [72, 84], { farFoot: [72, 87], farHand: [70, 84], knees: [-1, -1], elbows: [1, 1], headLean: lean + 5 });
+const corpse = (spine: number) =>
+  pose([50, 86], -90, [83.9, 87], [50, 87], { farFoot: [83.9, 86.5], farHand: [49, 87.5], knees: [-1, -1], elbows: [-1, -1], headLean: -90, spine });
+
 export const MOTIONS = {
   rest: rep(4, standing([58, 52]), pose(standHip, 0, [54, 88], [58, 51.5], { farFoot: [39, 88], farHand: [34, 51.5], elbows: [-1, 1] })),
   squat: rep(3, squatTop, squatLow, handBar),
@@ -366,6 +426,26 @@ export const MOTIONS = {
     const lean = Math.atan2(shoulder[1] - hip[1], shoulder[0] - hip[0]) * 180 / Math.PI + 90;
     return pose(hip, lean, toe, hand, { farFoot: toe, farHand: hand, headLean: mix(-125, -15, u) });
   } },
+  childsPose: breathe(5, childsPose(78, 102), childsPose(77, 99)),
+  downDog: breathe(5, dogAt(-118.072, -125), dogAt(-121, -125)),
+  upwardSalute: { dur: 6, at: (t: number) => {
+    // Arms sweep forward and up to overhead, hold, and float back down —
+    // around the shoulder, so the straight arm never passes through it.
+    const hip: Point = [48, 54.5], lean = scalar(t, [[0, 0], [0.35, 0], [0.5, -6], [0.65, 0], [1, 0]]);
+    const angle = scalar(t, [[0, 95], [0.35, -88], [0.65, -88], [1, 95]]);
+    const shoulder = shoulderAt(hip, lean);
+    return pose(hip, lean, [52, 88], reach(shoulder, angle), { farFoot: [48, 88], farHand: reach(shoulder, angle - 4), elbows: [-1, -1], headLean: lean });
+  } },
+  forwardFold: breathe(5, forwardFold(146), forwardFold(152)),
+  chairPose: breathe(4.5, chair(66), chair(67.5)),
+  warriorTwo: breathe(5, warriorTwo(67), warriorTwo(68.5)),
+  trianglePose: breathe(5, triangle(58), triangle(62)),
+  treePose: breathe(6, tree(-0.6), tree(0.6)),
+  pigeonPose: breathe(5, pigeon(75), pigeon(78)),
+  boatPose: breathe(4.5, boat(-45), boat(-41)),
+  bridgePose: breathe(5, bridge(-24), bridge(-29)),
+  seatedForwardFold: breathe(5, seatedFold(66), seatedFold(71)),
+  savasana: breathe(6, corpse(0), corpse(-2.5)),
   bike: { dur: 1.5, at: (t: number) => {
     const hip: Point = [43, 60], crank: Point = [54, 79];
     return pose(hip, 18, add(crank, vector(t * 360, 9)), [71 + 2 * Math.sin(TAU * t), 40], { farFoot: add(crank, vector(t * 360 + 180, 9)), farHand: [70 - 3 * Math.sin(TAU * t), 42], elbows: [-1, -1] });

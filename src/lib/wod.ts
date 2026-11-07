@@ -1,9 +1,22 @@
-import type { Exercise, SessionEntry } from "../types";
+import type { Exercise, SessionEntry, Side } from "../types";
 import { newSession, uid } from "./store";
 import { formatSeconds } from "./units";
 
+/** A flow step, resolved: every pose its own length, maybe one-sided. */
+export interface SequenceStep {
+  exercise: Exercise;
+  secs: number;
+  side?: Side | undefined;
+}
+
 export interface WodConfig {
   exercises: Exercise[];
+  /**
+   * A flow (yoga): explicit steps with their own lengths, no rests. When set,
+   * it replaces the work/rest/rounds circuit, and the player speaks each pose
+   * and shows its form cues.
+   */
+  sequence?: SequenceStep[] | undefined;
   work: number; // seconds
   rest: number; // seconds
   rounds: number;
@@ -17,9 +30,10 @@ export interface Step {
   kind: StepKind;
   /** The station this step is about. For rest/ready: the one coming up. */
   exercise: Exercise | undefined;
-  round: number; // 1-based; for rest, the round the NEXT station belongs to
+  round: number; // 1-based; for rest, the round the NEXT station belongs to. In a flow: the pose number.
   secs: number;
   at: number; // seconds from workout start
+  side?: Side | undefined;
 }
 
 export const READY_SECS = 5;
@@ -35,6 +49,15 @@ export function buildSteps(cfg: WodConfig): Step[] {
     steps.push({ ...s, at });
     at += s.secs;
   };
+
+  if (cfg.sequence) {
+    const first = cfg.sequence[0];
+    push({ kind: "ready", exercise: first?.exercise, round: 1, secs: READY_SECS, side: first?.side });
+    cfg.sequence.forEach((s, i) => {
+      push({ kind: "work", exercise: s.exercise, round: i + 1, secs: s.secs, side: s.side });
+    });
+    return steps;
+  }
 
   push({ kind: "ready", exercise: cfg.exercises[0], round: 1, secs: READY_SECS });
 
@@ -108,6 +131,9 @@ export function recordedSession(
   if (config.trackKey) session.templateId = config.trackKey;
   session.entries = recordedEntries(steps, progress);
   const stations = session.entries.reduce((n, entry) => n + entry.sets.length, 0);
-  session.note = `${stoppedEarly ? "Stopped early" : "Finished"} · ${formatSeconds(progress.duration)} recorded · ${String(stations)} station intervals · planned ${String(config.rounds)} rounds of ${String(config.work)}s on / ${String(config.rest)}s off`;
+  const planned = config.sequence
+    ? `planned ${String(config.sequence.length)}-pose flow`
+    : `planned ${String(config.rounds)} rounds of ${String(config.work)}s on / ${String(config.rest)}s off`;
+  session.note = `${stoppedEarly ? "Stopped early" : "Finished"} · ${formatSeconds(progress.duration)} recorded · ${String(stations)} ${config.sequence ? "poses" : "station intervals"} · ${planned}`;
   return session;
 }

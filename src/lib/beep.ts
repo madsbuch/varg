@@ -40,6 +40,11 @@ export function setCueDucker(fn: CueDucker | null): void {
   ducker = fn;
 }
 
+/** Pull the music down for something other than a tone — a spoken cue. */
+export function duckMusic(holdSeconds: number): void {
+  ducker?.(holdSeconds);
+}
+
 function tone(
   freq: number,
   startIn: number,

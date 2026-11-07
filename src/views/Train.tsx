@@ -67,9 +67,9 @@ function intervalSeconds(
 }
 
 /** How a template runs when started — the library's filter categories. */
-type Kind = "interval" | "forTime" | "logged";
+type Kind = "interval" | "flow" | "forTime" | "logged";
 function kindOf(t: Template): Kind {
-  return t.interval ? "interval" : t.forTime ? "forTime" : "logged";
+  return t.interval ? "interval" : t.flow ? "flow" : t.forTime ? "forTime" : "logged";
 }
 
 type Filter = "all" | "favorites" | Kind;
@@ -77,6 +77,7 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "favorites", label: "★ Favorites" },
   { id: "interval", label: "Intervals" },
+  { id: "flow", label: "Yoga" },
   { id: "forTime", label: "For time" },
   { id: "logged", label: "Logged" },
 ];
@@ -174,6 +175,34 @@ function StartScreen() {
       unlockAudio(); // must happen inside the tap gesture
       setSelectedTemplate(null);
       setRunningForTime({ title: tpl.name, templateId: tpl.id, stages, exercises });
+      return;
+    }
+    if (tpl.flow) {
+      // Flow (yoga): every pose its own length, spoken and cued.
+      const exById = new Map(data.exercises.map((e) => [e.id, e]));
+      const sequence = tpl.flow.steps.flatMap((st) => {
+        const exercise = exById.get(st.exerciseId);
+        return exercise ? [{ exercise, secs: st.seconds, side: st.side }] : [];
+      });
+      if (sequence.length !== tpl.flow.steps.length) {
+        setStartError(
+          `${tpl.name} has ${String(tpl.flow.steps.length)} poses but only ` +
+            `${String(sequence.length)} exist on this device. Reinstalling or ` +
+            `updating the app restores the built-in exercises.`,
+        );
+        return;
+      }
+      unlockAudio(); // must happen inside the tap gesture
+      setSelectedTemplate(null);
+      setRunningWod({
+        exercises: sequence.map((s) => s.exercise),
+        sequence,
+        work: 0,
+        rest: 0,
+        rounds: 1,
+        title: tpl.name,
+        trackKey: tpl.id,
+      });
       return;
     }
     if (tpl.interval) {
@@ -300,7 +329,9 @@ function TemplateCard({ t, favorite, best, onOpen, onStart, onToggleFavorite }: 
 }) {
   const duration = t.interval
     ? intervalSeconds(t.exerciseIds.length, t.interval)
-    : null;
+    : t.flow
+      ? t.flow.steps.reduce((sum, s) => sum + s.seconds, 0)
+      : null;
   // The card body opens the details sheet; star and Start now are their own
   // buttons beside it, never nested inside it.
   return (

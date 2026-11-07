@@ -23,8 +23,9 @@ import { libraryFor } from "../lib/library";
 import { useBackHandler } from "../lib/back";
 import type { AnimKey } from "./ExerciseAnim";
 import { cueFinish, cueRest, cueTick, cueWork, unlockAudio } from "../lib/beep";
+import { loadVoiceOn, poseLine, saveVoiceOn, speak } from "../lib/voice";
 import ExerciseAnim from "./ExerciseAnim";
-import { IconCheck, IconClose } from "./icons";
+import { IconCheck, IconClose, IconVoice } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
 import { formatSeconds } from "../lib/units";
 
@@ -56,12 +57,20 @@ function stepIndexAt(steps: Step[], elapsed: number): number {
 function stepTitle(step: Step): string {
   if (step.kind === "rest") return "Rest";
   if (step.kind === "ready") return "Get ready";
-  return step.exercise?.name ?? "Work";
+  const name = step.exercise?.name ?? "Work";
+  return step.side ? `${name} · ${step.side}` : name;
 }
 
 function stepAnim(step: Step): AnimKey {
   if (step.kind === "work" && step.exercise) return libraryFor(step.exercise).anim;
   return "rest";
+}
+
+/** A one-sided pose on the side its animation does not draw: flip it. */
+function stepMirror(step: Step): boolean {
+  if (step.kind !== "work" || !step.exercise || !step.side) return false;
+  const drawn = libraryFor(step.exercise).side;
+  return drawn !== undefined && drawn !== step.side;
 }
 
 const PHASE_LABEL: Record<StepKind, string> = {
@@ -152,24 +161,51 @@ export default function WodPlayer({
   // --- Audio cues ----------------------------------------------------------
   // Cue on entering a step. Deriving the step from the clock means a long
   // standby gap lands on one step and fires one cue, never a burst.
-  const cuedStep = useRef(0);
+  // A flow speaks each pose as it begins instead of beeping — including the
+  // first one, during the lead-in, so the athlete can get into it.
+  const flow = config.sequence !== undefined;
+  const [voiceOn, setVoiceOn] = useState(loadVoiceOn);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const cuedStep = useRef(flow ? -1 : 0);
   useEffect(() => {
     if (cuedStep.current === stepIdx) return;
     cuedStep.current = stepIdx;
     const s = steps[stepIdx];
-    if (!s) cueFinish();
-    else if (s.kind === "work") cueWork();
+    if (!s) {
+      cueFinish();
+      return;
+    }
+    if (flow && voiceOn && s.exercise) {
+      const line = poseLine(s.exercise.name, s.side, s.kind === "ready" ? "First: " : "");
+      speak(line).then(
+        () => { setVoiceError(null); },
+        (e: unknown) => {
+          // Say why there is no voice, and still give the transition a sound.
+          setVoiceError(e instanceof Error ? e.message : String(e));
+          if (s.kind === "work") cueRest();
+        },
+      );
+      return;
+    }
+    if (flow) {
+      if (s.kind === "work") cueRest();
+      return;
+    }
+    if (s.kind === "work") cueWork();
     else cueRest();
-  }, [stepIdx, steps]);
+  }, [stepIdx, steps, flow, voiceOn]);
 
   const cuedTick = useRef("");
   useEffect(() => {
+    // Holds in a flow end on the next pose's name, not a 3-2-1 beep — except
+    // the lead-in, which still counts down.
+    if (flow && steps[stepIdx]?.kind !== "ready") return;
     if (paused || done || remain > 3 || remain < 1) return;
     const key = `${String(stepIdx)}:${String(remain)}`;
     if (cuedTick.current === key) return;
     cuedTick.current = key;
     cueTick();
-  }, [remain, stepIdx, paused, done]);
+  }, [remain, stepIdx, paused, done, flow, steps]);
 
   // --- Transport -----------------------------------------------------------
   // Date.now() is read here in the handler, never inside the updater, so
@@ -347,12 +383,28 @@ export default function WodPlayer({
     <div className={`wod ${resting ? "resting" : ""}`}>
       <div className="wod-top">
         <span className="chip">
-          {config.title ? `${config.title} · ` : ""}Round {step.round}/
-          {config.rounds}
+          {config.title ? `${config.title} · ` : ""}
+          {config.sequence
+            ? `Pose ${String(step.round)}/${String(config.sequence.length)}`
+            : `Round ${String(step.round)}/${String(config.rounds)}`}
         </span>
         <span className="chip">
           {formatSeconds(workElapsed)} / {formatSeconds(workTotal)}
         </span>
+        {flow && (
+          <button
+            className={`check music ${voiceOn ? "on" : ""}`}
+            aria-label={voiceOn ? "Stop speaking pose names" : "Speak pose names"}
+            onClick={() => {
+              const next = !voiceOn;
+              setVoiceOn(next);
+              saveVoiceOn(next);
+              if (!next) setVoiceError(null);
+            }}
+          >
+            <IconVoice />
+          </button>
+        )}
         {track.musicButton}
         <button className="check" onClick={openConfirmStop} aria-label="Stop">
           <IconClose />
@@ -364,15 +416,23 @@ export default function WodPlayer({
       </div>
 
       <div className="wod-center">
-        <div className="wod-phase">{PHASE_LABEL[step.kind]}</div>
+        <div className="wod-phase">{flow && step.kind === "work" ? "Hold" : PHASE_LABEL[step.kind]}</div>
         <div className={`wod-time ${remain <= 3 ? "urgent" : ""}`}>
           {formatSeconds(remain)}
         </div>
 
         <div className="wod-anim">
-          <ExerciseAnim anim={stepAnim(step)} size={170} />
+          <ExerciseAnim anim={stepAnim(step)} size={170} mirror={stepMirror(step)} />
         </div>
         <div className="wod-exname">{stepTitle(step)}</div>
+        {flow && step.exercise && (
+          <ul className="wod-cues">
+            {libraryFor(step.exercise).cues.slice(0, 2).map((c) => <li key={c}>{c}</li>)}
+          </ul>
+        )}
+        {flow && voiceOn && voiceError && (
+          <div className="wod-voice-error">Voice unavailable: {voiceError}</div>
+        )}
 
         <div className="wod-stepbar" aria-hidden>
           <div style={{ width: `${String(stepFrac * 100)}%` }} />
@@ -392,7 +452,7 @@ export default function WodPlayer({
               className={`wod-queue-row ${s.kind === "work" ? "" : "is-rest"} ${i > 0 ? "dim" : ""}`}
             >
               <div className="wod-queue-anim">
-                <ExerciseAnim anim={stepAnim(s)} size={38} />
+                <ExerciseAnim anim={stepAnim(s)} size={38} mirror={stepMirror(s)} />
               </div>
               <span className="wod-queue-name">{stepTitle(s)}</span>
               <span className="wod-queue-secs">{formatSeconds(s.secs)}</span>

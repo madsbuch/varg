@@ -1,0 +1,3 @@
+[default]
+description = "Spoken cues: speak a line, stop speaking, read whether the voice is ready."
+permissions = ["allow-speak", "allow-stop", "allow-status"]
