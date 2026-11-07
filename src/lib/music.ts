@@ -671,6 +671,20 @@ interface RecordInfo {
   };
 }
 
+type SunoSong = NonNullable<
+  NonNullable<RecordInfo["response"]>["sunoData"]
+>[number];
+
+/** The longest variation with audio; falls back to the first if none has a length. */
+function longestSong(songs: SunoSong[] | undefined): SunoSong | undefined {
+  if (!songs?.length) return undefined;
+  const playable = songs.filter((x) => x.audioUrl);
+  if (!playable.length) return songs[0];
+  return playable.reduce((best, x) =>
+    (x.duration ?? 0) > (best.duration ?? 0) ? x : best,
+  );
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function authHeaders(settings: MusicSettings): Record<string, string> {
@@ -868,7 +882,11 @@ async function pollPendingTask(
     return "pending";
   }
   const status = poll.data?.status ?? "PENDING";
-  const song = poll.data?.response?.sunoData?.[0];
+  // Each request returns two variations, and only the requested duration
+  // is a target, not a promise — a live V6 run asking for 360 s came back
+  // as 4:52 and 5:59, shorter first. Keep the longest playable one: the
+  // whole point of asking for length is fewer loop seams.
+  const song = longestSong(poll.data?.response?.sunoData);
 
   // A failed callback delivery (we don't host one) can surface as
   // CALLBACK_EXCEPTION even though the track itself is done — so treat
