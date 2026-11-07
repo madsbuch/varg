@@ -19,6 +19,7 @@ import { join } from "node:path";
 import * as t from "../src/db/schema";
 import { seedExercises, seedSplits, seedTemplates } from "../src/lib/seed";
 import { hasLibraryEntry } from "../src/lib/library";
+import { buildPrompt, PROMPT_LIMIT } from "../src/lib/music";
 import * as prsModule from "../src/lib/prs";
 import { estimate1RM } from "../src/lib/units";
 import * as typesModule from "../src/types";
@@ -426,6 +427,16 @@ for (const probe of METRIC_PROBES) {
         `${row.value} where it should keep ${want}`,
     );
   }
+}
+
+// Every built-in's music prompt must fit the gateway's limit untrimmed — a
+// truncated prompt silently loses the end of its style description.
+for (const tpl of seedTemplates()) {
+  const prompt = buildPrompt(tpl.name, tpl.music);
+  assert(
+    !prompt.endsWith("…") && prompt.length <= PROMPT_LIMIT,
+    `template "${tpl.name}" music prompt is truncated to ${PROMPT_LIMIT} chars — shorten its theme or style`,
+  );
 }
 
 console.log("DB smoke test passed ✔");

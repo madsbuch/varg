@@ -670,6 +670,39 @@ function authHeaders(settings: MusicSettings): Record<string, string> {
 }
 
 /**
+ * Non-custom mode caps the prompt at 500 characters. The gateway rejects
+ * anything longer, so the prompt is built to fit rather than sent and
+ * refused.
+ */
+export const PROMPT_LIMIT = 500;
+
+/**
+ * The generation prompt. The generate endpoint has no duration parameter;
+ * the only lever on length is the arrangement the prompt asks for. Short,
+ * single-idea prompts come back as ~2-minute songs, so the prompt asks for
+ * an extended DJ-mix arrangement with many sections, which pushes the model
+ * toward its maximum length (up to ~8 min on V4_5 and newer, ~4 min on V4).
+ * Even then the track is shorter than most workouts, so it is still looped
+ * with a crossfaded seam at playback (src/lib/track.ts).
+ *
+ * The length request leads the prompt so that, if a long user-edited theme
+ * or style has to be trimmed, it is the description that gets cut, never
+ * the instruction to go long.
+ */
+export function buildPrompt(workoutName: string, profile: MusicProfile): string {
+  const head =
+    `Extended instrumental mix, as long as possible (8 min), ` +
+    `steady ${profile.bpm} BPM, no vocals. Long DJ arrangement: intro, ` +
+    `build, drop, groove, breakdown, build, drop, variation, final drop, ` +
+    `outro. No early ending or fade-out.`;
+  const tail =
+    ` For "${workoutName}": ${profile.theme}. Style: ${profile.style}.`;
+  const full = head + tail;
+  if (full.length <= PROMPT_LIMIT) return full;
+  return full.slice(0, PROMPT_LIMIT - 1).trimEnd() + "…";
+}
+
+/**
  * Submit a generation request. Returns as soon as the gateway accepts the
  * task and the pending record is persisted — from then on the track
  * composes server-side and the phone is free to sleep.
@@ -681,18 +714,7 @@ async function requestTrack(
   settings: MusicSettings,
 ): Promise<PendingTask> {
   const base = settings.baseUrl.replace(/\/+$/, "");
-  const prompt =
-    `Instrumental workout track for "${workoutName}". ${profile.theme}. ` +
-    `Style: ${profile.style}. Steady ${profile.bpm} BPM, driving rhythm, ` +
-    `high energy, no vocals.`;
-
-  // Track length is NOT controllable here: the generate endpoint takes no
-  // duration, and in non-custom mode the model decides — a few minutes,
-  // against workouts that run three to eighteen. The track is therefore
-  // always assumed to be shorter than the session and is looped with a
-  // crossfade at playback time (src/lib/track.ts). Do not "fix" this by
-  // padding the prompt with "make it 18 minutes long"; the model ignores
-  // it and the seam handling is what actually matters.
+  const prompt = buildPrompt(workoutName, profile);
 
   musicLog(`Requesting "${workoutName}" (model ${settings.model}) from ${base}…`);
   const createRes = await httpFetch(`${base}/api/v1/generate`, {

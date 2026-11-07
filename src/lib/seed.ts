@@ -329,6 +329,38 @@ export function seedTemplates(): Template[] {
       },
     },
     {
+      id: "tpl-varg-30",
+      name: "Varg 30",
+      branch: "Varg",
+      description:
+        "Varg 18 with longer work: the same twelve stations in the same " +
+        "order, strength alternating with cardio, but 40 seconds under load " +
+        "per station. Cardio alternates run on the spot and air boxing.",
+      scheme: "3 rounds · 12 stations · 40 s work / 10 s rest",
+      // Identical station order to Varg 18 — only the work time changes.
+      exerciseIds: [
+        EX.sitUp,
+        EX.runInPlace,
+        EX.pushUp,
+        EX.airBoxing,
+        EX.backLift,
+        EX.runInPlace,
+        EX.airSquat,
+        EX.airBoxing,
+        EX.benchDip,
+        EX.runInPlace,
+        EX.burpee,
+        EX.airBoxing,
+      ],
+      interval: { work: 40, rest: 10, rounds: 3 },
+      music: {
+        bpm: 160,
+        style: "hard electronic, punchy drums, dark synth bass, no vocals",
+        theme:
+          "Thirty minutes of long grinding intervals — wolf-pack pace held past the burn",
+      },
+    },
+    {
       id: "tpl-rasteplads",
       name: "Rasteplads",
       branch: "Varg",
