@@ -150,6 +150,14 @@ joints and makes limbs shrink in the intermediate frames.
   `AudioContext`, unlocked from the Start tap. Music ducks under cues and its
   loop seam is crossfaded, because generated tracks are always shorter than
   the workout. See [`src/lib/track.ts`](src/lib/track.ts).
+- **GPS.** Run tracking lives in native code
+  ([`src-tauri/plugins/varg-gps`](src-tauri/plugins/varg-gps)): an Android
+  foreground location service, because the WebView is frozen while the phone
+  is locked. It records the wall-clock moment the target distance is reached;
+  the for-time player turns that into the stage's mark when it next wakes.
+  Do not move distance tracking into JavaScript — it would stop at the
+  pocket. Every GPS failure is shown on the stage in red; never fall back to
+  a quiet "off".
 - **Migrations.** Schema changes are `bun run db:generate`, then commit the
   generated SQL in `/drizzle`. Never hand-edit an applied migration.
 - **Metric only.** Kilograms and metres, always. No unit toggle.

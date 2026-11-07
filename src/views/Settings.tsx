@@ -27,8 +27,9 @@ import {
   type WorkoutMusic,
 } from "../lib/music";
 import { parseDecimal } from "../lib/units";
+import { gpsAvailable, loadGpsEnabled, requestGpsPermission, saveGpsEnabled } from "../lib/gps";
 import { ConfirmSheet, Field, Sheet } from "../components/ui";
-import { IconChevron, IconMusic } from "../components/icons";
+import { IconCheck, IconChevron, IconMusic } from "../components/icons";
 
 export default function Settings({ goto }: { goto: (t: Tab) => void }) {
   const [settings, setSettings] = useState(loadMusicSettings);
@@ -69,6 +70,8 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
     <div className="screen">
       <div className="eyebrow">Settings</div>
       <h2 className="screen-title">Settings</h2>
+
+      <GpsSetting />
 
       <div className="section-label">Suno</div>
       <div className="card">
@@ -181,6 +184,83 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * The optional GPS for run stages. Turning it on asks for location
+ * permission there and then, so a refusal surfaces here — not mid-workout
+ * as a run that silently never completes.
+ */
+function GpsSetting() {
+  const [on, setOn] = useState(loadGpsEnabled);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const available = gpsAvailable();
+
+  const toggle = () => {
+    if (on) {
+      setOn(false);
+      saveGpsEnabled(false);
+      setProblem(null);
+      return;
+    }
+    setBusy(true);
+    setProblem(null);
+    requestGpsPermission()
+      .then((state) => {
+        if (state === "granted") {
+          setOn(true);
+          saveGpsEnabled(true);
+        } else {
+          setProblem(
+            "Location permission was not granted, so GPS stays off. Allow location for Varg in Android settings, then try again.",
+          );
+        }
+      })
+      .catch((e: unknown) => {
+        setProblem(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => { setBusy(false); });
+  };
+
+  return (
+    <>
+      <div className="section-label">GPS</div>
+      <div className="card">
+        <div className="row" style={{ alignItems: "center" }}>
+          <div style={{ flex: 1 }}>
+            <strong>GPS for runs</strong>
+            <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+              In for-time workouts (Murph's runs), measure distance and pace,
+              and complete the run stage automatically when you reach the
+              distance. Keeps measuring with the phone locked — a
+              notification shows while it does, and the phone buzzes when
+              the distance is reached.
+            </div>
+          </div>
+          <button
+            className={`check ${on ? "on" : ""}`}
+            role="switch"
+            aria-checked={on}
+            aria-label="GPS for runs"
+            disabled={!available || busy}
+            onClick={toggle}
+            style={{ flexShrink: 0 }}
+          >
+            {on && <IconCheck />}
+          </button>
+        </div>
+        {!available && (
+          <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+            Only available in the Android app.
+          </div>
+        )}
+        {problem && (
+          <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>{problem}</div>
+        )}
+      </div>
+    </>
   );
 }
 

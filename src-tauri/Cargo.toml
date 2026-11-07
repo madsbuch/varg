@@ -22,6 +22,9 @@ tauri-plugin-http = "2"
 # Android Back at the root has to quit the app itself: registering a back
 # handler suppresses the platform's native exit. See src/lib/back.ts.
 tauri-plugin-process = "2"
+# In-repo plugin: the Android foreground location service that measures
+# for-time runs while the phone is locked. See plugins/varg-gps.
+tauri-plugin-varg-gps = { path = "plugins/varg-gps" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

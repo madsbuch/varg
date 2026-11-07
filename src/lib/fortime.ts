@@ -42,6 +42,8 @@ export function recordedForTimeSession(
   marks: number[],
   startedAt: string,
   stoppedAt?: number,
+  /** GPS-measured distance per stage index, where GPS ran. */
+  measured: Record<number, number> = {},
 ): Session {
   const session = newSession(cfg.title);
   session.date = startedAt;
@@ -57,18 +59,24 @@ export function recordedForTimeSession(
       entry = { id: uid("entry"), exerciseId: stage.exerciseId, sets: [] };
       entries.set(stage.exerciseId, entry);
     }
+    const gps = measured[i];
     entry.sets.push({
       id: uid("set"),
       done: false,
       seconds,
       reps: stage.reps,
-      meters: stage.meters,
+      // What GPS measured, when it ran; otherwise the prescribed distance.
+      meters: gps != null && stage.meters != null ? Math.round(gps) : stage.meters,
     });
   });
   session.entries = [...entries.values()];
 
   const splits = splitsFrom(marks)
-    .map((s, i) => `${cfg.stages[i]?.label ?? "?"} ${formatSeconds(s)}`)
+    .map((s, i) => {
+      const gps = measured[i];
+      const km = gps != null ? ` (GPS ${(gps / 1000).toFixed(2)} km)` : "";
+      return `${cfg.stages[i]?.label ?? "?"} ${formatSeconds(s)}${km}`;
+    })
     .join(" · ");
   const complete = marks.length === cfg.stages.length;
   if (complete) {
