@@ -432,7 +432,7 @@ for (const probe of METRIC_PROBES) {
 // Every built-in's music prompt must fit the gateway's limit untrimmed — a
 // truncated prompt silently loses the end of its style description.
 for (const tpl of seedTemplates()) {
-  const prompt = buildPrompt(tpl.name, tpl.music);
+  const prompt = buildPrompt(tpl.name, tpl.music, tpl.interval);
   assert(
     !prompt.endsWith("…") && prompt.length <= PROMPT_LIMIT,
     `template "${tpl.name}" music prompt is truncated to ${PROMPT_LIMIT} chars — shorten its theme or style`,

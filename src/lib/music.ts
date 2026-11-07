@@ -11,7 +11,7 @@
 // happens on the gateway's servers, phone asleep or not), in-flight taskIds
 // are persisted, and results are polled — resumed on every app foreground.
 
-import type { MusicProfile } from "../types";
+import type { IntervalPlan, MusicProfile } from "../types";
 import { seedTemplates } from "./seed";
 
 export const DEFAULT_BASE_URL = "https://api.sunoapi.org";
@@ -677,6 +677,22 @@ function authHeaders(settings: MusicSettings): Record<string, string> {
 export const PROMPT_LIMIT = 500;
 
 /**
+ * The workout's work/rest rhythm, phrased for the model. This shapes the
+ * arrangement's feel — surges and breathers of roughly the right length —
+ * but it is NOT a sync: Suno's timing is approximate, the track loops at
+ * whatever length it comes back, and playback is not aligned to the
+ * workout clock. Untimed workouts (logged sessions) get nothing.
+ */
+function timingLine(interval?: IntervalPlan): string {
+  if (!interval) return "";
+  const cycle = interval.work + interval.rest;
+  return (
+    ` Phrase it in repeating ${cycle} s cycles: ${interval.work} s full ` +
+    `drive, ${interval.rest} s stripped back.`
+  );
+}
+
+/**
  * The generation prompt. The generate endpoint has no duration parameter;
  * the only lever on length is the arrangement the prompt asks for. Short,
  * single-idea prompts come back as ~2-minute songs, so the prompt asks for
@@ -689,12 +705,16 @@ export const PROMPT_LIMIT = 500;
  * or style has to be trimmed, it is the description that gets cut, never
  * the instruction to go long.
  */
-export function buildPrompt(workoutName: string, profile: MusicProfile): string {
+export function buildPrompt(
+  workoutName: string,
+  profile: MusicProfile,
+  interval?: IntervalPlan,
+): string {
   const head =
     `Extended instrumental mix, as long as possible (8 min), ` +
-    `steady ${profile.bpm} BPM, no vocals. Long DJ arrangement: intro, ` +
-    `build, drop, groove, breakdown, build, drop, variation, final drop, ` +
-    `outro. No early ending or fade-out.`;
+    `steady ${profile.bpm} BPM, no vocals. Long DJ arrangement, many ` +
+    `evolving sections, no early ending or fade-out.` +
+    timingLine(interval);
   const tail =
     ` For "${workoutName}": ${profile.theme}. Style: ${profile.style}.`;
   const full = head + tail;
@@ -714,7 +734,8 @@ async function requestTrack(
   settings: MusicSettings,
 ): Promise<PendingTask> {
   const base = settings.baseUrl.replace(/\/+$/, "");
-  const prompt = buildPrompt(workoutName, profile);
+  const interval = seedTemplates().find((t) => t.id === key)?.interval;
+  const prompt = buildPrompt(workoutName, profile, interval);
 
   musicLog(`Requesting "${workoutName}" (model ${settings.model}) from ${base}…`);
   const createRes = await httpFetch(`${base}/api/v1/generate`, {
