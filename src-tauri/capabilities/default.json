@@ -11,6 +11,7 @@
     "sql:allow-execute",
     "sql:allow-select",
     "process:allow-exit",
+    "varg-gps:default",
     {
       "identifier": "http:default",
       "allow": [

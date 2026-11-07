@@ -1,0 +1,9 @@
+[default]
+description = "Run tracking: check and request location permission, start and stop the tracker, read its status."
+permissions = [
+  "allow-check-permissions",
+  "allow-request-permissions",
+  "allow-start",
+  "allow-stop",
+  "allow-status",
+]

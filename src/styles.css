@@ -1079,6 +1079,21 @@ input.invalid,
   font-variant-numeric: tabular-nums;
 }
 
+/* GPS readout on run stages. Failure is red: a run that will not
+   auto-complete must never look like one that will. */
+.fortime-gps {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  text-align: center;
+}
+.fortime-gps.bad {
+  color: var(--danger);
+  font-weight: 600;
+  font-size: 13px;
+}
+
 /* The result screen lists every split; DT has fifteen, so it scrolls. */
 .fortime-result {
   justify-content: flex-start;

@@ -66,4 +66,12 @@ describe("for-time recording", () => {
     manual.note = murph.scheme; // what the set-logger path writes
     expect(finishedTime(manual, stages.length)).toBeUndefined();
   });
+
+  test("GPS-measured distance replaces the prescribed one, only where GPS ran", () => {
+    const s = recordedForTimeSession(config, marks, start, undefined, { 0: 1623.4 });
+    const run = s.entries.find((e) => e.exerciseId === stages[0]!.exerciseId)!;
+    expect(run.sets.map((x) => x.meters)).toEqual([1623, 1600]);
+    expect(s.note).toContain("GPS 1.62 km");
+    expect(recomputePRs([s], exercises, [])).toEqual([]);
+  });
 });

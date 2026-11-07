@@ -28,6 +28,15 @@ import { formatSeconds } from "../lib/units";
 import ExerciseAnim from "./ExerciseAnim";
 import { IconCheck, IconClose } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
+import type { GpsStatus } from "../lib/gps";
+import { formatPace, gpsAvailable, loadGpsEnabled, runStatus, startRun, stopRun } from "../lib/gps";
+
+/** GPS for one stage: the tracker's latest status, or why it is not running. */
+interface StageGps {
+  stageIdx: number;
+  status?: GpsStatus;
+  error?: string;
+}
 
 interface Clock {
   anchor: number; // ms timestamp where raw elapsed == 0 (start of the lead-in)
@@ -80,6 +89,76 @@ export default function ForTimePlayer({
   const stage = stages[stageIdx];
   const exercise = config.exercises[stageIdx];
   const stageStart = marks[marks.length - 1] ?? 0;
+
+  // --- GPS (optional, run stages only) ---------------------------------------
+  // The native tracker measures while the phone is locked and records when
+  // the target was reached; this side starts and stops it per stage, polls
+  // it whenever the WebView is awake, and turns a crossing into a Done at
+  // the moment it happened — not the moment the phone was unlocked.
+  const [gpsOn] = useState(() => gpsAvailable() && loadGpsEnabled());
+  const [gps, setGps] = useState<StageGps | null>(null);
+  const [measured, setMeasured] = useState<Record<number, number>>({});
+  /** Stages reopened by Undo: measure on, but never auto-complete again. */
+  const [reopened, setReopened] = useState<ReadonlySet<number>>(new Set());
+  const isGpsStage =
+    gpsOn && !ready && !done && stage?.meters != null && exercise?.metric === "distance_time";
+  const gpsStageIdx = isGpsStage ? stageIdx : -1;
+  const gpsTarget = isGpsStage && !reopened.has(stageIdx) ? (stage.meters ?? 0) : 0;
+  const gpsResumeFrom = isGpsStage ? (measured[stageIdx] ?? 0) : 0;
+
+  // The poll callbacks need the current clock; a ref keeps the tracker
+  // effect from restarting (and resetting the distance) on every pause.
+  const clockRef = useRef(clock);
+  useEffect(() => { clockRef.current = clock; }, [clock]);
+
+  useEffect(() => {
+    if (gpsStageIdx < 0) return;
+    let alive = true;
+    const idx = gpsStageIdx;
+    const target = gpsTarget;
+    const apply = (status: GpsStatus) => {
+      if (!alive) return;
+      setGps({ stageIdx: idx, status });
+      if (target <= 0 || !status.crossedAtMs) return;
+      // Auto-Done at the moment the distance was reached, on the workout
+      // clock — clamped between this stage's start and now.
+      const now = workAt(clockRef.current, Date.now());
+      const crossed = workAt(clockRef.current, status.crossedAtMs);
+      setMarks((prev) =>
+        prev.length === idx ? [...prev, Math.min(now, Math.max(prev[idx - 1] ?? 0, crossed))] : prev,
+      );
+      setMeasured((prev) => (prev[idx] != null ? prev : { ...prev, [idx]: status.meters }));
+    };
+    const poll = () => {
+      runStatus()
+        .then(apply)
+        .catch((e: unknown) => { if (alive) setGps({ stageIdx: idx, error: String(e instanceof Error ? e.message : e) }); });
+    };
+    let timer: ReturnType<typeof setInterval> | undefined;
+    startRun(target, gpsResumeFrom)
+      .then((status) => {
+        if (!alive) return;
+        apply(status);
+        timer = setInterval(poll, 1000);
+      })
+      .catch((e: unknown) => {
+        if (alive) setGps({ stageIdx: idx, error: String(e instanceof Error ? e.message : e) });
+      });
+    // Coming back from a locked screen: read at once, so a crossing that
+    // happened in the pocket is applied before the athlete looks.
+    const onVisible = () => { if (document.visibilityState === "visible") poll(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      alive = false;
+      if (timer) clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      void stopRun().catch(() => undefined);
+    };
+  }, [gpsStageIdx, gpsTarget, gpsResumeFrom]);
+
+  const stageGps = gps?.stageIdx === stageIdx && isGpsStage ? gps : null;
+  const gpsMeters = stageGps?.status?.meters;
+
   const total = finished ? (marks[marks.length - 1] ?? 0) : (stoppedAt ?? work);
 
   // --- Cues ------------------------------------------------------------------
@@ -113,9 +192,19 @@ export default function ForTimePlayer({
     const t = workAt(clock, now);
     if (t <= 0) return; // still in the lead-in
     setMarks((m) => (m.length < stages.length ? [...m, t] : m));
+    if (gpsMeters != null) {
+      const idx = stageIdx;
+      const m = gpsMeters;
+      setMeasured((prev) => ({ ...prev, [idx]: m }));
+    }
   };
 
   const undo = () => {
+    // Reopening a GPS stage carries on from its measured distance, with
+    // auto-Done off — it already fired once, or was overridden by hand.
+    const idx = marks.length - 1;
+    if (idx < 0) return;
+    if (measured[idx] != null) setReopened((r) => new Set(r).add(idx));
     setMarks((m) => m.slice(0, -1));
   };
 
@@ -170,10 +259,10 @@ export default function ForTimePlayer({
   // --- Logging ---------------------------------------------------------------
   const logSession = useCallback(() => {
     if (marks.length === 0) return null;
-    const session = recordedForTimeSession(config, marks, startedAt, stoppedAt ?? undefined);
+    const session = recordedForTimeSession(config, marks, startedAt, stoppedAt ?? undefined, measured);
     update((d) => upsertSession(d, session));
     return session.id;
-  }, [config, marks, startedAt, stoppedAt, update]);
+  }, [config, marks, startedAt, stoppedAt, update, measured]);
 
   useEffect(() => {
     if (!done || loggedId.current !== null || discarded) return;
@@ -196,6 +285,8 @@ export default function ForTimePlayer({
     if (id !== null) update((d) => deleteSession(d, id));
     loggedId.current = null;
     setDiscarded(false);
+    const idx = marks.length - 1;
+    if (measured[idx] != null) setReopened((r) => new Set(r).add(idx));
     setMarks((m) => m.slice(0, -1));
   };
 
@@ -238,7 +329,12 @@ export default function ForTimePlayer({
             <ol className="fortime-splits">
               {splits.map((s, i) => (
                 <li key={i}>
-                  <span>{stages[i]?.label}</span>
+                  <span>
+                    {stages[i]?.label}
+                    {measured[i] != null && (
+                      <span className="muted"> · GPS {((measured[i] ?? 0) / 1000).toFixed(2)} km</span>
+                    )}
+                  </span>
                   <span className="fortime-split">{formatSeconds(s)}</span>
                 </li>
               ))}
@@ -307,6 +403,7 @@ export default function ForTimePlayer({
         <div className="muted fortime-stage-time">
           {ready ? "First up" : `This stage ${formatSeconds(Math.max(0, work - stageStart))}`}
         </div>
+        {isGpsStage && <GpsLine gps={stageGps} seconds={Math.max(0, work - stageStart)} target={gpsTarget} />}
       </div>
 
       <div className="wod-queue">
@@ -388,4 +485,27 @@ function comparison(total: number, best: number | undefined): string {
   if (diff < 0) return `New best — ${formatSeconds(-diff)} faster than ${formatSeconds(best)}.`;
   if (diff === 0) return `Equal to your best, ${formatSeconds(best)}.`;
   return `${formatSeconds(diff)} behind your best of ${formatSeconds(best)}.`;
+}
+
+/** The run stage's GPS readout — or, loudly, why there is none. */
+function GpsLine({ gps, seconds, target }: { gps: StageGps | null; seconds: number; target: number }) {
+  if (!gps) return <div className="fortime-gps muted">GPS starting…</div>;
+  if (gps.error) {
+    return <div className="fortime-gps bad">GPS off: {gps.error} Tap Done yourself.</div>;
+  }
+  const st = gps.status;
+  if (!st) return <div className="fortime-gps muted">GPS starting…</div>;
+  if (st.error) return <div className="fortime-gps bad">GPS: {st.error} Tap Done yourself.</div>;
+  const km = (st.meters / 1000).toFixed(2);
+  const goal = target > 0 ? ` / ${(target / 1000).toFixed(2)} km` : " km";
+  const pace = formatPace(seconds, st.meters);
+  const searching = st.lastAccuracy < 0 || st.lastAccuracy > 25;
+  return (
+    <div className="fortime-gps">
+      GPS {km}{goal}
+      {pace && ` · ${pace}`}
+      {searching && <span className="muted"> · searching for signal…</span>}
+      {target <= 0 && <span className="muted"> · tap Done when finished</span>}
+    </div>
+  );
 }
