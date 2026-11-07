@@ -785,9 +785,11 @@ input.invalid,
   color: var(--faint);
 }
 
+/* On reuses the filled .check.on button, so the icon takes the on-accent
+   colour — painting it --accent too put an olive note on an olive fill,
+   and the toggle vanished exactly while the music was playing. */
 .wod-top .check.music.on {
-  color: var(--accent);
-  border-color: var(--accent-dim);
+  color: var(--on-accent);
 }
 
 .wod-top .check.music.blocked {
