@@ -15,6 +15,7 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
   const stations = template.exerciseIds.map(id => byId.get(id));
   const missing = stations.some(ex => !ex);
   const plan = template.interval;
+  const forTime = template.forTime;
 
   return (
     <Sheet title={template.name} onClose={onClose}>
@@ -29,11 +30,18 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
             ? ` Rest ${String(plan.rest)} seconds between stations, including between rounds. No rest after the final station.`
             : " Move straight to the next station, with no rest."}
         </p>}
+        {forTime && <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
+          For time: the clock runs from the start until the last stage is done.
+          {forTime.stages.length > 1
+            ? ` Tap Done as you finish each of the ${String(forTime.stages.length)} stages — split the reps however you like — and your time for each one is saved.`
+            : " Split the reps however you like, and tap Finish when the last one is done."}
+          {" "}Your best completed time is the one to beat.
+        </p>}
       </div>
 
       <BattleTrack cacheKey={template.id} workoutName={template.name} profile={template.music} />
 
-      <div className="section-label">{plan ? "Stations in each round" : "Exercise sequence"}</div>
+      <div className="section-label">{plan ? "Stations in each round" : forTime ? "Movements" : "Exercise sequence"}</div>
       <ol className="workout-stations">
         {stations.map((ex, i) => {
           const guide = ex ? libraryFor(ex) : null;
@@ -57,7 +65,7 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
       {missing && <p style={{ color: "var(--danger)" }}>This workout cannot start until all its exercises are available.</p>}
       <div className="workout-start">
         <button className="btn primary" style={{ width: "100%" }} disabled={missing} onClick={onStart}>
-          {plan ? "Start guided" : "Start workout"}
+          {plan ? "Start guided" : forTime ? "Start the clock" : "Start workout"}
         </button>
       </div>
     </Sheet>

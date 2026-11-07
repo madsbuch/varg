@@ -995,6 +995,59 @@ input.invalid,
   font-size: 15px;
 }
 
+/* --- For-time player --- */
+/* Done is the only tap that matters mid-workout, made with shaking hands
+   between sets: it gets the full width and a tall target. */
+.fortime-done {
+  width: 100%;
+  min-height: 64px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  gap: 8px;
+}
+
+.fortime-done svg {
+  width: 22px;
+  height: 22px;
+}
+
+.fortime-stage-time {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The result screen lists every split; DT has fifteen, so it scrolls. */
+.fortime-result {
+  justify-content: flex-start;
+  padding-top: 24px;
+}
+
+.fortime-splits {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  width: 100%;
+  overflow-y: auto;
+  min-height: 0;
+  border-top: 1px solid var(--line);
+}
+
+.fortime-splits li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+}
+
+.fortime-split {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Short viewports: small phones, and — since tauri.conf.json sets no
    orientation lock — anything held sideways. The figure shrinks first
    (above), then drops out, then the queue. What survives is the countdown

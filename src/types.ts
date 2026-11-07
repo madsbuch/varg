@@ -134,6 +134,26 @@ export interface IntervalPlan {
   rounds: number;
 }
 
+/**
+ * One leg of a for-time workout: a fixed amount of one exercise, done before
+ * moving on. The athlete taps Done when it is finished; the gap between taps
+ * is the stage's split.
+ */
+export interface ForTimeStage {
+  exerciseId: string;
+  /** What the athlete sees, e.g. "100 pull-ups" or "1.6 km run". */
+  label: string;
+  /** Prescribed reps — for reps and weight_reps exercises. */
+  reps?: number | undefined;
+  /** Prescribed distance in metres — for distance_time exercises. */
+  meters?: number | undefined;
+}
+
+/** A fixed amount of work, scored by the time it takes. */
+export interface ForTimePlan {
+  stages: ForTimeStage[];
+}
+
 /** A military-style workout template — a prescribed session. */
 export interface Template {
   id: string;
@@ -145,6 +165,11 @@ export interface Template {
   music: MusicProfile;
   /** When set, starting the template launches the guided interval player. */
   interval?: IntervalPlan | undefined;
+  /**
+   * When set, starting the template launches the for-time player: a running
+   * stopwatch and the stages in order. Never set together with `interval`.
+   */
+  forTime?: ForTimePlan | undefined;
 }
 
 export interface AppData {

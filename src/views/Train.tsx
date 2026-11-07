@@ -21,7 +21,10 @@ import { scrollContentTop } from "../lib/scroll";
 import { BattleTrack } from "../components/BattleTrack";
 import { WorkoutDetails } from "../components/WorkoutDetails";
 import WodPlayer from "../components/WodPlayer";
+import ForTimePlayer from "../components/ForTimePlayer";
 import type { WodConfig } from "../lib/wod";
+import type { ForTimeConfig } from "../lib/fortime";
+import { bestForTime } from "../lib/fortime";
 import { unlockAudio } from "../lib/beep";
 import { ConfirmSheet, Sheet } from "../components/ui";
 import {
@@ -91,12 +94,34 @@ function StartScreen() {
   const [showSplit, setShowSplit] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [runningWod, setRunningWod] = useState<WodConfig | null>(null);
+  const [runningForTime, setRunningForTime] = useState<ForTimeConfig | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const templates = useMemo(() => seedTemplates(), []);
 
   const startFromTemplate = (templateId: string) => {
     const tpl = templates.find((t) => t.id === templateId);
     if (!tpl) return;
+    if (tpl.forTime) {
+      // For-time template: stopwatch, stages in order, Done per stage.
+      const exById = new Map(data.exercises.map((e) => [e.id, e]));
+      const stages = tpl.forTime.stages;
+      const exercises = stages
+        .map((st) => exById.get(st.exerciseId))
+        .filter((e): e is Exercise => !!e);
+      // Same rule as a circuit: never run a workout with a stage missing.
+      if (exercises.length !== stages.length) {
+        setStartError(
+          `${tpl.name} has ${String(stages.length)} stages but only ` +
+            `${String(exercises.length)} of their exercises exist on this device. ` +
+            `Reinstalling or updating the app restores the built-in exercises.`,
+        );
+        return;
+      }
+      unlockAudio(); // must happen inside the tap gesture
+      setSelectedTemplate(null);
+      setRunningForTime({ title: tpl.name, templateId: tpl.id, stages, exercises });
+      return;
+    }
     if (tpl.interval) {
       // Circuit template: run it guided — exercises, timing, cues, music.
       const exById = new Map(data.exercises.map((e) => [e.id, e]));
@@ -155,6 +180,7 @@ function StartScreen() {
               <TemplateCard
                 key={t.id}
                 t={t}
+                best={t.forTime ? bestForTime(data.sessions, t.id, t.forTime.stages.length) : undefined}
                 onOpen={() => { setSelectedTemplate(t); }}
               />
             ))}
@@ -183,11 +209,14 @@ function StartScreen() {
       {runningWod && (
         <WodPlayer config={runningWod} onClose={() => { setRunningWod(null); }} />
       )}
+      {runningForTime && (
+        <ForTimePlayer config={runningForTime} onClose={() => { setRunningForTime(null); }} />
+      )}
     </div>
   );
 }
 
-function TemplateCard({ t, onOpen }: { t: Template; onOpen: () => void }) {
+function TemplateCard({ t, best, onOpen }: { t: Template; best: number | undefined; onOpen: () => void }) {
   const duration = t.interval
     ? intervalSeconds(t.exerciseIds.length, t.interval)
     : null;
@@ -207,6 +236,12 @@ function TemplateCard({ t, onOpen }: { t: Template; onOpen: () => void }) {
         <span className="chip accent" style={{ marginTop: 8 }}>
           <IconClock style={{ width: 14, height: 14 }} /> {formatSeconds(duration)}{" "}
           on the clock
+        </span>
+      )}
+      {t.forTime && (
+        <span className="chip accent" style={{ marginTop: 8 }}>
+          <IconClock style={{ width: 14, height: 14 }} />{" "}
+          {best != null ? `Best ${formatSeconds(best)}` : "For time · no best yet"}
         </span>
       )}
       <span className="workout-card-link">View workout & music →</span>

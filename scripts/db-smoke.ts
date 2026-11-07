@@ -429,6 +429,53 @@ for (const probe of METRIC_PROBES) {
   }
 }
 
+// For-time templates run in ForTimePlayer: one Done per stage, and each
+// completed stage is logged as a set carrying the prescribed amount. So the
+// amount must be the kind the exercise's metric measures, and the label the
+// athlete reads mid-workout must state that same number — a label saying
+// "100 pull-ups" over a stage logging 10 is the silent mismatch to prevent.
+{
+  const exById = new Map(seedExercises().map((e) => [e.id, e]));
+  for (const tpl of seedTemplates()) {
+    const ft = tpl.forTime;
+    if (!ft) continue;
+    const where = `template "${tpl.name}" forTime`;
+    assert(!tpl.interval, `${where}: has both an interval and forTime — pick one player`);
+    assert(ft.stages.length >= 1 && ft.stages.length <= 200, `${where}: needs 1-200 stages, has ${ft.stages.length}`);
+    ft.stages.forEach((st, i) => {
+      const at = `${where} stage ${i + 1} ("${st.label}")`;
+      const ex = exById.get(st.exerciseId);
+      assert(ex, `${at}: exercise ${st.exerciseId} does not exist`);
+      assert(
+        tpl.exerciseIds.includes(st.exerciseId),
+        `${at}: ${ex.name} is not in the template's exerciseIds, so the details sheet would not show its cues`,
+      );
+      if (ex.metric === "reps" || ex.metric === "weight_reps") {
+        assert(
+          Number.isInteger(st.reps) && (st.reps ?? 0) > 0 && st.meters == null,
+          `${at}: ${ex.name} is counted in reps — give the stage a whole-number reps target and no metres`,
+        );
+        assert(
+          new RegExp(`(^|\\D)${String(st.reps)}(\\D|$)`).test(st.label),
+          `${at}: label does not state the ${String(st.reps)} reps the stage logs`,
+        );
+      } else if (ex.metric === "distance_time") {
+        assert(
+          (st.meters ?? 0) > 0 && st.reps == null,
+          `${at}: ${ex.name} is measured in distance — give the stage a metres target and no reps`,
+        );
+        const m = st.meters ?? 0;
+        assert(
+          st.label.includes(`${String(m / 1000)} km`) || st.label.includes(`${String(m)} m`),
+          `${at}: label does not state the ${String(m)} m the stage logs`,
+        );
+      } else {
+        assert(false, `${at}: ${ex.name} is a ${ex.metric} exercise, which a for-time stage cannot prescribe`);
+      }
+    });
+  }
+}
+
 // Every built-in's music description must fit the gateway's limit untrimmed — a
 // truncated prompt silently loses the end of its style description.
 for (const tpl of seedTemplates()) {

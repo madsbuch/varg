@@ -454,6 +454,18 @@ export function seedTemplates(): Template[] {
       scheme:
         "1.6 km run · 100 pull-ups · 200 push-ups · 300 air squats · 1.6 km run — for time",
       exerciseIds: [EX.run, EX.pullUp, EX.pushUp, EX.airSquat, EX.run],
+      // The middle 600 reps are one stage each, exactly as prescribed —
+      // partition them however you like, the clock only cares when the
+      // last squat is done.
+      forTime: {
+        stages: [
+          { exerciseId: EX.run, label: "1.6 km run", meters: 1600 },
+          { exerciseId: EX.pullUp, label: "100 pull-ups", reps: 100 },
+          { exerciseId: EX.pushUp, label: "200 push-ups", reps: 200 },
+          { exerciseId: EX.airSquat, label: "300 air squats", reps: 300 },
+          { exerciseId: EX.run, label: "1.6 km run", meters: 1600 },
+        ],
+      },
       music: {
         bpm: 175,
         style: "aggressive electronic rock, pounding drums, distorted guitar",
@@ -557,6 +569,15 @@ export function seedTemplates(): Template[] {
       scheme:
         "5 rounds: 12 deadlifts · 9 hang power cleans · 6 push press @ 70/48 kg — for time",
       exerciseIds: [EX.deadlift, EX.powerClean, EX.overheadPress],
+      // Five rounds of three movements: fifteen stages, round number in
+      // each label so the athlete always knows where they are.
+      forTime: {
+        stages: [1, 2, 3, 4, 5].flatMap((r) => [
+          { exerciseId: EX.deadlift, label: `Round ${String(r)} · 12 deadlifts`, reps: 12 },
+          { exerciseId: EX.powerClean, label: `Round ${String(r)} · 9 hang power cleans`, reps: 9 },
+          { exerciseId: EX.overheadPress, label: `Round ${String(r)} · 6 push press`, reps: 6 },
+        ]),
+      },
       music: {
         bpm: 172,
         style: "heavy metal, barbell-slamming riffs",
@@ -635,6 +656,13 @@ export function seedTemplates(): Template[] {
       // ruck is a different, and much worse, workout — and it filed the
       // reps as a Box Jump record.
       exerciseIds: [EX.boxStepUp, EX.ruck],
+      // One stage: the thousand step-ups. The ruck is the load worn
+      // throughout, not a leg of its own.
+      forTime: {
+        stages: [
+          { exerciseId: EX.boxStepUp, label: "1000 box step-ups", reps: 1000 },
+        ],
+      },
       music: {
         bpm: 135,
         style: "somber cinematic percussion, steady stomping beat",

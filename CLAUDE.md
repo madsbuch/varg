@@ -55,7 +55,11 @@ should shape what you build:
    for user-created exercises only, and demonstrating the wrong movement is a
    bug, not a graceful degradation.
 3. Add the `Template` to `seedTemplates()`. If it has an `interval`, starting
-   it launches the guided player; without one it opens as a logged session.
+   it launches the guided interval player. If it is a fixed amount of work
+   scored by time ("— for time"), give it `forTime` stages instead: starting
+   it launches the for-time player (stopwatch, one Done per stage, splits
+   and best time). Each stage's label must state the reps or distance it
+   logs. With neither, it opens as a logged session.
 4. Run `bun run build && bun run db:smoke`. The smoke test is the only
    reviewer this content gets. It asserts that every built-in exercise has its
    own animation, that no template or split references an exercise that does
@@ -63,8 +67,9 @@ should shape what you build:
    id is reused (both are primary-key collisions that hang the app on the
    splash), that a template with an `interval` has a scheme written in the
    units the guided player actually enforces — no metres, no AMRAP, no rep
-   counts — that the interval itself is within sane bounds, and that every
-   metric has a declared PR direction.
+   counts — that the interval itself is within sane bounds, that every
+   for-time stage prescribes the amount its exercise's metric measures and
+   says so in its label, and that every metric has a declared PR direction.
 5. Existing installs get *new* built-ins through `mergeBuiltIns`, which the
    SQLite loader applies on every open. Without that they would never see
    them, because their database was seeded on first launch and never again.

@@ -22,19 +22,10 @@ import type { Step, StepKind, WodConfig } from "../lib/wod";
 import { libraryFor } from "../lib/library";
 import { useBackHandler } from "../lib/back";
 import type { AnimKey } from "./ExerciseAnim";
-import {
-  cueFinish,
-  cueRest,
-  cueTick,
-  cueWork,
-  setCueDucker,
-  unlockAudio,
-} from "../lib/beep";
-import type { TrackChannel } from "../lib/track";
-import { createTrackChannel, SEAM_FADE_SECONDS } from "../lib/track";
-import { getCachedTrack } from "../lib/music";
+import { cueFinish, cueRest, cueTick, cueWork, unlockAudio } from "../lib/beep";
 import ExerciseAnim from "./ExerciseAnim";
-import { IconCheck, IconClose, IconMusic } from "./icons";
+import { IconCheck, IconClose } from "./icons";
+import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
 import { formatSeconds } from "../lib/units";
 
 /** The workout's position on the wall clock. */
@@ -257,138 +248,9 @@ export default function WodPlayer({
     else seek(steps[stepIdx - 1]?.at ?? 0);
   };
 
-  // --- Battle track --------------------------------------------------------
-  // Play the workout's cached track under the cues. While the track is
-  // still composing, keep checking so it joins mid-workout.
-  const [trackUrl, setTrackUrl] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  useEffect(() => {
-    const trackKey = config.trackKey;
-    if (!trackKey) return;
-    let url: string | null = null;
-    let alive = true;
-    const check = () => {
-      void getCachedTrack(trackKey)
-        .then((t) => {
-          if (t && alive && !url) {
-            url = URL.createObjectURL(t.blob);
-            setTrackUrl(url);
-          }
-        })
-        .catch(() => undefined);
-    };
-    check();
-    const id = setInterval(() => {
-      if (!url) check();
-    }, 15_000);
-    return () => {
-      alive = false;
-      clearInterval(id);
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [config.trackKey]);
-  // Route the track through the cue context: ducking, a crossfaded loop
-  // seam, and playback that is not subject to the media autoplay policy.
-  const channelRef = useRef<TrackChannel | null>(null);
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a || !trackUrl) return;
-    const channel = createTrackChannel(a);
-    channelRef.current = channel;
-    if (channel) setCueDucker((hold) => { channel.duck(hold); });
-    return () => {
-      setCueDucker(null);
-      channel?.dispose();
-      channelRef.current = null;
-    };
-  }, [trackUrl]);
-
-  // "The track should be playing and isn't": either play() was refused —
-  // a track that finishes composing mid-workout mounts long after the tap
-  // that started the workout — or the platform stopped the element under
-  // us. Say so instead of swallowing it; silent music with no explanation
-  // reads as "the feature is broken".
-  const [musicBlocked, setMusicBlocked] = useState(false);
-  const [musicOn, setMusicOn] = useState(true);
-  const startPlayback = useCallback((a: HTMLAudioElement) => {
-    a.play().then(
-      () => { setMusicBlocked(false); },
-      () => { setMusicBlocked(true); },
-    );
-  }, []);
-
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (paused || done || !musicOn) {
-      a.pause();
-      return;
-    }
-    // Pausing inside the seam fade leaves a ramp scheduled on the context
-    // timeline, which keeps running in context-time while the element is
-    // stopped — resume without this and the track is back but inaudible.
-    // onTimeUpdate re-arms the fade if we really are near the end.
-    channelRef.current?.fadeIn();
-    startPlayback(a);
-  }, [paused, done, musicOn, trackUrl, startPlayback]);
-
-  // The track is shorter than the workout, so it repeats. Fade the tail
-  // out and the head in rather than cutting mid-phrase seven times over.
-  const onTrackTime = () => {
-    const a = audioRef.current;
-    if (!a || !Number.isFinite(a.duration)) return;
-    const remaining = a.duration - a.currentTime;
-    if (remaining <= SEAM_FADE_SECONDS) channelRef.current?.fadeOutBeforeEnd(remaining);
-  };
-  // A headphone unplug or a lost audio focus stops the element with no
-  // error and no other event, and the button went on claiming "Mute the
-  // battle track" over silence. Reflect it instead of replaying: auto-play
-  // here would defeat becoming-noisy and make muting — which is itself a
-  // pause() — a no-op. Anything we paused on purpose is excluded.
-  const onTrackPause = () => {
-    if (musicOn && !paused && !done) setMusicBlocked(true);
-  };
-  const onTrackEnded = () => {
-    const a = audioRef.current;
-    if (!a) return;
-    a.currentTime = 0;
-    a.play().then(
-      () => { channelRef.current?.fadeIn(); },
-      () => { setMusicBlocked(true); },
-    );
-  };
-
-  // --- Screen wake lock ----------------------------------------------------
-  // Android drops the lock whenever the page is hidden, so re-request it
-  // every time we come back to the foreground. `done` is in the deps so
-  // finishing runs the cleanup: without that the display stays on for as
-  // long as the completion screen is up, which is until you find the phone.
-  useEffect(() => {
-    let sentinel: WakeLockSentinel | null = null;
-    let alive = true;
-    const onVisible = () => {
-      if (document.visibilityState !== "visible") return;
-      // Coming back from an incoming call can leave the shared context
-      // suspended — every cue and the battle track go silent for the rest
-      // of the workout with no other way back.
-      unlockAudio();
-      if (done || !("wakeLock" in navigator)) return;
-      navigator.wakeLock
-        .request("screen")
-        .then((s) => {
-          if (alive) sentinel = s;
-          else void s.release().catch(() => undefined);
-        })
-        .catch(() => undefined);
-    };
-    onVisible();
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      alive = false;
-      document.removeEventListener("visibilitychange", onVisible);
-      void sentinel?.release().catch(() => undefined);
-    };
-  }, [done]);
+  // --- Battle track & wake lock -------------------------------------------
+  const track = useBattleTrack(config.trackKey, paused, done);
+  useWorkoutWakeLock(done);
 
   const logSession = useCallback(() => {
     const session = recordedSession(config, steps, progress.current, startedAt, stoppedEarly);
@@ -491,33 +353,7 @@ export default function WodPlayer({
         <span className="chip">
           {formatSeconds(workElapsed)} / {formatSeconds(workTotal)}
         </span>
-        {trackUrl && (
-          <button
-            className={`check music ${musicBlocked ? "blocked" : musicOn ? "on" : ""}`}
-            aria-label={
-              musicBlocked
-                ? "Tap to restart the battle track"
-                : musicOn
-                  ? "Mute the battle track"
-                  : "Unmute the battle track"
-            }
-            onClick={() => {
-              // A tap is a fresh user gesture, so this is also the retry
-              // path when the WebView refused to autoplay or the platform
-              // stopped the element under us.
-              if (musicBlocked) {
-                const a = audioRef.current;
-                unlockAudio();
-                setMusicOn(true);
-                if (a) startPlayback(a);
-                return;
-              }
-              setMusicOn((m) => !m);
-            }}
-          >
-            <IconMusic />
-          </button>
-        )}
+        {track.musicButton}
         <button className="check" onClick={openConfirmStop} aria-label="Stop">
           <IconClose />
         </button>
@@ -565,17 +401,7 @@ export default function WodPlayer({
         )}
       </div>
 
-      {/* No `loop` attribute: the seam is crossfaded in onTrackEnded. */}
-      {trackUrl && (
-        <audio
-          ref={audioRef}
-          src={trackUrl}
-          onTimeUpdate={onTrackTime}
-          onEnded={onTrackEnded}
-          onPlay={() => { setMusicBlocked(false); }}
-          onPause={onTrackPause}
-        />
-      )}
+      {track.audioElement}
 
       <div className="wod-controls">
         <div className="btn-row">
