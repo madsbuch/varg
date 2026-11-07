@@ -2,7 +2,7 @@
  * Battle-track playback channel.
  *
  * A generated track is almost always SHORTER than the workout it scores —
- * the gateway caps a track at six minutes, Varg 18 runs 17:50. So the
+ * Suno caps a track at six minutes, Varg 18 runs 17:50. So the
  * track repeats, and the two problems that creates are solved here:
  *
  *  - The seam. A bare `loop` attribute restarts the element instantly and

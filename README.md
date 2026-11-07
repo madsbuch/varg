@@ -47,13 +47,15 @@ documented in [CLAUDE.md](CLAUDE.md).
 - **Workout library** — pick a template and go. Ships with a Træn med
   Forsvaret-inspired section (Grundtræning, Feltmarch, Kredsløbstræning)
   plus Murph, ACFT, USMC PFT, Navy PRT, Cindy, DT, Chad 1000x, and more.
-- **Battle tracks (Suno)** — generate an instrumental track matched to each
-  workout's BPM, style, and theme. Suno has no official public API, so this
-  talks to a Suno API gateway (default `api.sunoapi.org`, configurable in
-  Music settings) with your own API key. Finished tracks are downloaded and
-  cached in IndexedDB, so each workout's track is generated exactly once.
+- **Battle tracks (Suno) and spoken cues (ElevenLabs), one key** — both are
+  generated through [kie.ai](https://kie.ai) with your own API key, set once
+  in Settings. Each workout gets an instrumental Suno V6 track (up to six
+  minutes) matched to its BPM, style and theme; the yoga flows get every
+  pose name spoken in an ElevenLabs voice of your choice. Everything is
+  downloaded and cached in IndexedDB, so each track and line is generated
+  exactly once and workouts never need the network.
   Generation is standby-safe: requests are submitted up front and composed
-  on the gateway's servers, in-flight task ids are persisted, and finished
+  on kie.ai's servers, in-flight task ids are persisted, and finished
   tracks are picked up whenever the app is next in the foreground — locking
   the phone mid-generation loses nothing. A composer log in Settings records
   every request, response, and error for on-device debugging.
