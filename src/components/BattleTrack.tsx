@@ -104,7 +104,7 @@ export function BattleTrack({
     if (!hasKey) {
       return (
         <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
-          No music yet — add your Suno API key in Settings (gear on the Den
+          No music yet — add your kie.ai API key in Settings (gear on the Den
           tab).
         </div>
       );

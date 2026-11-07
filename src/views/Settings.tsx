@@ -29,15 +29,15 @@ import {
 import { parseDecimal } from "../lib/units";
 import { gpsAvailable, loadGpsEnabled, requestGpsPermission, saveGpsEnabled } from "../lib/gps";
 import {
-  ELEVEN_MODELS,
+  KIE_VOICES,
+  VOICE_MODELS,
   allFlowLines,
   countReady,
   ensureVoiceClips,
-  listVoices,
   loadVoiceSettings,
-  previewLine,
+  onVoiceProgress,
+  previewUrl,
   saveVoiceSettings,
-  type ElevenVoice,
 } from "../lib/voice-clips";
 import { ConfirmSheet, Field, Sheet } from "../components/ui";
 import { IconCheck, IconChevron, IconMusic } from "../components/icons";
@@ -75,6 +75,8 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
   const save = () => {
     saveMusicSettings(settings);
     void ensureAllTracks();
+    // The voice lines use the same key; their errors show in the Voice card.
+    ensureVoiceClips().catch(() => undefined);
   };
 
   return (
@@ -84,30 +86,24 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
 
       <GpsSetting />
 
-      <VoiceSetting />
-
-      <div className="section-label">Suno</div>
+      <div className="section-label">kie.ai — music &amp; voice</div>
       <div className="card">
-        <Field label="API key">
+        <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
+          One key from kie.ai pays for both the Suno battle tracks and the
+          ElevenLabs voice in the yoga flows. Everything is generated once and
+          kept on this device; workouts never need the network.
+        </div>
+        <Field label="kie.ai API key">
           <input
             spellCheck={false}
             value={settings.apiKey}
-            placeholder="Your gateway API key"
+            placeholder="Your kie.ai API key"
             onChange={(e) => {
               setSettings({ ...settings, apiKey: e.target.value });
             }}
           />
         </Field>
-        <Field label="Gateway URL">
-          <input
-            spellCheck={false}
-            value={settings.baseUrl}
-            onChange={(e) => {
-              setSettings({ ...settings, baseUrl: e.target.value });
-            }}
-          />
-        </Field>
-        <Field label="Model">
+        <Field label="Suno model">
           <select
             value={settings.model}
             onChange={(e) => {
@@ -122,17 +118,16 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
           </select>
         </Field>
         <div className="muted" style={{ fontSize: 13, margin: "4px 0 10px" }}>
-          Suno has no official public API — generation goes through a gateway
-          (default: sunoapi.org) with your own key. Composing happens on the
-          gateway's servers: once the requests are sent you can lock your
-          phone or leave the app, and finished tracks are picked up next time
-          Varg is open. Everything is cached on this device, one generation
-          per workout.
+          Tracks compose on kie.ai's servers: once the requests are sent you
+          can lock your phone or leave the app, and finished tracks are picked
+          up next time Varg is open. One generation per workout.
         </div>
         <button className="btn primary" onClick={save}>
-          Save & compose missing tracks
+          Save & generate what's missing
         </button>
       </div>
+
+      <VoiceSetting hasKey={settings.apiKey.trim() !== ""} />
 
       <ComposerStatus status={status} />
 
@@ -201,12 +196,12 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
 }
 
 /**
- * ElevenLabs voice for spoken pose names. Lines are generated once and
- * cached on the device; until they are, the phone's own voice stands in.
+ * The ElevenLabs voice for spoken pose names, through the shared kie.ai key.
+ * Lines are generated once and cached on the device; until they are, the
+ * phone's own voice stands in.
  */
-function VoiceSetting() {
+function VoiceSetting({ hasKey }: { hasKey: boolean }) {
   const [settings, setSettings] = useState(loadVoiceSettings);
-  const [voices, setVoices] = useState<ElevenVoice[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [ready, setReady] = useState(0);
@@ -215,102 +210,74 @@ function VoiceSetting() {
   const refreshCount = useCallback(() => {
     void countReady().then(setReady).catch(() => undefined);
   }, []);
-  useEffect(() => { refreshCount(); }, [refreshCount]);
+  useEffect(() => { refreshCount(); }, [refreshCount, settings]);
+  // Generation may be started by the key card's Save, or on app open.
+  useEffect(() => onVoiceProgress((r) => { setReady(r); }), []);
 
-  const fail = (e: unknown) => { setProblem(e instanceof Error ? e.message : String(e)); };
-
-  const loadList = () => {
-    setBusy("Loading voices…");
-    setProblem(null);
-    listVoices(settings.apiKey.trim())
-      .then(setVoices)
-      .catch(fail)
-      .finally(() => { setBusy(null); });
+  const change = (next: typeof settings) => {
+    setSettings(next);
+    saveVoiceSettings(next);
   };
 
   const generate = () => {
     saveVoiceSettings(settings);
-    setBusy("Generating…");
+    setBusy("Generating lines on kie.ai…");
     setProblem(null);
     ensureVoiceClips((r) => { setReady(r); })
-      .catch(fail)
+      .catch((e: unknown) => { setProblem(e instanceof Error ? e.message : String(e)); })
       .finally(() => { setBusy(null); refreshCount(); });
   };
 
-  const preview = () => {
-    setBusy("Speaking…");
+  const hear = () => {
     setProblem(null);
-    previewLine(settings, "Warrior two, left side")
-      .then((blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = new Audio(url);
-        a.onended = () => { URL.revokeObjectURL(url); };
-        return a.play();
-      })
-      .catch(fail)
-      .finally(() => { setBusy(null); });
+    const a = new Audio(previewUrl(settings.voiceId));
+    a.play().catch((e: unknown) => {
+      setProblem(`Could not play the sample: ${e instanceof Error ? e.message : String(e)}`);
+    });
   };
-
-  const voiceOptions = voices ?? (settings.voiceId ? [{ voiceId: settings.voiceId, name: settings.voiceName || settings.voiceId, description: "" }] : []);
 
   return (
     <>
       <div className="section-label">Voice · {ready}/{total} lines ready</div>
       <div className="card">
         <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
-          Spoken pose names in the yoga flows, in a natural ElevenLabs voice.
-          Each line is generated once with your key and kept on this device,
-          so sessions work offline. Until a line is generated, the phone's own
-          voice reads it.
+          Spoken pose names in the yoga flows, in an ElevenLabs voice. Lines
+          not generated yet are read by the phone's own voice.
         </div>
-        <Field label="ElevenLabs API key">
-          <input
-            spellCheck={false}
-            value={settings.apiKey}
-            placeholder="xi-api-key"
-            onChange={(e) => { setSettings({ ...settings, apiKey: e.target.value }); }}
-          />
-        </Field>
         <Field label="Voice">
           <div className="btn-row">
             <select
               value={settings.voiceId}
-              onChange={(e) => {
-                const v = voiceOptions.find((x) => x.voiceId === e.target.value);
-                setSettings({ ...settings, voiceId: e.target.value, voiceName: v?.name ?? "" });
-              }}
-              disabled={voiceOptions.length === 0}
+              onChange={(e) => { change({ ...settings, voiceId: e.target.value }); }}
               style={{ flex: 1 }}
             >
-              {voiceOptions.length === 0 && <option value="">Load your voices first</option>}
-              {settings.voiceId === "" && voiceOptions.length > 0 && <option value="">Choose a voice</option>}
-              {voiceOptions.map((v) => (
+              {KIE_VOICES.map((v) => (
                 <option key={v.voiceId} value={v.voiceId}>
                   {v.name}{v.description ? ` — ${v.description}` : ""}
                 </option>
               ))}
             </select>
-            <button className="btn sm" style={{ width: "auto" }} disabled={!settings.apiKey.trim() || busy !== null} onClick={loadList}>
-              Load
+            <button className="btn sm" style={{ width: "auto" }} onClick={hear}>
+              Hear
             </button>
           </div>
         </Field>
-        <Field label="Model">
+        <Field label="Voice model">
           <select
             value={settings.model}
-            onChange={(e) => { setSettings({ ...settings, model: e.target.value }); }}
+            onChange={(e) => { change({ ...settings, model: e.target.value }); }}
           >
-            {ELEVEN_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
+            {VOICE_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
           </select>
         </Field>
-        <div className="btn-row">
-          <button className="btn" disabled={!settings.apiKey.trim() || !settings.voiceId || busy !== null} onClick={preview}>
-            Preview
-          </button>
-          <button className="btn primary" disabled={!settings.apiKey.trim() || !settings.voiceId || busy !== null} onClick={generate}>
-            Save & generate lines
-          </button>
-        </div>
+        <button className="btn primary" disabled={!hasKey || busy !== null} onClick={generate}>
+          Generate voice lines
+        </button>
+        {!hasKey && (
+          <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+            Add and save your kie.ai key above first.
+          </div>
+        )}
         {busy && <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>{busy}</div>}
         {problem && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>{problem}</div>}
       </div>
