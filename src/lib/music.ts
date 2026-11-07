@@ -642,7 +642,7 @@ export async function deleteCachedTrack(key: string): Promise<void> {
 // performs the request natively and is immune to CORS; plain fetch is
 // the fallback for browser dev.
 
-async function httpFetch(url: string, init?: RequestInit): Promise<Response> {
+export async function httpFetch(url: string, init?: RequestInit): Promise<Response> {
   try {
     if ("__TAURI_INTERNALS__" in window) {
       const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");

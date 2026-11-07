@@ -12,7 +12,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "../db/persistence";
 import { duckMusic } from "./beep";
-import type { Side } from "../types";
 
 const SETTING_KEY = "varg.voice.v1";
 
@@ -32,25 +31,14 @@ export function saveVoiceOn(on: boolean): void {
   }
 }
 
-/** How a pose name should sound: "Warrior II" is "Warrior two", not "Warrior eye eye". */
-export function spokenName(name: string): string {
-  return name
-    .replace(/\bII\b/g, "two")
-    .replace(/\bI\b/g, "one")
-    .replace(/'/g, "");
-}
-
-export function poseLine(name: string, side: Side | undefined, prefix = ""): string {
-  const sided = side ? `, ${side} side` : "";
-  return `${prefix}${spokenName(name)}${sided}`;
-}
+export { poseLine, spokenName } from "./voice-clips";
 
 /** Rough speaking time, so the music ducks for the whole line. */
 function speakingSeconds(text: string): number {
   return Math.min(4, 0.6 + text.split(/\s+/).length * 0.38);
 }
 
-/** Speak a line now, interrupting any line still being spoken. */
+/** Speak a line now with the phone's own voice, interrupting any line still being spoken. */
 export async function speak(text: string): Promise<void> {
   duckMusic(speakingSeconds(text));
   if (isTauri() && /Android/i.test(navigator.userAgent)) {

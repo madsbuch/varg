@@ -24,6 +24,7 @@ import { useBackHandler } from "../lib/back";
 import type { AnimKey } from "./ExerciseAnim";
 import { cueFinish, cueRest, cueTick, cueWork, unlockAudio } from "../lib/beep";
 import { loadVoiceOn, poseLine, saveVoiceOn, speak } from "../lib/voice";
+import { playClip, prepareClips, voiceConfigured } from "../lib/voice-clips";
 import ExerciseAnim from "./ExerciseAnim";
 import { IconCheck, IconClose, IconVoice } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
@@ -166,8 +167,29 @@ export default function WodPlayer({
   const flow = config.sequence !== undefined;
   const [voiceOn, setVoiceOn] = useState(loadVoiceOn);
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  // ElevenLabs clips for this flow, decoded before the first cue so every
+  // line plays the instant its pose begins. Lines without a clip fall back
+  // to the phone's voice, and the player says how many.
+  const [clips, setClips] = useState<{ buffers: Map<string, AudioBuffer>; missing: string[] } | null>(
+    flow ? null : { buffers: new Map(), missing: [] },
+  );
+  const lineFor = useCallback(
+    (s: Step) => (s.exercise ? poseLine(s.exercise.name, s.side, s.kind === "ready") : ""),
+    [],
+  );
+  useEffect(() => {
+    if (!flow) return;
+    let alive = true;
+    const lines = [...new Set(steps.map(lineFor).filter(Boolean))];
+    prepareClips(lines).then(
+      (r) => { if (alive) setClips(r); },
+      () => { if (alive) setClips({ buffers: new Map(), missing: lines }); },
+    );
+    return () => { alive = false; };
+  }, [flow, steps, lineFor]);
   const cuedStep = useRef(flow ? -1 : 0);
   useEffect(() => {
+    if (flow && voiceOn && !clips) return; // wait for the clips: speak properly, once
     if (cuedStep.current === stepIdx) return;
     cuedStep.current = stepIdx;
     const s = steps[stepIdx];
@@ -176,7 +198,9 @@ export default function WodPlayer({
       return;
     }
     if (flow && voiceOn && s.exercise) {
-      const line = poseLine(s.exercise.name, s.side, s.kind === "ready" ? "First: " : "");
+      const line = lineFor(s);
+      const clip = clips?.buffers.get(line);
+      if (clip && playClip(clip)) return;
       speak(line).then(
         () => { setVoiceError(null); },
         (e: unknown) => {
@@ -193,7 +217,7 @@ export default function WodPlayer({
     }
     if (s.kind === "work") cueWork();
     else cueRest();
-  }, [stepIdx, steps, flow, voiceOn]);
+  }, [stepIdx, steps, flow, voiceOn, clips, lineFor]);
 
   const cuedTick = useRef("");
   useEffect(() => {
@@ -432,6 +456,13 @@ export default function WodPlayer({
         )}
         {flow && voiceOn && voiceError && (
           <div className="wod-voice-error">Voice unavailable: {voiceError}</div>
+        )}
+        {flow && voiceOn && step.kind === "ready" && clips && clips.missing.length > 0 && (
+          <div className="wod-voice-note">
+            {voiceConfigured()
+              ? `Phone voice for ${String(clips.missing.length)} line${clips.missing.length === 1 ? "" : "s"} — generate them in Settings → Voice.`
+              : "Phone voice — add ElevenLabs in Settings → Voice for a natural one."}
+          </div>
         )}
 
         <div className="wod-stepbar" aria-hidden>
