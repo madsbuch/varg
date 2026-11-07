@@ -20,12 +20,32 @@ import { duckMusic, getAudioContext } from "./beep";
 import type { Side } from "../types";
 
 /** kie.ai's ElevenLabs text-to-speech models. */
+const GEMINI_MODEL = "google/gemini-3-1-flash-tts";
+/**
+ * kie.ai's text-to-speech models. Gemini is the default: kie's ElevenLabs
+ * jobs were accepted and then failed server-side ("Internal Error") for
+ * every voice in November 2026, while Gemini generated cleanly with the
+ * same key. ElevenLabs stays selectable for when kie fixes it.
+ */
 export const VOICE_MODELS = [
-  { id: "elevenlabs/text-to-speech-multilingual-v2", label: "ElevenLabs Multilingual v2 — best quality" },
+  { id: GEMINI_MODEL, label: "Google Gemini 3.1 Flash" },
+  { id: "elevenlabs/text-to-speech-multilingual-v2", label: "ElevenLabs Multilingual v2" },
   { id: "elevenlabs/text-to-speech-turbo-2-5", label: "ElevenLabs Turbo 2.5 — faster, cheaper" },
 ];
 const SETTINGS_KEY = "varg.voice.kie.v1";
-const DEFAULT_VOICE_MODEL = "elevenlabs/text-to-speech-multilingual-v2";
+const DEFAULT_VOICE_MODEL = GEMINI_MODEL;
+
+/** Gemini's voices, with Google's one-word character for each. */
+export const GEMINI_VOICES: KieVoice[] = [
+  ["Achernar", "Soft"], ["Achird", "Friendly"], ["Algenib", "Gravelly"], ["Algieba", "Smooth"],
+  ["Alnilam", "Firm"], ["Aoede", "Breezy"], ["Autonoe", "Bright"], ["Callirrhoe", "Easy-going"],
+  ["Charon", "Informative"], ["Despina", "Smooth"], ["Enceladus", "Breathy"], ["Erinome", "Clear"],
+  ["Fenrir", "Excitable"], ["Gacrux", "Mature"], ["Iapetus", "Clear"], ["Kore", "Firm"],
+  ["Laomedeia", "Upbeat"], ["Leda", "Youthful"], ["Orus", "Firm"], ["Puck", "Upbeat"],
+  ["Pulcherrima", "Forward"], ["Rasalgethi", "Informative"], ["Sadachbia", "Lively"],
+  ["Sadaltager", "Knowledgeable"], ["Schedar", "Even"], ["Sulafat", "Warm"], ["Umbriel", "Easy-going"],
+  ["Vindemiatrix", "Gentle"], ["Zephyr", "Bright"], ["Zubenelgenubi", "Casual"],
+].map(([name, description]) => ({ voiceId: name ?? "", name: name ?? "", description: description ?? "" }));
 
 export interface KieVoice {
   voiceId: string;
@@ -109,7 +129,26 @@ export const KIE_VOICES: KieVoice[] = [
 ];
 
 /** Calm, soothing and meditative — made for a yoga class. */
+/** ElevenLabs: Allison — calm, soothing and meditative. */
 export const DEFAULT_VOICE = "1wGbFxmAM3Fgw63G1zZJ";
+/** Gemini: Vindemiatrix — gentle. */
+const DEFAULT_GEMINI_VOICE = "Vindemiatrix";
+
+export function isGemini(model: string): boolean {
+  return model.startsWith("google/");
+}
+
+/** The voices a model offers, and its default. */
+export function voicesFor(model: string): { voices: KieVoice[]; fallback: string } {
+  return isGemini(model)
+    ? { voices: GEMINI_VOICES, fallback: DEFAULT_GEMINI_VOICE }
+    : { voices: KIE_VOICES, fallback: DEFAULT_VOICE };
+}
+
+/** Generate one line without caching it — Gemini has no free samples. */
+export function previewLine(s: VoiceSettings, text: string): Promise<Blob> {
+  return synthesize(s, text);
+}
 
 export function previewUrl(voiceId: string): string {
   return `https://static.aiquickdraw.com/elevenlabs/voice/${voiceId}.mp3`;
@@ -125,15 +164,17 @@ export function loadVoiceSettings(): VoiceSettings {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
       const p = JSON.parse(raw) as Partial<VoiceSettings>;
+      const model = p.model && VOICE_MODELS.some((m) => m.id === p.model) ? p.model : DEFAULT_VOICE_MODEL;
+      const { voices, fallback } = voicesFor(model);
       return {
-        voiceId: p.voiceId && KIE_VOICES.some((v) => v.voiceId === p.voiceId) ? p.voiceId : DEFAULT_VOICE,
-        model: p.model && VOICE_MODELS.some((m) => m.id === p.model) ? p.model : DEFAULT_VOICE_MODEL,
+        voiceId: p.voiceId && voices.some((v) => v.voiceId === p.voiceId) ? p.voiceId : fallback,
+        model,
       };
     }
   } catch {
     // fall through to defaults
   }
-  return { voiceId: DEFAULT_VOICE, model: DEFAULT_VOICE_MODEL };
+  return { voiceId: DEFAULT_GEMINI_VOICE, model: DEFAULT_VOICE_MODEL };
 }
 
 export function saveVoiceSettings(s: VoiceSettings): void {
@@ -227,14 +268,35 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function synthesize(s: VoiceSettings, text: string): Promise<Blob> {
   const apiKey = loadMusicSettings().apiKey.trim();
   if (!apiKey) throw new Error("No kie.ai API key — add it in Settings.");
-  const taskId = await createTask(apiKey, s.model, {
-    text,
-    voice: s.voiceId,
-    // Calm, even instruction: a touch slower than conversation.
-    stability: 0.6,
-    similarity_boost: 0.75,
-    speed: 0.95,
-  });
+  const taskId = await createTask(
+    apiKey,
+    s.model,
+    isGemini(s.model)
+      ? {
+          // Gemini speaks a scripted "dialogue": one speaker, one line,
+          // directed as a calm teacher.
+          temperature: 1,
+          scene: "A quiet yoga studio.",
+          sample_context: "A yoga class. Calm, warm guidance between poses.",
+          speakers: [{
+            speaker_id: "Speaker 1",
+            voice_name: s.voiceId,
+            audio_profile: "A calm, warm yoga teacher",
+            accent: "British (RP)",
+            style: "Empathetic",
+            pace: "Natural",
+          }],
+          dialogue_turns: [{ speaker_id: "Speaker 1", text }],
+        }
+      : {
+          text,
+          voice: s.voiceId,
+          // Calm, even instruction: a touch slower than conversation.
+          stability: 0.6,
+          similarity_boost: 0.75,
+          speed: 0.95,
+        },
+  );
   for (let i = 0; i < 60; i++) {
     await sleep(i === 0 ? 1500 : 2000);
     const info = await getTask(apiKey, taskId);

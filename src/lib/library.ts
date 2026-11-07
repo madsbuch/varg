@@ -75,6 +75,22 @@ const LIB: Record<string, LibraryEntry> = {
       "Catch on the front delts with elbows through.",
     ],
   },
+  [EX.hangPowerClean]: {
+    anim: "hangPowerClean",
+    cues: [
+      "Start standing tall, bar at the hips; hinge until it is just above the knees.",
+      "Jump: hips and knees extend hard, shrug, then pull yourself under.",
+      "Catch high in a quarter squat, elbows fast through to the rack, stand up.",
+    ],
+  },
+  [EX.pushPress]: {
+    anim: "pushPress",
+    cues: [
+      "Bar in the front rack, feet hip-width, brace.",
+      "Short, straight dip through the knees — torso stays vertical.",
+      "Drive with the legs, then finish with the arms: lock out, biceps by the ears.",
+    ],
+  },
   [EX.thruster]: {
     anim: "thruster",
     cues: [
@@ -386,6 +402,15 @@ const LIB: Record<string, LibraryEntry> = {
       "Sit tall with legs straight ahead, feet flexed.",
       "Hinge forward from the hips, leading with the chest, not the head.",
       "Hold the shins, ankles or feet. Bend the knees if the back rounds hard.",
+    ],
+  },
+  [EX.lowLunge]: {
+    anim: "hipFlexorStretch",
+    side: "right", // side view facing right; the near front foot is the right
+    cues: [
+      "Step one foot forward, lower the back knee to the floor.",
+      "Sink the hips forward and down; front knee over the ankle.",
+      "Lift the arms overhead and the chest up. Cushion the back knee if it's sore.",
     ],
   },
   [EX.savasana]: {

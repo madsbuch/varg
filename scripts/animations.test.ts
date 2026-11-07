@@ -140,6 +140,9 @@ describe("exercise motion geometry", () => {
     expect(anim(EX.powerClean)).not.toBe(anim(EX.deadlift));
     expect(anim(EX.frontSquat)).not.toBe(anim(EX.backSquat));
     expect(anim(EX.wallBall)).not.toBe(anim(EX.thruster));
+    // DT is hang power cleans and push presses, not floor cleans and strict presses.
+    expect(anim(EX.hangPowerClean)).not.toBe(anim(EX.powerClean));
+    expect(anim(EX.pushPress)).not.toBe(anim(EX.overheadPress));
     expect(sampleScene(anim(EX.wallBall), 0).balls.length).toBe(2);
   });
 });
