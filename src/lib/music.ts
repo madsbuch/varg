@@ -15,8 +15,13 @@ import type { IntervalPlan, MusicProfile } from "../types";
 import { seedTemplates } from "./seed";
 
 export const DEFAULT_BASE_URL = "https://api.sunoapi.org";
-export const DEFAULT_MODEL = "V4_5";
-export const SUNO_MODELS = ["V4", "V4_5", "V4_5PLUS", "V5"];
+export const DEFAULT_MODEL = "V6";
+/**
+ * The gateway's current models. Everything older (V4 … V5_5) is deprecated
+ * and, crucially, cannot take a `duration` — those models pick their own
+ * length, which in practice was ~2 minutes against 18-minute workouts.
+ */
+export const SUNO_MODELS = ["V6", "V6_WILD", "V6_MINI"];
 const SETTINGS_KEY = "varg.music.v1";
 const PROFILES_KEY = "varg.music.profiles.v1";
 
@@ -34,7 +39,11 @@ export function loadMusicSettings(): MusicSettings {
       return {
         apiKey: p.apiKey ?? "",
         baseUrl: p.baseUrl?.trim() ? p.baseUrl : DEFAULT_BASE_URL,
-        model: p.model?.trim() ? p.model : DEFAULT_MODEL,
+        // A model saved before V6 is deprecated and can't be given a
+        // duration, so it moves to the default rather than lingering as an
+        // option the picker no longer lists.
+        model:
+          p.model && SUNO_MODELS.includes(p.model) ? p.model : DEFAULT_MODEL,
       };
     }
   } catch {
@@ -657,7 +666,9 @@ interface GatewayResponse<T> {
 
 interface RecordInfo {
   status: string;
-  response?: { sunoData?: { audioUrl?: string; title?: string }[] };
+  response?: {
+    sunoData?: { audioUrl?: string; title?: string; duration?: number }[];
+  };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -669,19 +680,23 @@ function authHeaders(settings: MusicSettings): Record<string, string> {
   };
 }
 
+/** Gateway limit on `style` for the V6 models. */
+export const STYLE_LIMIT = 1000;
+/** Gateway limit on `title`, all models. */
+const TITLE_LIMIT = 80;
 /**
- * Non-custom mode caps the prompt at 500 characters. The gateway rejects
- * anything longer, so the prompt is built to fit rather than sent and
- * refused.
+ * Requested track length: the gateway's maximum. The workouts run longer
+ * than this, so the track still loops with a crossfaded seam
+ * (src/lib/track.ts) — just far less often than a 2-minute track did.
  */
-export const PROMPT_LIMIT = 500;
+export const TRACK_SECONDS = 360;
 
 /**
  * The workout's work/rest rhythm, phrased for the model. This shapes the
  * arrangement's feel — surges and breathers of roughly the right length —
- * but it is NOT a sync: Suno's timing is approximate, the track loops at
- * whatever length it comes back, and playback is not aligned to the
- * workout clock. Untimed workouts (logged sessions) get nothing.
+ * but it is NOT a sync: Suno's timing is approximate, the track loops, and
+ * playback is not aligned to the workout clock. Untimed workouts (logged
+ * sessions) get nothing.
  */
 function timingLine(interval?: IntervalPlan): string {
   if (!interval) return "";
@@ -693,33 +708,29 @@ function timingLine(interval?: IntervalPlan): string {
 }
 
 /**
- * The generation prompt. The generate endpoint has no duration parameter;
- * the only lever on length is the arrangement the prompt asks for. Short,
- * single-idea prompts come back as ~2-minute songs, so the prompt asks for
- * an extended DJ-mix arrangement with many sections, which pushes the model
- * toward its maximum length (up to ~8 min on V4_5 and newer, ~4 min on V4).
- * Even then the track is shorter than most workouts, so it is still looped
- * with a crossfaded seam at playback (src/lib/track.ts).
+ * The track description, sent as `style`. Generation runs in custom mode
+ * because that is the only mode that accepts `duration` — and in custom
+ * mode `prompt` is sung as lyrics, so the description must NOT go there.
  *
- * The length request leads the prompt so that, if a long user-edited theme
- * or style has to be trimmed, it is the description that gets cut, never
- * the instruction to go long.
+ * Built to fit STYLE_LIMIT rather than be sent and refused; a user-edited
+ * theme or style that runs long is what gets trimmed, never the tempo or
+ * the arrangement instructions that lead.
  */
-export function buildPrompt(
+export function buildStyle(
   workoutName: string,
   profile: MusicProfile,
   interval?: IntervalPlan,
 ): string {
   const head =
-    `Extended instrumental mix, as long as possible (8 min), ` +
-    `steady ${profile.bpm} BPM, no vocals. Long DJ arrangement, many ` +
-    `evolving sections, no early ending or fade-out.` +
+    `Instrumental workout mix, steady ${profile.bpm} BPM, no vocals. ` +
+    `Long DJ arrangement, many evolving sections, no early ending or ` +
+    `fade-out.` +
     timingLine(interval);
   const tail =
     ` For "${workoutName}": ${profile.theme}. Style: ${profile.style}.`;
   const full = head + tail;
-  if (full.length <= PROMPT_LIMIT) return full;
-  return full.slice(0, PROMPT_LIMIT - 1).trimEnd() + "…";
+  if (full.length <= STYLE_LIMIT) return full;
+  return full.slice(0, STYLE_LIMIT - 1).trimEnd() + "…";
 }
 
 /**
@@ -735,17 +746,23 @@ async function requestTrack(
 ): Promise<PendingTask> {
   const base = settings.baseUrl.replace(/\/+$/, "");
   const interval = seedTemplates().find((t) => t.id === key)?.interval;
-  const prompt = buildPrompt(workoutName, profile, interval);
+  const style = buildStyle(workoutName, profile, interval);
 
   musicLog(`Requesting "${workoutName}" (model ${settings.model}) from ${base}…`);
   const createRes = await httpFetch(`${base}/api/v1/generate`, {
     method: "POST",
     headers: authHeaders(settings),
     body: JSON.stringify({
-      customMode: false,
+      // Custom mode: the only mode that takes `duration`. No `prompt` —
+      // here it would be sung as lyrics.
+      customMode: true,
       instrumental: true,
       model: settings.model,
-      prompt,
+      title: workoutName.slice(0, TITLE_LIMIT),
+      style,
+      negativeTags: "vocals, singing, rap, spoken word, choir",
+      // Must always be sent: the gateway's default is 20 seconds.
+      duration: TRACK_SECONDS,
       // The gateway requires a callback URL even though we poll for the
       // result; example.com is IANA-reserved and discards the POST.
       callBackUrl: "https://example.com/varg-suno-callback",
@@ -898,8 +915,12 @@ async function pollPendingTask(
     await putCachedTrack(track);
     removePendingTask(task.key);
     clearTrackFailure(task.key);
+    const length =
+      song.duration != null
+        ? `${Math.floor(song.duration / 60)}:${String(Math.round(song.duration % 60)).padStart(2, "0")}, `
+        : "";
     musicLog(
-      `"${task.workoutName}" cached (${Math.round(blob.size / 1024)} kB) — done.`,
+      `"${task.workoutName}" cached (${length}${Math.round(blob.size / 1024)} kB) — done.`,
     );
     return track;
   }

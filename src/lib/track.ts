@@ -2,13 +2,11 @@
  * Battle-track playback channel.
  *
  * A generated track is almost always SHORTER than the workout it scores —
- * Suno returns a few minutes, Varg 18 runs 17:50 — and nothing in the
- * generation API lets us ask for a specific length. So the track repeats,
- * and the two problems that creates are solved here:
+ * the gateway caps a track at six minutes, Varg 18 runs 17:50. So the
+ * track repeats, and the two problems that creates are solved here:
  *
  *  - The seam. A bare `loop` attribute restarts the element instantly and
- *    mid-phrase. Over eighteen minutes that is roughly seven hard cuts.
- *    This channel fades the tail out and the head back in instead.
+ *    mid-phrase, once per loop. This channel fades the tail out and the head back in instead.
  *  - The cues. Music and countdown used to run at full volume down two
  *    independent paths, so a 100 ms tick competed with a 160 BPM track.
  *    Playback is routed through the same AudioContext as the cues, and

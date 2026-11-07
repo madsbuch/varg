@@ -19,7 +19,7 @@ import { join } from "node:path";
 import * as t from "../src/db/schema";
 import { seedExercises, seedSplits, seedTemplates } from "../src/lib/seed";
 import { hasLibraryEntry } from "../src/lib/library";
-import { buildPrompt, PROMPT_LIMIT } from "../src/lib/music";
+import { buildStyle, STYLE_LIMIT } from "../src/lib/music";
 import * as prsModule from "../src/lib/prs";
 import { estimate1RM } from "../src/lib/units";
 import * as typesModule from "../src/types";
@@ -429,13 +429,13 @@ for (const probe of METRIC_PROBES) {
   }
 }
 
-// Every built-in's music prompt must fit the gateway's limit untrimmed — a
+// Every built-in's music description must fit the gateway's limit untrimmed — a
 // truncated prompt silently loses the end of its style description.
 for (const tpl of seedTemplates()) {
-  const prompt = buildPrompt(tpl.name, tpl.music, tpl.interval);
+  const style = buildStyle(tpl.name, tpl.music, tpl.interval);
   assert(
-    !prompt.endsWith("…") && prompt.length <= PROMPT_LIMIT,
-    `template "${tpl.name}" music prompt is truncated to ${PROMPT_LIMIT} chars — shorten its theme or style`,
+    !style.endsWith("…") && style.length <= STYLE_LIMIT,
+    `template "${tpl.name}" music style is truncated to ${STYLE_LIMIT} chars — shorten its theme or style`,
   );
 }
 
