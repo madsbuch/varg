@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { advanceProgress, buildSteps, newWodProgress, recordedEntries, recordedSession } from "../src/lib/wod";
 import type { WodConfig } from "../src/lib/wod";
 import { recomputePRs } from "../src/lib/prs";
-import { seedExercises } from "../src/lib/seed";
+import { seedExercises, seedTemplates } from "../src/lib/seed";
+import { allFlowLines, poseLine } from "../src/lib/voice-clips";
 
 const exercises = seedExercises();
 const hold = exercises.find((ex) => ex.metric === "time")!;
@@ -127,6 +128,20 @@ describe("flow (yoga) sequences", () => {
     expect(session.entries.map((e) => e.sets.map((s) => s.seconds))).toEqual([[40], [35, 35]]);
     expect(session.note).toContain("3-pose flow");
     expect(recomputePRs([session], exercises, [])).toEqual([]);
+  });
+});
+
+describe("ElevenLabs line set", () => {
+  test("every line a built-in flow speaks is in the generated set", () => {
+    const lines = new Set(allFlowLines());
+    const names = new Map(seedExercises().map((e) => [e.id, e.name]));
+    for (const t of seedTemplates()) {
+      t.flow?.steps.forEach((st, i) => {
+        const name = names.get(st.exerciseId)!;
+        expect(lines.has(poseLine(name, st.side))).toBe(true);
+        if (i === 0) expect(lines.has(poseLine(name, st.side, true))).toBe(true);
+      });
+    }
   });
 });
 

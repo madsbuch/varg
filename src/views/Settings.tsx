@@ -28,6 +28,17 @@ import {
 } from "../lib/music";
 import { parseDecimal } from "../lib/units";
 import { gpsAvailable, loadGpsEnabled, requestGpsPermission, saveGpsEnabled } from "../lib/gps";
+import {
+  ELEVEN_MODELS,
+  allFlowLines,
+  countReady,
+  ensureVoiceClips,
+  listVoices,
+  loadVoiceSettings,
+  previewLine,
+  saveVoiceSettings,
+  type ElevenVoice,
+} from "../lib/voice-clips";
 import { ConfirmSheet, Field, Sheet } from "../components/ui";
 import { IconCheck, IconChevron, IconMusic } from "../components/icons";
 
@@ -72,6 +83,8 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
       <h2 className="screen-title">Settings</h2>
 
       <GpsSetting />
+
+      <VoiceSetting />
 
       <div className="section-label">Suno</div>
       <div className="card">
@@ -184,6 +197,124 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * ElevenLabs voice for spoken pose names. Lines are generated once and
+ * cached on the device; until they are, the phone's own voice stands in.
+ */
+function VoiceSetting() {
+  const [settings, setSettings] = useState(loadVoiceSettings);
+  const [voices, setVoices] = useState<ElevenVoice[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [ready, setReady] = useState(0);
+  const total = useMemo(() => allFlowLines().length, []);
+
+  const refreshCount = useCallback(() => {
+    void countReady().then(setReady).catch(() => undefined);
+  }, []);
+  useEffect(() => { refreshCount(); }, [refreshCount]);
+
+  const fail = (e: unknown) => { setProblem(e instanceof Error ? e.message : String(e)); };
+
+  const loadList = () => {
+    setBusy("Loading voices…");
+    setProblem(null);
+    listVoices(settings.apiKey.trim())
+      .then(setVoices)
+      .catch(fail)
+      .finally(() => { setBusy(null); });
+  };
+
+  const generate = () => {
+    saveVoiceSettings(settings);
+    setBusy("Generating…");
+    setProblem(null);
+    ensureVoiceClips((r) => { setReady(r); })
+      .catch(fail)
+      .finally(() => { setBusy(null); refreshCount(); });
+  };
+
+  const preview = () => {
+    setBusy("Speaking…");
+    setProblem(null);
+    previewLine(settings, "Warrior two, left side")
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = new Audio(url);
+        a.onended = () => { URL.revokeObjectURL(url); };
+        return a.play();
+      })
+      .catch(fail)
+      .finally(() => { setBusy(null); });
+  };
+
+  const voiceOptions = voices ?? (settings.voiceId ? [{ voiceId: settings.voiceId, name: settings.voiceName || settings.voiceId, description: "" }] : []);
+
+  return (
+    <>
+      <div className="section-label">Voice · {ready}/{total} lines ready</div>
+      <div className="card">
+        <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
+          Spoken pose names in the yoga flows, in a natural ElevenLabs voice.
+          Each line is generated once with your key and kept on this device,
+          so sessions work offline. Until a line is generated, the phone's own
+          voice reads it.
+        </div>
+        <Field label="ElevenLabs API key">
+          <input
+            spellCheck={false}
+            value={settings.apiKey}
+            placeholder="xi-api-key"
+            onChange={(e) => { setSettings({ ...settings, apiKey: e.target.value }); }}
+          />
+        </Field>
+        <Field label="Voice">
+          <div className="btn-row">
+            <select
+              value={settings.voiceId}
+              onChange={(e) => {
+                const v = voiceOptions.find((x) => x.voiceId === e.target.value);
+                setSettings({ ...settings, voiceId: e.target.value, voiceName: v?.name ?? "" });
+              }}
+              disabled={voiceOptions.length === 0}
+              style={{ flex: 1 }}
+            >
+              {voiceOptions.length === 0 && <option value="">Load your voices first</option>}
+              {settings.voiceId === "" && voiceOptions.length > 0 && <option value="">Choose a voice</option>}
+              {voiceOptions.map((v) => (
+                <option key={v.voiceId} value={v.voiceId}>
+                  {v.name}{v.description ? ` — ${v.description}` : ""}
+                </option>
+              ))}
+            </select>
+            <button className="btn sm" style={{ width: "auto" }} disabled={!settings.apiKey.trim() || busy !== null} onClick={loadList}>
+              Load
+            </button>
+          </div>
+        </Field>
+        <Field label="Model">
+          <select
+            value={settings.model}
+            onChange={(e) => { setSettings({ ...settings, model: e.target.value }); }}
+          >
+            {ELEVEN_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </Field>
+        <div className="btn-row">
+          <button className="btn" disabled={!settings.apiKey.trim() || !settings.voiceId || busy !== null} onClick={preview}>
+            Preview
+          </button>
+          <button className="btn primary" disabled={!settings.apiKey.trim() || !settings.voiceId || busy !== null} onClick={generate}>
+            Save & generate lines
+          </button>
+        </div>
+        {busy && <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>{busy}</div>}
+        {problem && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>{problem}</div>}
+      </div>
+    </>
   );
 }
 

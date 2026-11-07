@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "./lib/app-context";
 import { installBackButton, useBackHandler } from "./lib/back";
 import { ensureAllTracks } from "./lib/music";
+import { ensureVoiceClips } from "./lib/voice-clips";
 import { scrollContentTop } from "./lib/scroll";
 import Home from "./views/Home";
 import Train from "./views/Train";
@@ -122,6 +123,13 @@ export default function App() {
   // whenever the app returns to the foreground: Android freezes the
   // WebView in standby, but submitted tracks keep composing on Suno's
   // servers, so a foreground pass picks up whatever finished meanwhile.
+  // Spoken lines for new poses are generated on open, once a voice is set
+  // up. A failure surfaces where it matters: the Settings count and the
+  // player's "phone voice for N lines" note.
+  useEffect(() => {
+    ensureVoiceClips().catch(() => undefined);
+  }, []);
+
   useEffect(() => {
     void ensureAllTracks();
     const resume = () => {

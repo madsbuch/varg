@@ -968,6 +968,12 @@ input.invalid,
   flex-shrink: 0;
 }
 .wod-cues li + li { margin-top: 4px; }
+.wod-voice-note {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  flex-shrink: 0;
+}
 .wod-voice-error {
   font-size: 12px;
   color: var(--danger);
