@@ -12,6 +12,7 @@
     "sql:allow-select",
     "process:allow-exit",
     "varg-gps:default",
+    "varg-voice:default",
     {
       "identifier": "http:default",
       "allow": [

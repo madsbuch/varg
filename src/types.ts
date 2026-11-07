@@ -149,6 +149,24 @@ export interface ForTimeStage {
   meters?: number | undefined;
 }
 
+export type Side = "left" | "right";
+
+/** One timed pose in a flow. One-sided poses come as a left/right pair. */
+export interface FlowStep {
+  exerciseId: string;
+  seconds: number;
+  side?: Side | undefined;
+}
+
+/**
+ * A guided sequence where every step has its own length — a yoga class.
+ * No rests: the next pose is the transition. Pose names are spoken and form
+ * cues shown on screen.
+ */
+export interface FlowPlan {
+  steps: FlowStep[];
+}
+
 /** A fixed amount of work, scored by the time it takes. */
 export interface ForTimePlan {
   stages: ForTimeStage[];
@@ -170,6 +188,11 @@ export interface Template {
    * stopwatch and the stages in order. Never set together with `interval`.
    */
   forTime?: ForTimePlan | undefined;
+  /**
+   * When set, starting the template launches the guided player with these
+   * steps, each its own length. Never set together with interval or forTime.
+   */
+  flow?: FlowPlan | undefined;
 }
 
 export interface AppData {

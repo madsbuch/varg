@@ -18,7 +18,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as t from "../src/db/schema";
 import { seedExercises, seedSplits, seedTemplates } from "../src/lib/seed";
-import { hasLibraryEntry } from "../src/lib/library";
+import { hasLibraryEntry, libraryFor } from "../src/lib/library";
 import { buildStyle, STYLE_LIMIT } from "../src/lib/music";
 import * as prsModule from "../src/lib/prs";
 import { estimate1RM } from "../src/lib/units";
@@ -473,6 +473,53 @@ for (const probe of METRIC_PROBES) {
         assert(false, `${at}: ${ex.name} is a ${ex.metric} exercise, which a for-time stage cannot prescribe`);
       }
     });
+  }
+}
+
+// Flows (yoga) run in the guided player step by step, each pose its own
+// length, and the card prints the scheme beside a computed total. So: every
+// pose resolves and is in exerciseIds (the details sheet's cues), holds are
+// sane whole seconds, one-sided poses come as an adjacent left/right pair on
+// an animation that declares which side it draws (or the mirror would show
+// the wrong leg), and the scheme's pose count, hold range and total are the
+// flow's own numbers — the arithmetic the owner reads must be the arithmetic
+// the player runs.
+{
+  const exById = new Map(seedExercises().map((e) => [e.id, e]));
+  const fmt = (t: number) => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
+  for (const tpl of seedTemplates()) {
+    const fl = tpl.flow;
+    if (!fl) continue;
+    const where = `template "${tpl.name}" flow`;
+    assert(!tpl.interval && !tpl.forTime, `${where}: also has an interval or forTime — pick one player`);
+    assert(fl.steps.length >= 1 && fl.steps.length <= 200, `${where}: needs 1-200 steps`);
+    fl.steps.forEach((st, i) => {
+      const at = `${where} step ${i + 1}`;
+      const ex = exById.get(st.exerciseId);
+      assert(ex, `${at}: exercise ${st.exerciseId} does not exist`);
+      assert(tpl.exerciseIds.includes(st.exerciseId), `${at}: ${ex.name} missing from exerciseIds`);
+      assert(Number.isInteger(st.seconds) && st.seconds >= 10 && st.seconds <= 300, `${at}: hold must be 10-300 whole seconds, got ${st.seconds}`);
+      if (st.side) {
+        const entry = libraryFor(ex);
+        assert(entry.side, `${at}: ${ex.name} is one-sided but its animation does not declare which side it draws`);
+        const pair = st.side === "left" ? fl.steps[i + 1] : fl.steps[i - 1];
+        assert(
+          pair?.exerciseId === st.exerciseId && pair.side === (st.side === "left" ? "right" : "left"),
+          `${at}: ${ex.name} ${st.side} side is not paired with the ${st.side === "left" ? "right" : "left"} side next to it`,
+        );
+        assert(st.side === "right" || pair.seconds === st.seconds, `${at}: ${ex.name} sides are held for different times`);
+      }
+    });
+    const total = fl.steps.reduce((sum, st) => sum + st.seconds, 0);
+    const holds = fl.steps.map((st) => st.seconds);
+    const expected = [
+      `${fmt(total)} flow`,
+      `${fl.steps.length} poses`,
+      `holds of ${Math.min(...holds)}–${Math.max(...holds)} s`,
+    ];
+    for (const part of expected) {
+      assert(tpl.scheme.includes(part), `${where}: scheme "${tpl.scheme}" does not say "${part}"`);
+    }
   }
 }
 

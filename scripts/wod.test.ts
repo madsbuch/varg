@@ -96,3 +96,37 @@ describe("guided workout recording", () => {
     expect(recordedEntries(continuous, progress)[1]!.sets[0]!.seconds).toBe(4);
   });
 });
+
+describe("flow (yoga) sequences", () => {
+  const all = seedExercises();
+  const pose = (name: string) => all.find((e) => e.name === name)!;
+  const flow: WodConfig = {
+    exercises: [], work: 0, rest: 0, rounds: 1, title: "Flow", trackKey: "flow",
+    sequence: [
+      { exercise: pose("Child's Pose"), secs: 40 },
+      { exercise: pose("Warrior II"), secs: 35, side: "left" },
+      { exercise: pose("Warrior II"), secs: 35, side: "right" },
+    ],
+  };
+  const fsteps = buildSteps(flow);
+
+  test("each pose is its own step with its own length and side, no rests", () => {
+    expect(fsteps.map((s) => [s.kind, s.secs, s.side ?? null, s.round])).toEqual([
+      ["ready", 5, null, 1],
+      ["work", 40, null, 1],
+      ["work", 35, "left", 2],
+      ["work", 35, "right", 3],
+    ]);
+    expect(fsteps.map((s) => s.at)).toEqual([0, 5, 45, 80]);
+  });
+
+  test("a finished flow logs the holds it ran, without PRs", () => {
+    const progress = newWodProgress();
+    advanceProgress(progress, fsteps, 115);
+    const session = recordedSession(flow, fsteps, progress, start, false);
+    expect(session.entries.map((e) => e.sets.map((s) => s.seconds))).toEqual([[40], [35, 35]]);
+    expect(session.note).toContain("3-pose flow");
+    expect(recomputePRs([session], exercises, [])).toEqual([]);
+  });
+});
+

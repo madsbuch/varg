@@ -12,10 +12,13 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
 }) {
   const byId = new Map(exercises.map(ex => [ex.id, ex]));
   // Keep every slot, including repeated movements and missing exercises.
-  const stations = template.exerciseIds.map(id => byId.get(id));
+  // A flow lists its steps — each pose with its own time and side.
+  const ids = template.flow ? template.flow.steps.map(s => s.exerciseId) : template.exerciseIds;
+  const stations = ids.map(id => byId.get(id));
   const missing = stations.some(ex => !ex);
   const plan = template.interval;
   const forTime = template.forTime;
+  const flow = template.flow;
 
   return (
     <Sheet title={template.name} onClose={onClose}>
@@ -30,6 +33,11 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
             ? ` Rest ${String(plan.rest)} seconds between stations, including between rounds. No rest after the final station.`
             : " Move straight to the next station, with no rest."}
         </p>}
+        {flow && <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
+          A guided flow of {flow.steps.length} poses, each held for its own time. Each
+          pose is spoken as it begins, with form cues on screen; one-sided poses
+          are done left, then right.
+        </p>}
         {forTime && <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
           For time: the clock runs from the start until the last stage is done.
           {forTime.stages.length > 1
@@ -41,19 +49,23 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
 
       <BattleTrack cacheKey={template.id} workoutName={template.name} profile={template.music} />
 
-      <div className="section-label">{plan ? "Stations in each round" : forTime ? "Movements" : "Exercise sequence"}</div>
+      <div className="section-label">{plan ? "Stations in each round" : forTime ? "Movements" : flow ? "Poses" : "Exercise sequence"}</div>
       <ol className="workout-stations">
         {stations.map((ex, i) => {
           const guide = ex ? libraryFor(ex) : null;
           return (
-            <li key={`${String(i)}-${template.exerciseIds[i] ?? "missing"}`}>
+            <li key={`${String(i)}-${ids[i] ?? "missing"}`}>
               <span className="workout-station-number">{i + 1}</span>
               {ex && guide ? <details className="workout-station">
                 <summary>
-                  <ExerciseAnim anim={guide.anim} size={62} />
+                  <ExerciseAnim anim={guide.anim} size={62} mirror={flowMirror(guide.side, template.flow?.steps[i]?.side)} />
                   <span>
-                    <strong>{ex.name}</strong>
-                    <span className="sub">{plan ? `${String(plan.work)} s work · ` : ""}View form cues</span>
+                    <strong>{ex.name}{template.flow?.steps[i]?.side ? ` · ${template.flow.steps[i].side}` : ""}</strong>
+                    <span className="sub">
+                      {plan ? `${String(plan.work)} s work · ` : ""}
+                      {template.flow?.steps[i] ? `${String(template.flow.steps[i].seconds)} s · ` : ""}
+                      View form cues
+                    </span>
                   </span>
                 </summary>
                 <ul className="workout-cues">{guide.cues.map(cue => <li key={cue}>{cue}</li>)}</ul>
@@ -65,9 +77,14 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
       {missing && <p style={{ color: "var(--danger)" }}>This workout cannot start until all its exercises are available.</p>}
       <div className="workout-start">
         <button className="btn primary" style={{ width: "100%" }} disabled={missing} onClick={onStart}>
-          {plan ? "Start guided" : forTime ? "Start the clock" : "Start workout"}
+          {plan || flow ? "Start guided" : forTime ? "Start the clock" : "Start workout"}
         </button>
       </div>
     </Sheet>
   );
+}
+
+/** Mirror a one-sided pose's thumbnail when its step is the side not drawn. */
+function flowMirror(drawn: "left" | "right" | undefined, side: "left" | "right" | undefined): boolean {
+  return drawn !== undefined && side !== undefined && drawn !== side;
 }

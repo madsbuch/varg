@@ -72,6 +72,20 @@ export const EX = {
   hipFlexorStretch: "ex-hip-flexor-stretch",
   openBook: "ex-open-book",
   downDogCobra: "ex-down-dog-cobra",
+  // Yoga holds, for the Varg Yoga flows.
+  childsPose: "ex-childs-pose",
+  downwardDog: "ex-downward-dog",
+  upwardSalute: "ex-upward-salute",
+  standingForwardFold: "ex-standing-forward-fold",
+  chairPose: "ex-chair-pose",
+  warriorTwo: "ex-warrior-two",
+  trianglePose: "ex-triangle-pose",
+  treePose: "ex-tree-pose",
+  pigeonPose: "ex-pigeon-pose",
+  boatPose: "ex-boat-pose",
+  bridgePose: "ex-bridge-pose",
+  seatedForwardFold: "ex-seated-forward-fold",
+  savasana: "ex-savasana",
 } as const;
 
 export function seedExercises(): Exercise[] {
@@ -185,6 +199,19 @@ export function seedExercises(): Exercise[] {
       "spine",
       "calves",
     ]),
+    e(EX.childsPose, "Child's Pose", "bodyweight", "time", ["back", "hips"]),
+    e(EX.downwardDog, "Downward Dog", "bodyweight", "time", ["hamstrings", "calves", "shoulders"]),
+    e(EX.upwardSalute, "Upward Salute", "bodyweight", "time", ["shoulders", "spine"]),
+    e(EX.standingForwardFold, "Standing Forward Fold", "bodyweight", "time", ["hamstrings", "back"]),
+    e(EX.chairPose, "Chair Pose", "bodyweight", "time", ["quads", "glutes", "shoulders"]),
+    e(EX.warriorTwo, "Warrior II", "bodyweight", "time", ["quads", "hips", "shoulders"]),
+    e(EX.trianglePose, "Triangle Pose", "bodyweight", "time", ["hamstrings", "hips", "obliques"]),
+    e(EX.treePose, "Tree Pose", "bodyweight", "time", ["balance", "ankles", "hips"]),
+    e(EX.pigeonPose, "Pigeon Pose", "bodyweight", "time", ["glutes", "hips"]),
+    e(EX.boatPose, "Boat Pose", "core", "time", ["core", "hip flexors"]),
+    e(EX.bridgePose, "Bridge Pose", "bodyweight", "time", ["glutes", "hamstrings", "spine"]),
+    e(EX.seatedForwardFold, "Seated Forward Fold", "bodyweight", "time", ["hamstrings", "back"]),
+    e(EX.savasana, "Savasana", "bodyweight", "time", ["recovery"]),
     e(EX.burpee, "Burpee", "conditioning", "reps", ["full body"]),
     e(EX.boxJump, "Box Jump", "conditioning", "reps", ["legs"]),
     e(EX.boxStepUp, "Box Step-up", "conditioning", "reps", ["legs", "glutes"]),
@@ -358,6 +385,103 @@ export function seedTemplates(): Template[] {
         style: "hard electronic, punchy drums, dark synth bass, no vocals",
         theme:
           "Thirty minutes of long grinding intervals — wolf-pack pace held past the burn",
+      },
+    },
+    {
+      id: "tpl-varg-yoga-10",
+      name: "Varg Yoga 10",
+      branch: "Varg",
+      description:
+        "Ten-minute yoga class for any day: wake the spine, stand strong, " +
+        "balance, open the hips, a little core, then settle. Every pose is " +
+        "spoken as it begins, with form cues on screen; one-sided poses go " +
+        "left, then right.",
+      scheme: "10:00 flow · 17 poses · holds of 30–40 s · both sides",
+      exerciseIds: [
+        EX.childsPose, EX.catCow, EX.downwardDog, EX.upwardSalute,
+        EX.standingForwardFold, EX.chairPose, EX.warriorTwo, EX.trianglePose,
+        EX.treePose, EX.pigeonPose, EX.boatPose, EX.bridgePose, EX.savasana,
+      ],
+      // 40+40+40+30+30+30 + 2×40 + 2×35 + 2×30 + 2×40 + 30+40+30 = 600 s.
+      flow: {
+        steps: [
+          { exerciseId: EX.childsPose, seconds: 40 },
+          { exerciseId: EX.catCow, seconds: 40 },
+          { exerciseId: EX.downwardDog, seconds: 40 },
+          { exerciseId: EX.upwardSalute, seconds: 30 },
+          { exerciseId: EX.standingForwardFold, seconds: 30 },
+          { exerciseId: EX.chairPose, seconds: 30 },
+          { exerciseId: EX.warriorTwo, seconds: 40, side: "left" },
+          { exerciseId: EX.warriorTwo, seconds: 40, side: "right" },
+          { exerciseId: EX.trianglePose, seconds: 35, side: "left" },
+          { exerciseId: EX.trianglePose, seconds: 35, side: "right" },
+          { exerciseId: EX.treePose, seconds: 30, side: "left" },
+          { exerciseId: EX.treePose, seconds: 30, side: "right" },
+          { exerciseId: EX.pigeonPose, seconds: 40, side: "left" },
+          { exerciseId: EX.pigeonPose, seconds: 40, side: "right" },
+          { exerciseId: EX.boatPose, seconds: 30 },
+          { exerciseId: EX.bridgePose, seconds: 40 },
+          { exerciseId: EX.savasana, seconds: 30 },
+        ],
+      },
+      music: {
+        bpm: 70,
+        style: "calm ambient, soft pads, gentle hand percussion, no vocals",
+        theme: "Ten quiet minutes on the mat — breath, balance and a slow reset",
+      },
+    },
+    {
+      id: "tpl-varg-yoga-20",
+      name: "Varg Yoga 20",
+      branch: "Varg",
+      description:
+        "Twenty-minute yoga class: longer holds and more of everything — a " +
+        "sun-salutation start, standing strength and balance, core, deep " +
+        "hips and hamstrings, a spinal twist, and a proper rest at the end. " +
+        "Spoken pose names and on-screen cues throughout.",
+      scheme: "20:00 flow · 25 poses · holds of 30–85 s · both sides",
+      exerciseIds: [
+        EX.childsPose, EX.catCow, EX.downwardDog, EX.upwardSalute,
+        EX.standingForwardFold, EX.plank, EX.downDogCobra, EX.hipFlexorStretch,
+        EX.chairPose, EX.warriorTwo, EX.trianglePose, EX.treePose,
+        EX.worldsGreatestStretch, EX.boatPose, EX.pigeonPose,
+        EX.seatedForwardFold, EX.bridgePose, EX.openBook, EX.savasana,
+      ],
+      // 60+60+45+30+45+30+45 + 2×45 + 45 + 2×45 + 2×45 + 2×40 + 60 + 30
+      // + 2×60 + 60 + 45 + 2×45 + 85 = 1200 s.
+      flow: {
+        steps: [
+          { exerciseId: EX.childsPose, seconds: 60 },
+          { exerciseId: EX.catCow, seconds: 60 },
+          { exerciseId: EX.downwardDog, seconds: 45 },
+          { exerciseId: EX.upwardSalute, seconds: 30 },
+          { exerciseId: EX.standingForwardFold, seconds: 45 },
+          { exerciseId: EX.plank, seconds: 30 },
+          { exerciseId: EX.downDogCobra, seconds: 45 },
+          { exerciseId: EX.hipFlexorStretch, seconds: 45, side: "left" },
+          { exerciseId: EX.hipFlexorStretch, seconds: 45, side: "right" },
+          { exerciseId: EX.chairPose, seconds: 45 },
+          { exerciseId: EX.warriorTwo, seconds: 45, side: "left" },
+          { exerciseId: EX.warriorTwo, seconds: 45, side: "right" },
+          { exerciseId: EX.trianglePose, seconds: 45, side: "left" },
+          { exerciseId: EX.trianglePose, seconds: 45, side: "right" },
+          { exerciseId: EX.treePose, seconds: 40, side: "left" },
+          { exerciseId: EX.treePose, seconds: 40, side: "right" },
+          { exerciseId: EX.worldsGreatestStretch, seconds: 60 },
+          { exerciseId: EX.boatPose, seconds: 30 },
+          { exerciseId: EX.pigeonPose, seconds: 60, side: "left" },
+          { exerciseId: EX.pigeonPose, seconds: 60, side: "right" },
+          { exerciseId: EX.seatedForwardFold, seconds: 60 },
+          { exerciseId: EX.bridgePose, seconds: 45 },
+          { exerciseId: EX.openBook, seconds: 45, side: "left" },
+          { exerciseId: EX.openBook, seconds: 45, side: "right" },
+          { exerciseId: EX.savasana, seconds: 85 },
+        ],
+      },
+      music: {
+        bpm: 72,
+        style: "calm ambient, warm pads, soft piano, slow hand drums, no vocals",
+        theme: "Twenty unhurried minutes of strength, balance and release — breathe and settle",
       },
     },
     {

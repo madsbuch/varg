@@ -4335,6 +4335,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-varg-voice"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+]
+
+[[package]]
 name = "tauri-runtime"
 version = "2.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4971,6 +4980,7 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-sql",
  "tauri-plugin-varg-gps",
+ "tauri-plugin-varg-voice",
 ]
 
 [[package]]
