@@ -94,6 +94,14 @@ export const EX = {
   // Yoga's low lunge. Same shape as the Kneeling Hip Flexor Stretch, but
   // the flow should say the pose's name, not the stretch's.
   lowLunge: "ex-low-lunge",
+  // The road to a first pull-up, and the scaled CrossFit staples.
+  ringRow: "ex-ring-row",
+  deadHang: "ex-dead-hang",
+  scapPull: "ex-scap-pull-up",
+  pullupNegative: "ex-pull-up-negative",
+  bandPullup: "ex-band-pull-up",
+  singleUnder: "ex-single-under",
+  doubleUnder: "ex-double-under",
 } as const;
 
 export function seedExercises(): Exercise[] {
@@ -223,6 +231,13 @@ export function seedExercises(): Exercise[] {
     e(EX.seatedForwardFold, "Seated Forward Fold", "bodyweight", "time", ["hamstrings", "back"]),
     e(EX.savasana, "Savasana", "bodyweight", "time", ["recovery"]),
     e(EX.lowLunge, "Low Lunge", "bodyweight", "time", ["hip flexors", "quads"]),
+    e(EX.ringRow, "Ring Row", "bodyweight", "reps", ["back", "biceps"]),
+    e(EX.deadHang, "Dead Hang", "bodyweight", "time", ["grip", "shoulders"]),
+    e(EX.scapPull, "Scapular Pull-up", "bodyweight", "reps", ["lats", "shoulders"]),
+    e(EX.pullupNegative, "Pull-up Negative", "bodyweight", "reps", ["lats", "biceps"]),
+    e(EX.bandPullup, "Band-Assisted Pull-up", "bodyweight", "reps", ["lats", "biceps"]),
+    e(EX.singleUnder, "Single-Under", "conditioning", "reps", ["calves", "coordination"]),
+    e(EX.doubleUnder, "Double-Under", "conditioning", "reps", ["calves", "coordination"]),
     e(EX.burpee, "Burpee", "conditioning", "reps", ["full body"]),
     e(EX.boxJump, "Box Jump", "conditioning", "reps", ["legs"]),
     e(EX.boxStepUp, "Box Step-up", "conditioning", "reps", ["legs", "glutes"]),
@@ -499,6 +514,216 @@ export function seedTemplates(): Template[] {
         style: "calm ambient, warm pads, soft piano, slow hand drums, no vocals",
         theme: "Twenty unhurried minutes of strength, balance and release — breathe and settle",
       },
+    },
+    // --- CrossFit benchmarks, for time ------------------------------------
+    // The classic "Girls" at their standard prescription, and scaled
+    // versions for where the owner is now: no pull-up yet, so every
+    // pull-up becomes a ring row, and the loads come down.
+    {
+      id: "tpl-fran",
+      name: "Fran",
+      branch: "CrossFit Benchmark",
+      description:
+        "The sprint benchmark: thrusters and pull-ups, 21-15-9. Short and " +
+        "savage — most finish between 3 and 10 minutes.",
+      scheme: "21-15-9 thrusters @ 43/29 kg · pull-ups — for time",
+      exerciseIds: [EX.thruster, EX.pullUp],
+      forTime: {
+        stages: [21, 15, 9].flatMap((n) => [
+          { exerciseId: EX.thruster, label: `${String(n)} thrusters`, reps: n },
+          { exerciseId: EX.pullUp, label: `${String(n)} pull-ups`, reps: n },
+        ]),
+      },
+      music: { bpm: 178, style: "aggressive industrial metal, pounding drums", theme: "Three minutes of pure redline — no pacing, just go" },
+    },
+    {
+      id: "tpl-fran-scaled",
+      name: "Fran (scaled)",
+      branch: "CrossFit Scaled",
+      description:
+        "Fran for before your first pull-up: the same 21-15-9, with a light " +
+        "bar and ring rows. Set the rings so the last rows are hard but clean.",
+      scheme: "21-15-9 thrusters @ 20/15 kg · ring rows — for time",
+      exerciseIds: [EX.thruster, EX.ringRow],
+      forTime: {
+        stages: [21, 15, 9].flatMap((n) => [
+          { exerciseId: EX.thruster, label: `${String(n)} thrusters`, reps: n },
+          { exerciseId: EX.ringRow, label: `${String(n)} ring rows`, reps: n },
+        ]),
+      },
+      music: { bpm: 172, style: "driving electronic rock, heavy kick", theme: "Short and sharp — learn to suffer for a few minutes" },
+    },
+    {
+      id: "tpl-helen",
+      name: "Helen",
+      branch: "CrossFit Benchmark",
+      description: "Three rounds of a run, kettlebell swings and pull-ups.",
+      scheme: "3 rounds: 400 m run · 21 kettlebell swings @ 24/16 kg · 12 pull-ups — for time",
+      exerciseIds: [EX.run, EX.kettlebellSwing, EX.pullUp],
+      forTime: {
+        stages: [1, 2, 3].flatMap((r) => [
+          { exerciseId: EX.run, label: `Round ${String(r)} · 400 m run`, meters: 400 },
+          { exerciseId: EX.kettlebellSwing, label: `Round ${String(r)} · 21 kettlebell swings`, reps: 21 },
+          { exerciseId: EX.pullUp, label: `Round ${String(r)} · 12 pull-ups`, reps: 12 },
+        ]),
+      },
+      music: { bpm: 170, style: "hard rock, galloping drums, distorted bass", theme: "Run, swing, pull — three hard laps" },
+    },
+    {
+      id: "tpl-helen-scaled",
+      name: "Helen (scaled)",
+      branch: "CrossFit Scaled",
+      description: "Helen with a lighter bell and ring rows in place of pull-ups.",
+      scheme: "3 rounds: 400 m run · 21 kettlebell swings @ 16/12 kg · 12 ring rows — for time",
+      exerciseIds: [EX.run, EX.kettlebellSwing, EX.ringRow],
+      forTime: {
+        stages: [1, 2, 3].flatMap((r) => [
+          { exerciseId: EX.run, label: `Round ${String(r)} · 400 m run`, meters: 400 },
+          { exerciseId: EX.kettlebellSwing, label: `Round ${String(r)} · 21 kettlebell swings`, reps: 21 },
+          { exerciseId: EX.ringRow, label: `Round ${String(r)} · 12 ring rows`, reps: 12 },
+        ]),
+      },
+      music: { bpm: 164, style: "punchy rock, steady drive", theme: "Three honest rounds — keep moving" },
+    },
+    {
+      id: "tpl-jackie",
+      name: "Jackie",
+      branch: "CrossFit Benchmark",
+      description: "Row, thrusters, pull-ups — one long chipper, one lap each.",
+      scheme: "1000 m row · 50 thrusters @ 20/15 kg · 30 pull-ups — for time",
+      exerciseIds: [EX.row, EX.thruster, EX.pullUp],
+      forTime: {
+        stages: [
+          { exerciseId: EX.row, label: "1000 m row", meters: 1000 },
+          { exerciseId: EX.thruster, label: "50 thrusters", reps: 50 },
+          { exerciseId: EX.pullUp, label: "30 pull-ups", reps: 30 },
+        ],
+      },
+      music: { bpm: 168, style: "dark electronic, rolling bassline, hard drums", theme: "Pull the erg, then grind through the bar" },
+    },
+    {
+      id: "tpl-jackie-scaled",
+      name: "Jackie (scaled)",
+      branch: "CrossFit Scaled",
+      description: "Jackie with a training bar and ring rows.",
+      scheme: "1000 m row · 50 thrusters @ 15/10 kg · 30 ring rows — for time",
+      exerciseIds: [EX.row, EX.thruster, EX.ringRow],
+      forTime: {
+        stages: [
+          { exerciseId: EX.row, label: "1000 m row", meters: 1000 },
+          { exerciseId: EX.thruster, label: "50 thrusters", reps: 50 },
+          { exerciseId: EX.ringRow, label: "30 ring rows", reps: 30 },
+        ],
+      },
+      music: { bpm: 160, style: "dark electronic, steady groove", theme: "A long steady chipper — find a rhythm and hold it" },
+    },
+    {
+      id: "tpl-karen",
+      name: "Karen",
+      branch: "CrossFit Benchmark",
+      description:
+        "One movement, one number: 150 wall balls. Break them into sets " +
+        "before you have to — 10s or 15s with short rests.",
+      scheme: "150 wall balls @ 9/6 kg to a 3 m target — for time",
+      exerciseIds: [EX.wallBall],
+      forTime: { stages: [{ exerciseId: EX.wallBall, label: "150 wall balls", reps: 150 }] },
+      music: { bpm: 166, style: "relentless techno, four-on-the-floor", theme: "Squat, throw, catch — one hundred and fifty times" },
+    },
+    {
+      id: "tpl-kelly",
+      name: "Kelly",
+      branch: "CrossFit Benchmark",
+      description: "Five long rounds of running, jumping and throwing — a lung burner.",
+      scheme: "5 rounds: 400 m run · 30 box jumps @ 60/50 cm · 30 wall balls @ 9/6 kg — for time",
+      exerciseIds: [EX.run, EX.boxJump, EX.wallBall],
+      forTime: {
+        stages: [1, 2, 3, 4, 5].flatMap((r) => [
+          { exerciseId: EX.run, label: `Round ${String(r)} · 400 m run`, meters: 400 },
+          { exerciseId: EX.boxJump, label: `Round ${String(r)} · 30 box jumps`, reps: 30 },
+          { exerciseId: EX.wallBall, label: `Round ${String(r)} · 30 wall balls`, reps: 30 },
+        ]),
+      },
+      music: { bpm: 168, style: "hard electronic rock, big drums", theme: "Five rounds of lungs and legs — keep the engine running" },
+    },
+    {
+      id: "tpl-annie",
+      name: "Annie",
+      branch: "CrossFit Benchmark",
+      description: "Double-unders and sit-ups in a descending ladder.",
+      scheme: "50-40-30-20-10 double-unders · sit-ups — for time",
+      exerciseIds: [EX.doubleUnder, EX.sitUp],
+      forTime: {
+        stages: [50, 40, 30, 20, 10].flatMap((n) => [
+          { exerciseId: EX.doubleUnder, label: `${String(n)} double-unders`, reps: n },
+          { exerciseId: EX.sitUp, label: `${String(n)} sit-ups`, reps: n },
+        ]),
+      },
+      music: { bpm: 172, style: "fast drum and bass, crisp breaks", theme: "Quick feet, hard core, a ladder down to the finish" },
+    },
+    {
+      id: "tpl-annie-scaled",
+      name: "Annie (scaled)",
+      branch: "CrossFit Scaled",
+      description: "Annie with single-unders while the double-unders come.",
+      scheme: "50-40-30-20-10 single-unders · sit-ups — for time",
+      exerciseIds: [EX.singleUnder, EX.sitUp],
+      forTime: {
+        stages: [50, 40, 30, 20, 10].flatMap((n) => [
+          { exerciseId: EX.singleUnder, label: `${String(n)} single-unders`, reps: n },
+          { exerciseId: EX.sitUp, label: `${String(n)} sit-ups`, reps: n },
+        ]),
+      },
+      music: { bpm: 164, style: "upbeat drum and bass", theme: "Light on the feet — skip, crunch, repeat" },
+    },
+    {
+      id: "tpl-half-murph-scaled",
+      name: "Half Murph (scaled)",
+      branch: "CrossFit Scaled",
+      description:
+        "Half of Murph, scaled for before your first pull-up: ring rows in " +
+        "place of pull-ups, no vest. Push-ups from the knees or with hands " +
+        "on a box are fine — partition the middle however you like.",
+      scheme: "800 m run · 50 ring rows · 100 push-ups · 150 air squats · 800 m run — for time",
+      exerciseIds: [EX.run, EX.ringRow, EX.pushUp, EX.airSquat],
+      forTime: {
+        stages: [
+          { exerciseId: EX.run, label: "800 m run", meters: 800 },
+          { exerciseId: EX.ringRow, label: "50 ring rows", reps: 50 },
+          { exerciseId: EX.pushUp, label: "100 push-ups", reps: 100 },
+          { exerciseId: EX.airSquat, label: "150 air squats", reps: 150 },
+          { exerciseId: EX.run, label: "800 m run", meters: 800 },
+        ],
+      },
+      music: { bpm: 170, style: "aggressive electronic rock, pounding drums", theme: "Half the hero, all the honour — earn the full one" },
+    },
+    // --- The road to a first pull-up ------------------------------------------
+    {
+      id: "tpl-pullup-path-1",
+      name: "Pull-up Path 1",
+      branch: "Varg",
+      description:
+        "For when a pull-up is still out of reach. Hangs build the grip, " +
+        "scapular pulls the first inch, rows the back, and slow negatives " +
+        "the strength to pull. Two or three times a week. Ready for Path 2 " +
+        "when you can hang the full 30 s and lower for 3–5 s on every negative.",
+      scheme: "4 rounds · 4 stations · 30 s work / 30 s rest",
+      exerciseIds: [EX.deadHang, EX.scapPull, EX.ringRow, EX.pullupNegative],
+      interval: { work: 30, rest: 30, rounds: 4 },
+      music: { bpm: 150, style: "steady hip-hop beat, heavy bass, no vocals", theme: "Patient strength — one more second on the bar each week" },
+    },
+    {
+      id: "tpl-pullup-path-2",
+      name: "Pull-up Path 2",
+      branch: "Varg",
+      description:
+        "The next step: longer hangs and negatives, band-assisted pull-ups " +
+        "and rows. Use the thinnest band that still lets you do clean reps; " +
+        "when that band gets easy, try one strict pull-up at the start of " +
+        "the session.",
+      scheme: "4 rounds · 4 stations · 40 s work / 30 s rest",
+      exerciseIds: [EX.deadHang, EX.pullupNegative, EX.bandPullup, EX.ringRow],
+      interval: { work: 40, rest: 30, rounds: 4 },
+      music: { bpm: 154, style: "boom-bap hip-hop beat, deep bass, no vocals", theme: "Closing in on the first pull-up — grind and believe" },
     },
     {
       id: "tpl-rasteplads",
