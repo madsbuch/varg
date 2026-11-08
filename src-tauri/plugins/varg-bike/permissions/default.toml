@@ -1,0 +1,3 @@
+[default]
+description = "Indoor bike link: ask for Bluetooth permission, scan, connect, disconnect, read the latest measurements."
+permissions = ["allow-ensure-permissions", "allow-scan", "allow-connect", "allow-disconnect", "allow-read"]

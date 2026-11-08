@@ -28,6 +28,9 @@ import {
 } from "../lib/music";
 import { parseDecimal } from "../lib/units";
 import type { VoiceRole } from "../lib/wod";
+import { loadFtp, saveFtp, targetWatts } from "../lib/ride";
+import { loadBike, requestBikePermission, saveBike, scanBikes } from "../lib/bike";
+import type { FoundBike } from "../lib/bike";
 import { gpsAvailable, loadGpsEnabled, requestGpsPermission, saveGpsEnabled } from "../lib/gps";
 import {
   VOICE_MODELS,
@@ -90,11 +93,13 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
 
       <GpsSetting />
 
+      <CyclingSetting />
+
       <div className="section-label">kie.ai — music &amp; voice</div>
       <div className="card">
         <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
           One key from kie.ai pays for both the Suno battle tracks and the
-          spoken cues in the guided workouts. Everything is generated once and
+          ElevenLabs voice in the yoga flows. Everything is generated once and
           kept on this device; workouts never need the network.
         </div>
         <Field label="kie.ai API key">
@@ -203,7 +208,7 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
 }
 
 /**
- * The voice for spoken cues (Gemini by default), through the shared kie.ai key.
+ * The ElevenLabs voice for spoken pose names, through the shared kie.ai key.
  * Lines are generated once and cached on the device; until they are, the
  * phone's own voice stands in.
  */
@@ -320,6 +325,110 @@ function VoiceSetting({ hasKey, saveKey }: { hasKey: boolean; saveKey: () => voi
             Add and save your kie.ai key above first.
           </div>
         )}
+        {busy && <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>{busy}</div>}
+        {problem && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>{problem}</div>}
+      </div>
+    </>
+  );
+}
+
+/**
+ * Cycling: the FTP every ride's watt targets are computed from, and the
+ * paired bike. Pairing scans for bikes advertising FTMS or Cycling Power;
+ * the chosen one connects automatically when a ride starts.
+ */
+function CyclingSetting() {
+  const [ftpText, setFtpText] = useState(() => String(loadFtp()));
+  const [bike, setBike] = useState(loadBike);
+  const [found, setFound] = useState<FoundBike[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const ftp = Number(ftpText);
+  const ftpValid = Number.isInteger(ftp) && ftp >= 50 && ftp <= 600;
+
+  const find = () => {
+    setProblem(null);
+    setFound(null);
+    setBusy("Asking for Bluetooth permission…");
+    requestBikePermission()
+      .then((ok) => {
+        if (!ok) throw new Error("Bluetooth permission was not granted. Allow Nearby devices for Varg in Android settings.");
+        setBusy("Looking for bikes — start pedalling to wake it…");
+        return scanBikes(8);
+      })
+      .then((list) => {
+        setFound(list);
+        if (list.length === 0) setProblem("No bike found. Wake it by pedalling, and make sure no other app is connected to it.");
+      })
+      .catch((e: unknown) => { setProblem(e instanceof Error ? e.message : String(e)); })
+      .finally(() => { setBusy(null); });
+  };
+
+  return (
+    <>
+      <div className="section-label">Cycling</div>
+      <div className="card">
+        <Field label="FTP (watts)">
+          <input
+            inputMode="numeric"
+            value={ftpText}
+            onChange={(e) => {
+              setFtpText(e.target.value);
+              const v = Number(e.target.value);
+              if (Number.isInteger(v) && v >= 50 && v <= 600) saveFtp(v);
+            }}
+          />
+        </Field>
+        {!ftpValid && (
+          <div style={{ color: "var(--danger)", fontSize: 13, marginBottom: 8 }}>
+            FTP must be a whole number of watts between 50 and 600; rides use {loadFtp()} W until then.
+          </div>
+        )}
+        <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
+          Every ride target is a share of this, so when your Garmin's FTP
+          estimate changes, change it here. Zone 2 is
+          {ftpValid ? ` ${targetWatts({ label: "Zone 2", ftp: [56, 75], seconds: 1 }, ftp).join("–")} W.` : " 56–75 %."}
+        </div>
+        <Field label="Bike">
+          <div className="btn-row">
+            <div style={{ flex: 1, alignSelf: "center" }}>
+              {bike ? <strong>{bike.name}</strong> : <span className="muted">No bike paired</span>}
+            </div>
+            <button className="btn sm" style={{ width: "auto" }} disabled={busy !== null} onClick={find}>
+              {bike ? "Change" : "Find bike"}
+            </button>
+            {bike && (
+              <button className="btn sm ghost" style={{ width: "auto" }} onClick={() => { saveBike(null); setBike(null); }}>
+                Forget
+              </button>
+            )}
+          </div>
+        </Field>
+        {found && found.length > 0 && (
+          <div style={{ display: "grid", gap: 6 }}>
+            {found.map((b) => (
+              <button
+                key={b.address}
+                className="list-item"
+                onClick={() => {
+                  const chosen = { address: b.address, name: b.name };
+                  saveBike(chosen);
+                  setBike(chosen);
+                  setFound(null);
+                }}
+              >
+                <div>
+                  <div className="title">{b.name}</div>
+                  <div className="sub">{b.protocol === "ftms" ? "Power, cadence and kcal (FTMS)" : "Power and cadence (Cycling Power)"} · signal {b.rssi} dBm</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+          Varg reads power, cadence and kcal straight from the bike. Most
+          bikes accept one app at a time, so close Body Bike or Mowl first.
+        </div>
         {busy && <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>{busy}</div>}
         {problem && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>{problem}</div>}
       </div>

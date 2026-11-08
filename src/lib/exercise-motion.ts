@@ -527,6 +527,12 @@ export const MOTIONS = {
   bridgePose: breathe(5, bridge(-24), bridge(-29)),
   seatedForwardFold: breathe(5, seatedFold(66), seatedFold(71)),
   savasana: breathe(6, corpse(0), corpse(-2.5)),
+  // Spin bike: leaning in, hands still on the bars, a weighted flywheel in
+  // front — unlike the air bike, the arms do nothing.
+  spinBike: { dur: 0.9, at: (t: number) => {
+    const hip: Point = [42, 59], crank: Point = [54, 80];
+    return pose(hip, 38, add(crank, vector(t * 360, 9)), [72, 50], { farFoot: add(crank, vector(t * 360 + 180, 9)), farHand: [70, 51], elbows: [-1, -1] });
+  }, equipment: (_t: number, s: Skeleton) => ({ shapes: [gear("M34 59 H46 M41 59 L49 88 M40 88 H80 M54 80 L68 51 M66 50 H76 M72 88 L72 80"), ...s.legs.map(l => gear(path([[54, 80], required(l, 2)])))], balls: [ball([72, 78], 9), ball([54, 80], 2.5)] }) },
   bike: { dur: 1.5, at: (t: number) => {
     const hip: Point = [43, 60], crank: Point = [54, 79];
     return pose(hip, 18, add(crank, vector(t * 360, 9)), [71 + 2 * Math.sin(TAU * t), 40], { farFoot: add(crank, vector(t * 360 + 180, 9)), farHand: [70 - 3 * Math.sin(TAU * t), 42], elbows: [-1, -1] });

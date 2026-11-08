@@ -471,6 +471,14 @@ const LIB: Record<string, LibraryEntry> = {
       "Can't link them yet? Do 3 single-unders per attempt in the same time instead.",
     ],
   },
+  [EX.spinBike]: {
+    anim: "spinBike",
+    cues: [
+      "Saddle at hip height: a slight bend in the knee at the bottom of the stroke.",
+      "Ride the target watts on screen; cadence is how you get there — stay smooth.",
+      "Quiet upper body, hands light on the bars, push and pull through the whole circle.",
+    ],
+  },
   [EX.savasana]: {
     anim: "savasana",
     cues: [

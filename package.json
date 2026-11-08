@@ -15,9 +15,8 @@
     "android:init": "tauri android init",
     "android:dev": "tauri android dev",
     "android:build": "tauri android build --apk",
-    "test": "bun test scripts/wod.test.ts scripts/fortime.test.ts scripts/animations.test.ts",
-    "lint": "eslint src",
-    "voice:probe": "bun run scripts/kie-voice-probe.ts"
+    "test": "bun test scripts/wod.test.ts scripts/fortime.test.ts scripts/bike.test.ts scripts/animations.test.ts",
+    "lint": "eslint src"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.1.1",

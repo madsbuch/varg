@@ -1134,6 +1134,47 @@ input.invalid,
   font-size: 13px;
 }
 
+/* --- Ride player --- */
+.ride-center { gap: 4px; }
+.ride-target {
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+/* The live power, coloured by where it sits against the target:
+   olive on target, brass below, rust above, faint with no reading. */
+.ride-power {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.ride-watts { font-size: min(64px, 10vh); font-weight: 800; line-height: 1; }
+.ride-unit { font-size: 18px; font-weight: 700; color: var(--muted); }
+.ride-power.in { color: var(--accent); }
+.ride-power.below { color: var(--gold); }
+.ride-power.above { color: var(--danger); }
+.ride-power.none { color: var(--faint); }
+.ride-fit { font-size: 14px; font-weight: 700; text-align: center; }
+.ride-stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  margin-top: 10px;
+}
+.ride-stats > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+}
+.ride-stats strong { font-size: 22px; }
+.ride-stats span { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+.ride-anim { width: 56px; height: 56px; }
+
 /* The result screen lists every split; DT has fifteen, so it scrolls. */
 .fortime-result {
   justify-content: flex-start;
