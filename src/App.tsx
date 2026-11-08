@@ -6,7 +6,6 @@ import { ensureVoiceClips } from "./lib/voice-clips";
 import { scrollContentTop } from "./lib/scroll";
 import Home from "./views/Home";
 import Train from "./views/Train";
-import Splits from "./views/Splits";
 import Records from "./views/Records";
 import Library from "./views/Library";
 import Settings from "./views/Settings";
@@ -15,14 +14,12 @@ import {
   IconDumbbell,
   IconFlag,
   IconHome,
-  IconLayers,
   IconTrophy,
 } from "./components/icons";
 
 export type Tab =
   | "home"
   | "train"
-  | "splits"
   | "records"
   | "library"
   | "settings";
@@ -30,7 +27,6 @@ export type Tab =
 const TABS: { id: Tab; label: string; Icon: typeof IconHome }[] = [
   { id: "home", label: "Den", Icon: IconHome },
   { id: "train", label: "Hunt", Icon: IconDumbbell },
-  { id: "splits", label: "Splits", Icon: IconLayers },
   { id: "records", label: "Records", Icon: IconTrophy },
   { id: "library", label: "Manual", Icon: IconBook },
 ];
@@ -154,7 +150,6 @@ export default function App() {
       <main id="content" className="content">
         {tab === "home" && <Home goto={setTab} />}
         {tab === "train" && <Train />}
-        {tab === "splits" && <Splits />}
         {tab === "records" && <Records />}
         {tab === "library" && <Library />}
         {tab === "settings" && <Settings goto={setTab} />}

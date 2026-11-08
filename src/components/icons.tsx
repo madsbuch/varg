@@ -27,13 +27,6 @@ export const IconDumbbell = (p: P) => (
   </svg>
 );
 
-export const IconLayers = (p: P) => (
-  <svg {...base} {...p}>
-    <path d="m12 3 9 5-9 5-9-5 9-5Z" />
-    <path d="m3 12 9 5 9-5" />
-  </svg>
-);
-
 export const IconTrophy = (p: P) => (
   <svg {...base} {...p}>
     <path d="M8 21h8M12 17v4" />

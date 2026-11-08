@@ -2,7 +2,7 @@
 
 > **Varg** (*Old Norse*): wolf.
 
-**A rugged, offline-first, military-style workout tracker.** Log split sets,
+**A rugged, offline-first, military-style workout tracker.** Log sets,
 track personal records, and run classic military & hero-WOD templates — all
 stored locally on device, no account, no network required.
 
@@ -40,11 +40,8 @@ documented in [CLAUDE.md](CLAUDE.md).
 
 - **Personal records** — auto-detected from every session (estimated 1RM via
   Epley, top weight, max reps, best hold, longest distance) plus manual entry.
-- **Training splits** — browse multi-day splits (Push/Pull/Legs,
-  Upper/Lower, PT/Conditioning ship built-in) and start a session straight
-  from a split day. Programs are authored in code; the app has no split,
-  interval, or empty-workout builder.
-- **Workout library** — pick a template and go. Ships with a Træn med
+- **Workout library** — pick a template and go. Programs are authored in
+  code; the app has no program, interval or empty-workout builder. Ships with a Træn med
   Forsvaret-inspired section (Grundtræning, Feltmarch, Kredsløbstræning)
   plus Murph, ACFT, USMC PFT, Navy PRT, Cindy, DT, Chad 1000x, the CrossFit
   benchmarks Fran, Helen, Jackie, Karen, Kelly and Annie (each with a scaled

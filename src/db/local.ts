@@ -9,7 +9,6 @@ import type {
   Exercise,
   PersonalRecord,
   Session,
-  Split,
 } from "../types";
 import { loadData, saveData } from "../lib/store";
 import type { Persistence } from "./persistence";
@@ -42,18 +41,6 @@ export class LocalStoragePersistence implements Persistence {
 
   deleteExercise(id: string): Promise<void> {
     this.cache = { ...this.cache, exercises: this.cache.exercises.filter((e) => e.id !== id) };
-    this.flush();
-    return Promise.resolve();
-  }
-
-  saveSplit(split: Split): Promise<void> {
-    this.cache = { ...this.cache, splits: this.upsert(this.cache.splits, split) };
-    this.flush();
-    return Promise.resolve();
-  }
-
-  deleteSplit(id: string): Promise<void> {
-    this.cache = { ...this.cache, splits: this.cache.splits.filter((s) => s.id !== id) };
     this.flush();
     return Promise.resolve();
   }

@@ -7,7 +7,6 @@
  */
 import {
   integer,
-  primaryKey,
   real,
   sqliteTable,
   text,
@@ -29,42 +28,12 @@ export const exercises = sqliteTable("exercises", {
   builtIn: integer("built_in", { mode: "boolean" }).notNull().default(false),
 });
 
-export const splits = sqliteTable("splits", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description"),
-  builtIn: integer("built_in", { mode: "boolean" }).notNull().default(false),
-});
-
-export const splitDays = sqliteTable("split_days", {
-  id: text("id").primaryKey(),
-  splitId: text("split_id")
-    .notNull()
-    .references(() => splits.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  position: integer("position").notNull(),
-});
-
-export const splitDayExercises = sqliteTable(
-  "split_day_exercises",
-  {
-    dayId: text("day_id")
-      .notNull()
-      .references(() => splitDays.id, { onDelete: "cascade" }),
-    exerciseId: text("exercise_id").notNull(),
-    position: integer("position").notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.dayId, t.exerciseId] })],
-);
-
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   /** ISO timestamp of session start. */
   date: text("date").notNull(),
   finishedAt: text("finished_at"),
-  splitId: text("split_id"),
-  splitDayId: text("split_day_id"),
   templateId: text("template_id"),
   note: text("note"),
 });

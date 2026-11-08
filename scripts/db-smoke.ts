@@ -17,7 +17,7 @@ import { eq } from "drizzle-orm";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as t from "../src/db/schema";
-import { EX, seedExercises, seedSplits, seedTemplates } from "../src/lib/seed";
+import { EX, seedExercises, seedTemplates } from "../src/lib/seed";
 import { hasLibraryEntry, libraryFor } from "../src/lib/library";
 import { buildStyle, STYLE_LIMIT } from "../src/lib/music";
 import { lengthBucket } from "../src/lib/catalog";
@@ -113,6 +113,48 @@ assert(
 );
 console.log(`applied ${files.length} migration(s); relaunch is a no-op`);
 
+// --- upgrade path: 0001 drops training splits ---
+// Splits were removed from the app. A device that ran 0000 holds the split
+// tables, possibly with rows, and sessions carrying split_id/split_day_id.
+// The drop must go through on such a database (a failure here hangs the
+// app on the splash) and must leave every logged session intact.
+{
+  const old = new Database(":memory:");
+  const batch = (f: string) => {
+    const stmts = readFileSync(join(dir, f), "utf8")
+      .split("--> statement-breakpoint")
+      .map((raw) => raw.trim())
+      .filter((stmt) => stmt !== "")
+      .map((stmt) => (stmt.endsWith(";") ? stmt : `${stmt};`));
+    old.run(`BEGIN;\n${stmts.join("\n")}\nCOMMIT;`);
+  };
+  const init = files.find((f) => f.startsWith("0000_"));
+  const drop = files.find((f) => f.startsWith("0001_"));
+  assert(init && drop, "expected 0000 and 0001 migrations");
+  batch(init);
+  old.run(`INSERT INTO splits (id, name, built_in) VALUES ('split-ppl', 'Push / Pull / Legs', 1)`);
+  old.run(`INSERT INTO split_days (id, split_id, name, position) VALUES ('ppl-push', 'split-ppl', 'Push', 0)`);
+  old.run(`INSERT INTO split_day_exercises (day_id, exercise_id, position) VALUES ('ppl-push', 'ex-bench', 0)`);
+  old.run(`INSERT INTO sessions (id, name, date, split_id, split_day_id) VALUES ('s-old', 'PPL — Push', '2026-01-01T07:00:00Z', 'split-ppl', 'ppl-push')`);
+  old.run(`INSERT INTO session_entries (id, session_id, exercise_id, position) VALUES ('e-old', 's-old', 'ex-bench', 0)`);
+  old.run(`INSERT INTO workout_sets (id, entry_id, session_id, position, weight, reps, done) VALUES ('w-old', 'e-old', 's-old', 0, 80, 5, 1)`);
+  try {
+    batch(drop);
+  } catch (err) {
+    throw new Error(`SMOKE FAIL: ${drop} failed on a database with split data: ${String(err)}`);
+  }
+  const tables = (old.query("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]).map((r) => r.name);
+  assert(!tables.some((n) => n.startsWith("split")), `split tables survived ${drop}: ${tables.join(", ")}`);
+  const cols = (old.query("PRAGMA table_info(sessions)").all() as { name: string }[]).map((r) => r.name);
+  assert(!cols.includes("split_id") && !cols.includes("split_day_id"), `sessions still has split columns: ${cols.join(", ")}`);
+  const kept = old.query("SELECT name FROM sessions WHERE id = 's-old'").get() as { name: string } | null;
+  assert(kept?.name === "PPL — Push", "a session logged from a split day was lost");
+  const sets = old.query("SELECT weight, reps FROM workout_sets WHERE session_id = 's-old'").all() as { weight: number; reps: number }[];
+  assert(sets.length === 1 && sets[0]?.weight === 80 && sets[0].reps === 5, "a split-day session lost its sets");
+  old.close();
+  console.log(`${drop} drops splits and keeps logged sessions`);
+}
+
 // --- exercises ---
 db.insert(t.exercises)
   .values({
@@ -142,18 +184,6 @@ db.insert(t.exercises)
 const exs = db.select().from(t.exercises).all();
 assert(exs.length === 1 && exs[0].name === "Back Squat (edited)", "exercise upsert");
 assert(exs[0].builtIn === true, "boolean roundtrip");
-
-// --- splits ---
-db.insert(t.splits).values({ id: "sp-1", name: "PPL", builtIn: false }).run();
-db.insert(t.splitDays)
-  .values([
-    { id: "d-1", splitId: "sp-1", name: "Push", position: 0 },
-    { id: "d-2", splitId: "sp-1", name: "Pull", position: 1 },
-  ])
-  .run();
-db.insert(t.splitDayExercises)
-  .values([{ dayId: "d-1", exerciseId: "ex-1", position: 0 }])
-  .run();
 
 // --- session + entries + sets ---
 db.insert(t.sessions)
@@ -218,48 +248,15 @@ assert(
 );
 
 // Every reference to an exercise must resolve. A typo'd id is invisible at
-// runtime — templates refuse to start, splits silently drop the exercise,
-// and nothing in the type system objects because these are plain strings.
+// runtime — templates refuse to start — and nothing in the type system objects because these are plain strings.
 for (const tpl of seedTemplates()) {
   const missing = tpl.exerciseIds.filter((id) => !seededIds.has(id));
   assert(missing.length === 0, `template "${tpl.name}" references unknown exercises: ${missing.join(", ")}`);
 }
-for (const split of seedSplits()) {
-  for (const day of split.days) {
-    const missing = day.exerciseIds.filter((id) => !seededIds.has(id));
-    assert(
-      missing.length === 0,
-      `split "${split.name}" day "${day.name}" references unknown exercises: ${missing.join(", ")}`,
-    );
-  }
-}
-
-// Duplicate template/split ids would make one shadow the other in the UI
+// Duplicate template ids would make one shadow the other in the UI
 // and share a battle-track cache key.
 const tplIds = seedTemplates().map((x) => x.id);
 assert(new Set(tplIds).size === tplIds.length, "duplicate template ids");
-const splitIds = seedSplits().map((x) => x.id);
-assert(new Set(splitIds).size === splitIds.length, "duplicate split ids");
-
-// A day may not list the same exercise twice: split_day_exercises has PK
-// (day_id, exercise_id), and saveSplit writes one bulk INSERT. The duplicate
-// throws inside load(), which hangs the first launch on the splash — and
-// since the splits and split_days rows commit first, launch 2 sees the id as
-// known and skips the write forever, leaving every day permanently empty.
-for (const split of seedSplits()) {
-  for (const day of split.days) {
-    const repeated = dupes(day.exerciseIds);
-    assert(
-      repeated.length === 0,
-      `split "${split.name}" day "${day.name}" lists the same exercise twice: ${repeated.join(", ")}`,
-    );
-  }
-}
-
-// split_days.id is a global primary key, not scoped to its split, so a day id
-// reused across two splits collides on insert — same fatal load() as above.
-const dayIds = seedSplits().flatMap((s) => s.days.map((d) => d.id));
-assert(dupes(dayIds).length === 0, `split day ids reused across splits: ${dupes(dayIds).join(", ")}`);
 
 // A template with an `interval` runs as a fixed work/rest circuit in the
 // guided player, and the card renders the scheme verbatim next to a single
