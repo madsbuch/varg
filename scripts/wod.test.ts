@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { advanceProgress, buildSteps, newWodProgress, recordedEntries, recordedSession } from "../src/lib/wod";
+import { advanceProgress, buildSteps, configForTemplate, newWodProgress, recordedEntries, recordedSession } from "../src/lib/wod";
 import type { WodConfig } from "../src/lib/wod";
 import { recomputePRs } from "../src/lib/prs";
 import { seedExercises, seedTemplates } from "../src/lib/seed";
-import { allFlowLines, poseLine } from "../src/lib/voice-clips";
+import { allVoiceLines, cueLine } from "../src/lib/voice-clips";
 
 const exercises = seedExercises();
 const hold = exercises.find((ex) => ex.metric === "time")!;
@@ -131,17 +131,48 @@ describe("flow (yoga) sequences", () => {
   });
 });
 
-describe("ElevenLabs line set", () => {
-  test("every line a built-in flow speaks is in the generated set", () => {
-    const lines = new Set(allFlowLines());
-    const names = new Map(seedExercises().map((e) => [e.id, e.name]));
+describe("spoken cue lines", () => {
+  test("every line the player speaks is in the generated set, in its voice", () => {
+    const lines = new Set(allVoiceLines().map((l) => `${l.role}|${l.text}`));
+    const exById = new Map(seedExercises().map((e) => [e.id, e]));
+    let spoken = 0;
     for (const t of seedTemplates()) {
-      t.flow?.steps.forEach((st, i) => {
-        const name = names.get(st.exerciseId)!;
-        expect(lines.has(poseLine(name, st.side))).toBe(true);
-        if (i === 0) expect(lines.has(poseLine(name, st.side, true))).toBe(true);
-      });
+      const cfg = configForTemplate(t, exById);
+      if (typeof cfg === "string") continue;
+      for (const step of buildSteps(cfg)) {
+        const line = cueLine(step);
+        if (!line) continue;
+        spoken++;
+        expect(lines.has(`${cfg.voice!}|${line}`)).toBe(true);
+      }
     }
+    expect(spoken).toBeGreaterThan(50);
+  });
+
+  test("lines come before what they name: lead-in and rests, never during work", () => {
+    const varg18 = seedTemplates().find((t) => t.id === "tpl-varg-18")!;
+    const cfg = configForTemplate(varg18, new Map(seedExercises().map((e) => [e.id, e]))) as WodConfig;
+    const steps = buildSteps(cfg);
+    expect(cfg.voice).toBe("workout");
+    expect(cueLine(steps[0]!)).toBe("First: Sit-up");
+    expect(cueLine(steps[1]!)).toBe("");
+    expect(cueLine(steps[2]!)).toBe("Next: Run on the Spot");
+    expect(steps[2]!.kind).toBe("rest");
+  });
+
+  test("yoga flows move for 10 s between poses, voiced as the next pose", () => {
+    const yoga = seedTemplates().find((t) => t.id === "tpl-varg-yoga-10")!;
+    const cfg = configForTemplate(yoga, new Map(seedExercises().map((e) => [e.id, e]))) as WodConfig;
+    const steps = buildSteps(cfg);
+    expect(cfg.voice).toBe("yoga");
+    expect(steps[0]!.secs).toBe(10);
+    const moves = steps.filter((s) => s.kind === "rest");
+    expect(moves).toHaveLength(16);
+    expect(moves.every((s) => s.secs === 10)).toBe(true);
+    // The work total (lead-in excluded) is what the scheme says: 12:40.
+    expect(steps.reduce((a, s) => a + s.secs, 0) - steps[0]!.secs).toBe(760);
+    const warrior = steps.findIndex((s) => s.kind === "rest" && s.side === "left" && s.exercise?.name === "Warrior II");
+    expect(cueLine(steps[warrior]!)).toBe("Next: Warrior two, left side");
+    expect(steps[warrior + 1]!.kind).toBe("work");
   });
 });
-

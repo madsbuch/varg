@@ -403,18 +403,20 @@ export function seedTemplates(): Template[] {
       name: "Varg Yoga 10",
       branch: "Varg",
       description:
-        "Ten-minute yoga class for any day: wake the spine, stand strong, " +
-        "balance, open the hips, a little core, then settle. Every pose is " +
-        "spoken as it begins, with form cues on screen; one-sided poses go " +
-        "left, then right.",
-      scheme: "10:00 flow · 17 poses · holds of 30–40 s · both sides",
+        "Ten minutes of holds for any day: wake the spine, stand strong, " +
+        "balance, open the hips, a little core, then settle. Between poses " +
+        "you get 10 seconds to move while the voice names the next one, " +
+        "with form cues on screen; one-sided poses go left, then right.",
+      scheme: "12:40 flow · 17 poses · holds of 30–40 s · 10 s to move between poses · both sides",
       exerciseIds: [
         EX.childsPose, EX.catCow, EX.downwardDog, EX.upwardSalute,
         EX.standingForwardFold, EX.chairPose, EX.warriorTwo, EX.trianglePose,
         EX.treePose, EX.pigeonPose, EX.boatPose, EX.bridgePose, EX.savasana,
       ],
-      // 40+40+40+30+30+30 + 2×40 + 2×35 + 2×30 + 2×40 + 30+40+30 = 600 s.
+      // Holds: 40+40+40+30+30+30 + 2×40 + 2×35 + 2×30 + 2×40 + 30+40+30
+      // = 600 s, plus 16 moves of 10 s = 760 s (12:40).
       flow: {
+        transition: 10,
         steps: [
           { exerciseId: EX.childsPose, seconds: 40 },
           { exerciseId: EX.catCow, seconds: 40 },
@@ -446,11 +448,12 @@ export function seedTemplates(): Template[] {
       name: "Varg Yoga 20",
       branch: "Varg",
       description:
-        "Twenty-minute yoga class: longer holds and more of everything — a " +
+        "Twenty minutes of holds: longer holds and more of everything — a " +
         "sun-salutation start, standing strength and balance, core, deep " +
         "hips and hamstrings, a spinal twist, and a proper rest at the end. " +
-        "Spoken pose names and on-screen cues throughout.",
-      scheme: "20:00 flow · 25 poses · holds of 30–85 s · both sides",
+        "10 seconds to move between poses while the voice names the next one, " +
+        "and on-screen cues throughout.",
+      scheme: "24:00 flow · 25 poses · holds of 30–85 s · 10 s to move between poses · both sides",
       exerciseIds: [
         EX.childsPose, EX.catCow, EX.downwardDog, EX.upwardSalute,
         EX.standingForwardFold, EX.plank, EX.downDogCobra, EX.lowLunge,
@@ -459,8 +462,10 @@ export function seedTemplates(): Template[] {
         EX.seatedForwardFold, EX.bridgePose, EX.openBook, EX.savasana,
       ],
       // 60+60+45+30+45+30+45 + 2×45 + 45 + 2×45 + 2×45 + 2×40 + 60 + 30
-      // + 2×60 + 60 + 45 + 2×45 + 85 = 1200 s.
+      // + 2×60 + 60 + 45 + 2×45 + 85 = 1200 s of holds, plus 24 moves of
+      // 10 s = 1440 s (24:00).
       flow: {
+        transition: 10,
         steps: [
           { exerciseId: EX.childsPose, seconds: 60 },
           { exerciseId: EX.catCow, seconds: 60 },

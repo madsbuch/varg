@@ -165,6 +165,12 @@ export interface FlowStep {
  */
 export interface FlowPlan {
   steps: FlowStep[];
+  /**
+   * Seconds between poses to move into the next one. The voice names the
+   * next pose as the transition starts, so the hold that follows is all hold.
+   * The lead-in before the first pose is the same length.
+   */
+  transition: number;
 }
 
 /** A fixed amount of work, scored by the time it takes. */

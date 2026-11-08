@@ -1,9 +1,10 @@
 /**
- * Natural-sounding spoken cues: ElevenLabs voices, through kie.ai with the
- * same key as the battle tracks.
+ * Natural-sounding spoken cues through kie.ai, with the same key as the
+ * battle tracks: a calm voice for yoga, a firm one for interval workouts.
  *
- * Every line a flow can speak ("First: Childs Pose", "Warrior two, left
- * side") is known in advance — flows are code — so each is generated once
+ * Every line the guided player can speak ("First: Childs Pose", "Next:
+ * Push-up") is known in advance — workouts are code, and the lines are
+ * derived from the very steps the player runs — so each is generated once
  * with the owner's kie.ai key, cached in IndexedDB, and played offline from
  * then on. Lines are keyed by voice, model and text: changing the voice or
  * a pose name simply makes the new lines "missing" until generated.
@@ -18,8 +19,9 @@ import { loadMusicSettings } from "./music";
 import { audioResults, createTask, download, getTask } from "./kie";
 import { duckMusic, getAudioContext } from "./beep";
 import type { Side } from "../types";
+import { buildSteps, configForTemplate } from "./wod";
+import type { Step, VoiceRole } from "./wod";
 
-/** kie.ai's ElevenLabs text-to-speech models. */
 const GEMINI_MODEL = "google/gemini-3-1-flash-tts";
 /**
  * kie.ai's text-to-speech models. Gemini is the default: kie's ElevenLabs
@@ -35,16 +37,18 @@ export const VOICE_MODELS = [
 const SETTINGS_KEY = "varg.voice.kie.v1";
 const DEFAULT_VOICE_MODEL = GEMINI_MODEL;
 
-/** Gemini's voices, with Google's one-word character for each. */
+/** Gemini's voices, with Google's one-word character and the voice's register. */
 export const GEMINI_VOICES: KieVoice[] = [
-  ["Achernar", "Soft"], ["Achird", "Friendly"], ["Algenib", "Gravelly"], ["Algieba", "Smooth"],
-  ["Alnilam", "Firm"], ["Aoede", "Breezy"], ["Autonoe", "Bright"], ["Callirrhoe", "Easy-going"],
-  ["Charon", "Informative"], ["Despina", "Smooth"], ["Enceladus", "Breathy"], ["Erinome", "Clear"],
-  ["Fenrir", "Excitable"], ["Gacrux", "Mature"], ["Iapetus", "Clear"], ["Kore", "Firm"],
-  ["Laomedeia", "Upbeat"], ["Leda", "Youthful"], ["Orus", "Firm"], ["Puck", "Upbeat"],
-  ["Pulcherrima", "Forward"], ["Rasalgethi", "Informative"], ["Sadachbia", "Lively"],
-  ["Sadaltager", "Knowledgeable"], ["Schedar", "Even"], ["Sulafat", "Warm"], ["Umbriel", "Easy-going"],
-  ["Vindemiatrix", "Gentle"], ["Zephyr", "Bright"], ["Zubenelgenubi", "Casual"],
+  ["Achernar", "Soft · female"], ["Achird", "Friendly · male"], ["Algenib", "Gravelly · male"],
+  ["Algieba", "Smooth · male"], ["Alnilam", "Firm · male"], ["Aoede", "Breezy · female"],
+  ["Autonoe", "Bright · female"], ["Callirrhoe", "Easy-going · female"], ["Charon", "Informative · male"],
+  ["Despina", "Smooth · female"], ["Enceladus", "Breathy · male"], ["Erinome", "Clear · female"],
+  ["Fenrir", "Excitable · male"], ["Gacrux", "Mature · female"], ["Iapetus", "Clear · male"],
+  ["Kore", "Firm · female"], ["Laomedeia", "Upbeat · female"], ["Leda", "Youthful · female"],
+  ["Orus", "Firm · male"], ["Puck", "Upbeat · male"], ["Pulcherrima", "Forward · female"],
+  ["Rasalgethi", "Informative · male"], ["Sadachbia", "Lively · male"], ["Sadaltager", "Knowledgeable · male"],
+  ["Schedar", "Even · male"], ["Sulafat", "Warm · female"], ["Umbriel", "Easy-going · male"],
+  ["Vindemiatrix", "Gentle · female"], ["Zephyr", "Bright · female"], ["Zubenelgenubi", "Casual · male"],
 ].map(([name, description]) => ({ voiceId: name ?? "", name: name ?? "", description: description ?? "" }));
 
 export interface KieVoice {
@@ -128,26 +132,32 @@ export const KIE_VOICES: KieVoice[] = [
   { voiceId: "MJ0RnG71ty4LH3dvNfSd", name: "Leon", description: "Soothing and Grounded" },
 ];
 
-/** Calm, soothing and meditative — made for a yoga class. */
-/** ElevenLabs: Allison — calm, soothing and meditative. */
-export const DEFAULT_VOICE = "1wGbFxmAM3Fgw63G1zZJ";
-/** Gemini: Vindemiatrix — gentle. */
-const DEFAULT_GEMINI_VOICE = "Vindemiatrix";
+/**
+ * Defaults per role and model. Yoga: a calm female voice — ElevenLabs
+ * Allison ("calm, soothing and meditative"), Gemini Vindemiatrix
+ * ("gentle"). Workouts: a firm male one — ElevenLabs Brock ("commanding
+ * and loud sergeant"), Gemini Alnilam ("firm").
+ */
+const DEFAULTS: Record<VoiceRole, { eleven: string; gemini: string }> = {
+  yoga: { eleven: "1wGbFxmAM3Fgw63G1zZJ", gemini: "Vindemiatrix" },
+  workout: { eleven: "DGzg6RaUqxGRTHSBjfgF", gemini: "Alnilam" },
+};
+
 
 export function isGemini(model: string): boolean {
   return model.startsWith("google/");
 }
 
-/** The voices a model offers, and its default. */
-export function voicesFor(model: string): { voices: KieVoice[]; fallback: string } {
+/** The voices a model offers, and its default for a role. */
+export function voicesFor(model: string, role: VoiceRole = "yoga"): { voices: KieVoice[]; fallback: string } {
   return isGemini(model)
-    ? { voices: GEMINI_VOICES, fallback: DEFAULT_GEMINI_VOICE }
-    : { voices: KIE_VOICES, fallback: DEFAULT_VOICE };
+    ? { voices: GEMINI_VOICES, fallback: DEFAULTS[role].gemini }
+    : { voices: KIE_VOICES, fallback: DEFAULTS[role].eleven };
 }
 
 /** Generate one line without caching it — Gemini has no free samples. */
-export function previewLine(s: VoiceSettings, text: string): Promise<Blob> {
-  return synthesize(s, text);
+export function previewLine(s: VoiceSettings, role: VoiceRole, text: string): Promise<Blob> {
+  return synthesize(s, role, text);
 }
 
 export function previewUrl(voiceId: string): string {
@@ -155,8 +165,15 @@ export function previewUrl(voiceId: string): string {
 }
 
 export interface VoiceSettings {
-  voiceId: string;
   model: string;
+  /** The yoga voice. */
+  voiceId: string;
+  /** The interval-workout voice. */
+  workoutVoiceId: string;
+}
+
+export function voiceIdFor(s: VoiceSettings, role: VoiceRole): string {
+  return role === "yoga" ? s.voiceId : s.workoutVoiceId;
 }
 
 export function loadVoiceSettings(): VoiceSettings {
@@ -165,16 +182,16 @@ export function loadVoiceSettings(): VoiceSettings {
     if (raw) {
       const p = JSON.parse(raw) as Partial<VoiceSettings>;
       const model = p.model && VOICE_MODELS.some((m) => m.id === p.model) ? p.model : DEFAULT_VOICE_MODEL;
-      const { voices, fallback } = voicesFor(model);
-      return {
-        voiceId: p.voiceId && voices.some((v) => v.voiceId === p.voiceId) ? p.voiceId : fallback,
-        model,
+      const pick = (id: string | undefined, role: VoiceRole) => {
+        const { voices, fallback } = voicesFor(model, role);
+        return id && voices.some((v) => v.voiceId === id) ? id : fallback;
       };
+      return { model, voiceId: pick(p.voiceId, "yoga"), workoutVoiceId: pick(p.workoutVoiceId, "workout") };
     }
   } catch {
     // fall through to defaults
   }
-  return { voiceId: DEFAULT_GEMINI_VOICE, model: DEFAULT_VOICE_MODEL };
+  return { model: DEFAULT_VOICE_MODEL, voiceId: DEFAULTS.yoga.gemini, workoutVoiceId: DEFAULTS.workout.gemini };
 }
 
 export function saveVoiceSettings(s: VoiceSettings): void {
@@ -196,24 +213,49 @@ export function spokenName(name: string): string {
     .replace(/'/g, "");
 }
 
-export function poseLine(name: string, side: Side | undefined, first = false): string {
-  return `${first ? "First: " : ""}${spokenName(name)}${side ? `, ${side} side` : ""}`;
+export function poseLine(name: string, side: Side | undefined, prefix: "First" | "Next" | "" = ""): string {
+  return `${prefix ? `${prefix}: ` : ""}${spokenName(name)}${side ? `, ${side} side` : ""}`;
 }
 
-/** Every line any built-in flow can speak, in first-use order. */
-export function allFlowLines(): string[] {
-  const names = new Map(seedExercises().map((e) => [e.id, e.name]));
-  const lines = new Set<string>();
+/**
+ * What the player says on entering a step: the first exercise during the
+ * lead-in, the next one at the start of every rest (in a flow, the move
+ * between poses). Nothing during work — the beep starts it, and a hold is
+ * for holding.
+ */
+export function cueLine(step: Step): string {
+  if (!step.exercise) return "";
+  if (step.kind === "ready") return poseLine(step.exercise.name, step.side, "First");
+  if (step.kind === "rest") return poseLine(step.exercise.name, step.side, "Next");
+  return "";
+}
+
+export interface VoiceLine {
+  role: VoiceRole;
+  text: string;
+}
+
+/**
+ * Every line any built-in guided workout can speak, with its voice. Built
+ * by expanding each template exactly as the player does, so the set is the
+ * player's own cues and nothing else.
+ */
+export function allVoiceLines(): VoiceLine[] {
+  const exById = new Map(seedExercises().map((e) => [e.id, e]));
+  const seen = new Set<string>();
+  const out: VoiceLine[] = [];
   for (const t of seedTemplates()) {
-    if (!t.flow) continue;
-    t.flow.steps.forEach((st, i) => {
-      const name = names.get(st.exerciseId);
-      if (!name) return;
-      if (i === 0) lines.add(poseLine(name, st.side, true));
-      lines.add(poseLine(name, st.side));
-    });
+    const cfg = configForTemplate(t, exById);
+    if (typeof cfg === "string" || !cfg.voice) continue;
+    for (const step of buildSteps(cfg)) {
+      const text = cueLine(step);
+      const id = `${cfg.voice}|${text}`;
+      if (!text || seen.has(id)) continue;
+      seen.add(id);
+      out.push({ role: cfg.voice, text });
+    }
   }
-  return [...lines];
+  return out;
 }
 
 /* ------------------------------ The cache -------------------------------- */
@@ -226,7 +268,7 @@ interface Clip {
   blob: Blob;
 }
 
-const clipKey = (s: VoiceSettings, text: string) => `${s.voiceId}|${s.model}|${text}`;
+const clipKey = (s: VoiceSettings, role: VoiceRole, text: string) => `${voiceIdFor(s, role)}|${s.model}|${text}`;
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -252,11 +294,11 @@ async function getClip(key: string): Promise<Clip | undefined> {
   return withStore("readonly", (s) => s.get(key) as IDBRequest<Clip | undefined>);
 }
 
-/** How many of the given lines are generated for the current voice. */
-export async function countReady(lines: string[] = allFlowLines()): Promise<number> {
+/** How many of the given lines are generated for the current voices. */
+export async function countReady(lines: VoiceLine[] = allVoiceLines()): Promise<number> {
   const s = loadVoiceSettings();
   let n = 0;
-  for (const line of lines) if (await getClip(clipKey(s, line))) n++;
+  for (const line of lines) if (await getClip(clipKey(s, line.role, line.text))) n++;
   return n;
 }
 
@@ -265,7 +307,31 @@ export async function countReady(lines: string[] = allFlowLines()): Promise<numb
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** One line, as a kie.ai job: submit, poll until done, download the clip. */
-async function synthesize(s: VoiceSettings, text: string): Promise<Blob> {
+/** How each voice is directed: a calm teacher, a firm drill instructor. */
+const DIRECTION: Record<VoiceRole, {
+  scene: string; context: string; profile: string; style: string; stability: number; speed: number;
+}> = {
+  yoga: {
+    scene: "A quiet yoga studio.",
+    context: "A yoga class. Calm, warm guidance between poses.",
+    profile: "A calm, warm yoga teacher",
+    style: "Empathetic",
+    stability: 0.6,
+    speed: 0.95,
+  },
+  workout: {
+    scene: "A training hall during a hard interval circuit.",
+    context: "A military-style workout. Short, clear, energetic calls between stations.",
+    profile: "A firm, motivating drill instructor",
+    style: "Promo/Hype",
+    stability: 0.5,
+    speed: 1.05,
+  },
+};
+
+async function synthesize(s: VoiceSettings, role: VoiceRole, text: string): Promise<Blob> {
+  const voice = voiceIdFor(s, role);
+  const d = DIRECTION[role];
   const apiKey = loadMusicSettings().apiKey.trim();
   if (!apiKey) throw new Error("No kie.ai API key — add it in Settings.");
   const taskId = await createTask(
@@ -274,27 +340,26 @@ async function synthesize(s: VoiceSettings, text: string): Promise<Blob> {
     isGemini(s.model)
       ? {
           // Gemini speaks a scripted "dialogue": one speaker, one line,
-          // directed as a calm teacher.
+          // directed for the role.
           temperature: 1,
-          scene: "A quiet yoga studio.",
-          sample_context: "A yoga class. Calm, warm guidance between poses.",
+          scene: d.scene,
+          sample_context: d.context,
           speakers: [{
             speaker_id: "Speaker 1",
-            voice_name: s.voiceId,
-            audio_profile: "A calm, warm yoga teacher",
+            voice_name: voice,
+            audio_profile: d.profile,
             accent: "British (RP)",
-            style: "Empathetic",
+            style: d.style,
             pace: "Natural",
           }],
           dialogue_turns: [{ speaker_id: "Speaker 1", text }],
         }
       : {
           text,
-          voice: s.voiceId,
-          // Calm, even instruction: a touch slower than conversation.
-          stability: 0.6,
+          voice,
+          stability: d.stability,
           similarity_boost: 0.75,
-          speed: 0.95,
+          speed: d.speed,
         },
   );
   for (let i = 0; i < 60; i++) {
@@ -329,18 +394,20 @@ export function onVoiceProgress(fn: ProgressListener): () => void {
 export function ensureVoiceClips(onProgress?: (ready: number, total: number) => void): Promise<void> {
   if (running) return running;
   running = (async () => {
-    if (!voiceConfigured()) return;
+    // Loud, not a quiet no-op: a Generate button that does nothing is
+    // indistinguishable from one that is broken. App start catches this.
+    if (!voiceConfigured()) throw new Error("No kie.ai API key saved — enter it in Settings and save.");
     const s = loadVoiceSettings();
-    const lines = allFlowLines();
+    const lines = allVoiceLines();
     let ready = 0;
     for (const line of lines) {
-      const key = clipKey(s, line);
+      const key = clipKey(s, line.role, line.text);
       if (!(await getClip(key))) {
         let blob: Blob;
         try {
-          blob = await synthesize(s, line);
+          blob = await synthesize(s, line.role, line.text);
         } catch (e) {
-          throw new Error(`Stopped at "${line}": ${errorText(e)}`);
+          throw new Error(`Stopped at "${line.text}": ${errorText(e)}`);
         }
         await withStore("readwrite", (st) => st.put({ key, blob } satisfies Clip));
       }
@@ -355,11 +422,11 @@ export function ensureVoiceClips(onProgress?: (ready: number, total: number) => 
 /* ------------------------------- Playback -------------------------------- */
 
 /**
- * Decode a flow's lines into the shared AudioContext before it starts, so
- * each cue plays the instant its pose begins. Returns the lines that have
+ * Decode a workout's lines into the shared AudioContext before it starts,
+ * so each cue plays the instant its step begins. Returns the lines that have
  * no clip — the player shows that the phone voice will stand in.
  */
-export async function prepareClips(lines: string[]): Promise<{ buffers: Map<string, AudioBuffer>; missing: string[] }> {
+export async function prepareClips(role: VoiceRole, lines: string[]): Promise<{ buffers: Map<string, AudioBuffer>; missing: string[] }> {
   const buffers = new Map<string, AudioBuffer>();
   const missing: string[] = [];
   const s = loadVoiceSettings();
@@ -367,7 +434,7 @@ export async function prepareClips(lines: string[]): Promise<{ buffers: Map<stri
   if (!ctx) return { buffers, missing: lines };
   for (const line of lines) {
     try {
-      const clip = await getClip(clipKey(s, line));
+      const clip = await getClip(clipKey(s, role, line));
       if (!clip) {
         missing.push(line);
         continue;

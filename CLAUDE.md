@@ -60,8 +60,9 @@ should shape what you build:
    it launches the for-time player (stopwatch, one Done per stage, splits
    and best time). Each stage's label must state the reps or distance it
    logs. For a yoga class — every pose its own hold, one-sided poses left
-   then right — give it `flow` steps: the guided player speaks each pose
-   and shows its cues. A one-sided pose needs `side` declared on its `LIB`
+   then right — give it `flow` steps and a `transition` (seconds to move
+   between poses): the guided player names each next pose as the move
+   begins and shows its cues. A one-sided pose needs `side` declared on its `LIB`
    entry (which side the animation draws) so the player mirrors the right
    one. With none of these, it opens as a logged session.
 4. Run `bun run build && bun run db:smoke`. The smoke test is the only
@@ -163,6 +164,12 @@ joints and makes limbs shrink in the intermediate frames.
   Do not move distance tracking into JavaScript — it would stop at the
   pocket. Every GPS failure is shown on the stage in red; never fall back to
   a quiet "off".
+- **Spoken cues.** Guided workouts name what comes next — the first
+  exercise in the lead-in, the next one as each rest or move begins — in a
+  calm yoga voice or a firm workout voice. The lines are generated through
+  kie.ai and cached; `allVoiceLines()` derives them from the player's own
+  steps via `configForTemplate`, so new content is voiced automatically. Do
+  not hand-maintain a line list.
 - **Migrations.** Schema changes are `bun run db:generate`, then commit the
   generated SQL in `/drizzle`. Never hand-edit an applied migration.
 - **Metric only.** Kilograms and metres, always. No unit toggle.

@@ -510,12 +510,17 @@ for (const probe of METRIC_PROBES) {
         assert(st.side === "right" || pair.seconds === st.seconds, `${at}: ${ex.name} sides are held for different times`);
       }
     });
-    const total = fl.steps.reduce((sum, st) => sum + st.seconds, 0);
+    assert(
+      Number.isInteger(fl.transition) && fl.transition >= 0 && fl.transition <= 60,
+      `${where}: transition must be 0-60 whole seconds, got ${fl.transition}`,
+    );
+    const total = fl.steps.reduce((sum, st) => sum + st.seconds, 0) + (fl.steps.length - 1) * fl.transition;
     const holds = fl.steps.map((st) => st.seconds);
     const expected = [
       `${fmt(total)} flow`,
       `${fl.steps.length} poses`,
       `holds of ${Math.min(...holds)}–${Math.max(...holds)} s`,
+      ...(fl.transition > 0 ? [`${fl.transition} s to move between poses`] : []),
     ];
     for (const part of expected) {
       assert(tpl.scheme.includes(part), `${where}: scheme "${tpl.scheme}" does not say "${part}"`);
