@@ -25,9 +25,10 @@ should shape what you build:
 
 - **Do not propose or build in-app program authoring.** No template editors,
   no "create your own workout" screens, no program builders. This direction
-  has been considered and rejected. Splits are view-only, and the Hunt
-  screen starts existing templates or split days. There are no ad-hoc
-  interval or empty-session builders.
+  has been considered and rejected. The Hunt screen starts existing
+  templates. There are no ad-hoc interval or empty-session builders, and no
+  training splits (removed in migration `0001_drop_splits`; the owner never
+  used them).
 - **The prose request is the spec.** Match it exactly: station order, work
   and rest seconds, round count, and any alternation the owner describes. If
   the arithmetic in the request does not come out (a stated total that is ten
@@ -75,10 +76,8 @@ should shape what you build:
    total time.
 4. Run `bun run build && bun run db:smoke`. The smoke test is the only
    reviewer this content gets. It asserts that every built-in exercise has its
-   own animation, that no template or split references an exercise that does
-   not exist, that no split day lists the same exercise twice and no split-day
-   id is reused (both are primary-key collisions that hang the app on the
-   splash), that a template with an `interval` has a scheme written in the
+   own animation, that no template references an exercise that does
+   not exist, that a template with an `interval` has a scheme written in the
    units the guided player actually enforces — no metres, no AMRAP, no rep
    counts — that the interval itself is within sane bounds, that every
    for-time stage prescribes the amount its exercise's metric measures and
@@ -94,7 +93,7 @@ should shape what you build:
 
 `mergeBuiltIns` ([`src/lib/store.ts`](src/lib/store.ts)) pushes only ids it has
 never seen, and the SQLite write-back only inserts rows the database does not
-already hold. New exercises, splits and templates therefore reach existing
+already hold. New exercises and templates therefore reach existing
 installs — **but edits to an already-seeded row do not.** Changing a shipped
 exercise's name, metric or muscles is a no-op on every device except a fresh
 install, and you will not notice, because your dev database is fresh.
@@ -106,14 +105,15 @@ What follows from that:
   Editing a template's stations, timing, scheme, description or music reaches
   every install on the next build. Fix those in place.
 - **A semantic correction to an existing built-in exercise ships as a NEW
-  exercise id, with the templates and splits that reference it repointed.**
+  exercise id, with the templates that reference it repointed.**
   Leave the old id alone — it is a foreign key in sessions and personal
   records the owner has already logged. Commit `4a66abe` took exactly this
   path for Murph's squat. Changing a metric (say, Farmer's Carry from
   `weight_reps` to a carry metric) is a semantic correction, not a typo fix.
-- **Do not add a blanket "refresh all built-ins on open" pass.** Built-in
-  splits were user-editable in earlier versions, so overwriting seeded
-  rows would silently wipe the owner's existing customisations. That is the
+- **Do not add a blanket "refresh all built-ins on open" pass.** Rows on a
+  device can differ from the seed on purpose — `mergeBuiltIns` renames a
+  superseded exercise to "(old)" and hides it — and a blanket overwrite
+  would silently undo that and anything else written since. That is the
   silently-wrong outcome the philosophy above forbids, traded for a
   convenience.
 

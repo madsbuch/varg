@@ -4,10 +4,9 @@ import type {
   PersonalRecord,
   Session,
   SessionEntry,
-  Split,
   WorkoutSet,
 } from "../types";
-import { EX, seedExercises, seedSplits } from "./seed";
+import { EX, seedExercises } from "./seed";
 import { recomputePRs } from "./prs";
 
 export const STORAGE_KEY = "varg.data.v1";
@@ -23,7 +22,6 @@ function freshData(): AppData {
   return {
     version: DATA_VERSION,
     exercises: seedExercises(),
-    splits: seedSplits(),
     sessions: [],
     prs: [],
   };
@@ -31,16 +29,12 @@ function freshData(): AppData {
 
 /**
  * Merge freshly-seeded built-ins into stored data so that new built-in
- * exercises/splits shipped in an update appear without wiping user data.
+ * exercises shipped in an update appear without wiping user data.
  */
 export function mergeBuiltIns(data: AppData): AppData {
   const exIds = new Set(data.exercises.map((e) => e.id));
   for (const ex of seedExercises()) {
     if (!exIds.has(ex.id)) data.exercises.push(ex);
-  }
-  const splitIds = new Set(data.splits.map((s) => s.id));
-  for (const sp of seedSplits()) {
-    if (!splitIds.has(sp.id)) data.splits.push(sp);
   }
 
   // Retire superseded built-ins. A semantic correction to an existing
@@ -79,7 +73,6 @@ export function loadData(): AppData {
     const data: AppData = {
       version: DATA_VERSION,
       exercises: parsed.exercises ?? seedExercises(),
-      splits: parsed.splits ?? seedSplits(),
       sessions: parsed.sessions ?? [],
       prs: parsed.prs ?? [],
     };
@@ -106,18 +99,6 @@ export function upsertExercise(data: AppData, ex: Exercise): AppData {
 
 export function deleteExercise(data: AppData, id: string): AppData {
   return { ...data, exercises: data.exercises.filter((e) => e.id !== id) };
-}
-
-export function upsertSplit(data: AppData, split: Split): AppData {
-  const exists = data.splits.some((s) => s.id === split.id);
-  const splits = exists
-    ? data.splits.map((s) => (s.id === split.id ? split : s))
-    : [...data.splits, split];
-  return { ...data, splits };
-}
-
-export function deleteSplit(data: AppData, id: string): AppData {
-  return { ...data, splits: data.splits.filter((s) => s.id !== id) };
 }
 
 export function upsertSession(data: AppData, session: Session): AppData {

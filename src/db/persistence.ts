@@ -13,7 +13,6 @@ import type {
   Exercise,
   PersonalRecord,
   Session,
-  Split,
 } from "../types";
 
 /**
@@ -26,8 +25,6 @@ export interface Persistence {
   load(): Promise<AppData>;
   saveExercise(ex: Exercise): Promise<void>;
   deleteExercise(id: string): Promise<void>;
-  saveSplit(split: Split): Promise<void>;
-  deleteSplit(id: string): Promise<void>;
   saveSession(session: Session): Promise<void>;
   deleteSession(id: string): Promise<void>;
   replacePRs(prs: PersonalRecord[]): Promise<void>;
@@ -106,7 +103,6 @@ export async function persistDiff(
 ): Promise<void> {
   if (prev === next) return;
   await diffById(prev.exercises, next.exercises, (e) => p.saveExercise(e), (id) => p.deleteExercise(id));
-  await diffById(prev.splits, next.splits, (s) => p.saveSplit(s), (id) => p.deleteSplit(id));
   await diffById(prev.sessions, next.sessions, (s) => p.saveSession(s), (id) => p.deleteSession(id));
   if (prev.prs !== next.prs && !samePRs(prev.prs, next.prs)) await p.replacePRs(next.prs);
 }
