@@ -178,6 +178,9 @@ export interface ForTimePlan {
   stages: ForTimeStage[];
 }
 
+/** How hard a workout is to start with — the Hunt screen filters on it. */
+export type Level = "beginner" | "intermediate" | "advanced";
+
 /** A military-style workout template — a prescribed session. */
 export interface Template {
   id: string;
@@ -185,6 +188,13 @@ export interface Template {
   branch: string; // "Army", "USMC", "CrossFit Hero", etc.
   description: string;
   scheme: string; // human-readable prescription
+  level: Level;
+  /**
+   * Typical finishing time in minutes, for workouts whose length depends on
+   * the athlete (for time, logged sessions). Interval and flow workouts
+   * leave it out: their clock time is computed exactly.
+   */
+  estimateMinutes?: number | undefined;
   exerciseIds: string[];
   music: MusicProfile;
   /** When set, starting the template launches the guided interval player. */

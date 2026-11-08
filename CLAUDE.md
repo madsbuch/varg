@@ -64,7 +64,11 @@ should shape what you build:
    between poses): the guided player names each next pose as the move
    begins and shows its cues. A one-sided pose needs `side` declared on its `LIB`
    entry (which side the animation draws) so the player mirrors the right
-   one. With none of these, it opens as a logged session.
+   one. With none of these, it opens as a logged session. Every template
+   also gets a `level` (beginner / intermediate / advanced — how hard it is
+   to start with) and, unless it is an interval or flow whose length is
+   computed, `estimateMinutes`: the typical finishing time the library's
+   length filter and cards use.
 4. Run `bun run build && bun run db:smoke`. The smoke test is the only
    reviewer this content gets. It asserts that every built-in exercise has its
    own animation, that no template or split references an exercise that does
@@ -75,7 +79,8 @@ should shape what you build:
    counts — that the interval itself is within sane bounds, that every
    for-time stage prescribes the amount its exercise's metric measures and
    says so in its label, that a flow's sides are paired and its scheme states
-   its real total, pose count and hold range, and that every metric has a declared PR direction.
+   its real total, pose count and hold range, that every template has a level
+   and a length (computed or estimated), and that every metric has a declared PR direction.
 5. Existing installs get *new* built-ins through `mergeBuiltIns`, which the
    SQLite loader applies on every open. Without that they would never see
    them, because their database was seeded on first launch and never again.
