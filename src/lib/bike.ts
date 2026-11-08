@@ -259,6 +259,34 @@ export async function disconnectBike(): Promise<void> {
   if (bikeAvailable()) await call("disconnect");
 }
 
+/* ----------------------- Background (foreground service) ---------------------- */
+// While a ride runs, a native foreground service keeps the bike connected,
+// records every packet, shows the ride in a notification and plays its cues
+// when Varg is off screen — someone watching a video through a zone-2 ride.
+// In the browser build these are no-ops: there is no background there.
+
+export async function startRideService(title: string, schedule: unknown): Promise<void> {
+  if (bikeAvailable()) await call("start_ride", { title, schedule: JSON.stringify(schedule) });
+}
+
+export async function updateRideSchedule(schedule: unknown): Promise<void> {
+  if (bikeAvailable()) await call("schedule", { schedule: JSON.stringify(schedule) });
+}
+
+/** Hand a generated voice clip to the service, to speak while Varg is away. */
+export async function sendCueAudio(text: string, blob: Blob): Promise<void> {
+  if (!bikeAvailable()) return;
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+  const ext = blob.type.includes("wav") ? "wav" : "mp3";
+  await call("cue_audio", { text, b64: btoa(bin), ext });
+}
+
+export async function stopRideService(): Promise<void> {
+  if (bikeAvailable()) await call("stop_ride");
+}
+
 export async function readBike(): Promise<BikeRead> {
   if (!bikeAvailable()) return simulator.read();
   return call<BikeRead>("read");

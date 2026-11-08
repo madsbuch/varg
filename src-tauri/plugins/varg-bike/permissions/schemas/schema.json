@@ -307,6 +307,18 @@
           "markdownDescription": "Denies the connect command without any pre-configured scope."
         },
         {
+          "description": "Enables the cue_audio command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-cue-audio",
+          "markdownDescription": "Enables the cue_audio command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the cue_audio command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-cue-audio",
+          "markdownDescription": "Denies the cue_audio command without any pre-configured scope."
+        },
+        {
           "description": "Enables the disconnect command without any pre-configured scope.",
           "type": "string",
           "const": "allow-disconnect",
@@ -355,10 +367,46 @@
           "markdownDescription": "Denies the scan command without any pre-configured scope."
         },
         {
-          "description": "Indoor bike link: ask for Bluetooth permission, scan, connect, disconnect, read the latest measurements.\n#### This default permission set includes:\n\n- `allow-ensure-permissions`\n- `allow-scan`\n- `allow-connect`\n- `allow-disconnect`\n- `allow-read`",
+          "description": "Enables the schedule command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-schedule",
+          "markdownDescription": "Enables the schedule command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the schedule command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-schedule",
+          "markdownDescription": "Denies the schedule command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the start_ride command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-start-ride",
+          "markdownDescription": "Enables the start_ride command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the start_ride command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-start-ride",
+          "markdownDescription": "Denies the start_ride command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the stop_ride command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-stop-ride",
+          "markdownDescription": "Enables the stop_ride command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the stop_ride command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-stop-ride",
+          "markdownDescription": "Denies the stop_ride command without any pre-configured scope."
+        },
+        {
+          "description": "Indoor bike link: Bluetooth permission, scan, connect, disconnect, read measurements, and the ride's background service.\n#### This default permission set includes:\n\n- `allow-ensure-permissions`\n- `allow-scan`\n- `allow-connect`\n- `allow-disconnect`\n- `allow-read`\n- `allow-start-ride`\n- `allow-schedule`\n- `allow-cue-audio`\n- `allow-stop-ride`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Indoor bike link: ask for Bluetooth permission, scan, connect, disconnect, read the latest measurements.\n#### This default permission set includes:\n\n- `allow-ensure-permissions`\n- `allow-scan`\n- `allow-connect`\n- `allow-disconnect`\n- `allow-read`"
+          "markdownDescription": "Indoor bike link: Bluetooth permission, scan, connect, disconnect, read measurements, and the ride's background service.\n#### This default permission set includes:\n\n- `allow-ensure-permissions`\n- `allow-scan`\n- `allow-connect`\n- `allow-disconnect`\n- `allow-read`\n- `allow-start-ride`\n- `allow-schedule`\n- `allow-cue-audio`\n- `allow-stop-ride`"
         }
       ]
     }

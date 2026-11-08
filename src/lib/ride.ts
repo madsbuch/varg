@@ -188,6 +188,10 @@ export class RideRun {
   get segment(): RideSegment | undefined {
     return this.segments[this.idx];
   }
+  /** Ride seconds at which the current segment started. */
+  get segmentStart(): number {
+    return this.segStart;
+  }
   /** Seconds into the current segment. */
   elapsed(t: number): number {
     return Math.max(0, t - this.segStart);
@@ -246,4 +250,51 @@ export class RideRun {
     this.measured = 0;
     this.inTarget = 0;
   }
+}
+
+/** Seconds before a timed block ends that the next one is announced. */
+export const ANNOUNCE_AHEAD = 10;
+
+export interface RideSchedule {
+  paused: boolean;
+  /** Remaining blocks; endAt 0 when it ends on kcal (unknowable ahead). */
+  segments: { label: string; endAt: number }[];
+  /** Wall-clock cues for the background service. */
+  cues: { at: number; text?: string; beep?: "work" | "finish" }[];
+}
+
+/**
+ * What the background service should do from now on, given where the ride
+ * is: when each remaining timed block ends, when to announce the next one,
+ * when to beep. A kcal block's end cannot be known ahead, so the schedule
+ * stops there — the foreground app (or the replay on return) takes over.
+ */
+export function rideSchedule(
+  segments: RideSegment[],
+  idx: number,
+  segmentStartWall: number,
+  paused: boolean,
+): RideSchedule {
+  const out: RideSchedule = { paused, segments: [], cues: [] };
+  if (paused) return out;
+  let start = segmentStartWall;
+  for (let i = idx; i < segments.length; i++) {
+    const seg = segments[i];
+    if (!seg) break;
+    if (seg.seconds === undefined) {
+      out.segments.push({ label: seg.label, endAt: 0 });
+      break;
+    }
+    const end = start + seg.seconds * 1000;
+    out.segments.push({ label: seg.label, endAt: end });
+    const next = segments[i + 1];
+    if (next) {
+      out.cues.push({ at: end - ANNOUNCE_AHEAD * 1000, text: rideLine(next, false) });
+      out.cues.push({ at: end, beep: "work" });
+    } else {
+      out.cues.push({ at: end, beep: "finish" });
+    }
+    start = end;
+  }
+  return out;
 }

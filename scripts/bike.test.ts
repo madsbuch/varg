@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { parseIndoorBikeData, parsePowerMeasurement, RideMeter } from "../src/lib/bike";
 import type { BikePacket } from "../src/lib/bike";
-import { bestRide, recordedRide, RideRun, rideLine, targetWatts, zoneOf } from "../src/lib/ride";
+import { bestRide, recordedRide, RideRun, rideLine, rideSchedule, targetWatts, zoneOf } from "../src/lib/ride";
 import type { RideConfig } from "../src/lib/ride";
 import { seedTemplates } from "../src/lib/seed";
 import { allVoiceLines } from "../src/lib/voice-clips";
@@ -114,4 +114,46 @@ describe("rides", () => {
     expect(rideLine({ label: "Zone 2", ftp: [56, 75], seconds: 2400 }, true)).toBe("First: Zone 2, 40 minutes");
     expect(rideLine({ label: "All out", ftp: [95, 120], kcal: 200 }, false)).toBe("Next: All out, 200 kilocalories");
   });
+
+  test("the background schedule: block ends, next-block lines 10 s ahead, beeps", () => {
+    const segs = [
+      { label: "Warm-up", ftp: [50, 65] as [number, number], seconds: 600 },
+      { label: "Sweet spot", ftp: [88, 94] as [number, number], seconds: 600 },
+      { label: "Rung", ftp: [95, 110] as [number, number], kcal: 50 },
+      { label: "Easy", ftp: [45, 55] as [number, number], seconds: 180 },
+    ];
+    const s = rideSchedule(segs, 0, 1_000_000, false);
+    expect(s.segments).toEqual([
+      { label: "Warm-up", endAt: 1_600_000 },
+      { label: "Sweet spot", endAt: 2_200_000 },
+      { label: "Rung", endAt: 0 }, // kcal: unknowable ahead, the schedule stops
+    ]);
+    expect(s.cues).toEqual([
+      { at: 1_590_000, text: "Next: Sweet spot, 10 minutes" },
+      { at: 1_600_000, beep: "work" },
+      { at: 2_190_000, text: "Next: Rung, 50 kilocalories" },
+      { at: 2_200_000, beep: "work" },
+    ]);
+    // The last block ends on the finish beep; paused schedules nothing.
+    expect(rideSchedule(segs.slice(3), 0, 0, false).cues).toEqual([{ at: 180_000, beep: "finish" }]);
+    expect(rideSchedule(segs, 0, 0, true)).toEqual({ paused: true, segments: [], cues: [] });
+  });
+
+  test("replaying a long background stretch packet by packet ends blocks on time", () => {
+    const run = new RideRun([
+      { label: "Warm-up", ftp: [50, 65], seconds: 300 },
+      { label: "Zone 2", ftp: [56, 75], seconds: 600 },
+    ], 283);
+    const m = new RideMeter();
+    // 15 minutes of 180 W at 1 Hz, all drained at once on return.
+    for (let s = 0; s <= 900; s++) {
+      m.add({ c: "2a63", hex: "2000b4000a000004", t: s * 1000 });
+      run.tick(s, m, true, s * 1000);
+    }
+    expect(run.done).toBe(true);
+    expect(run.results.map((r) => r.seconds)).toEqual([300, 600]);
+    expect(run.results[1]!.avgPower).toBeCloseTo(180, 0);
+    expect(run.results[1]!.inTarget).toBeCloseTo(1, 2); // 180 W is inside 160–210
+  });
 });
+

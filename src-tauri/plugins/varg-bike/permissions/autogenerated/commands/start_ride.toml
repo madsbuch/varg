@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-start-ride"
+description = "Enables the start_ride command without any pre-configured scope."
+commands.allow = ["start_ride"]
+
+[[permission]]
+identifier = "deny-start-ride"
+description = "Denies the start_ride command without any pre-configured scope."
+commands.deny = ["start_ride"]
