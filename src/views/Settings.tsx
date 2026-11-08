@@ -29,8 +29,8 @@ import {
 import { parseDecimal } from "../lib/units";
 import type { VoiceRole } from "../lib/wod";
 import { loadFtp, saveFtp, targetWatts } from "../lib/ride";
-import { loadBike, requestBikePermission, saveBike, scanBikes } from "../lib/bike";
-import type { FoundBike } from "../lib/bike";
+import { loadBike, saveBike } from "../lib/bike";
+import { BikePicker } from "../components/BikeConnect";
 import { gpsAvailable, loadGpsEnabled, requestGpsPermission, saveGpsEnabled } from "../lib/gps";
 import {
   VOICE_MODELS,
@@ -340,29 +340,9 @@ function VoiceSetting({ hasKey, saveKey }: { hasKey: boolean; saveKey: () => voi
 function CyclingSetting() {
   const [ftpText, setFtpText] = useState(() => String(loadFtp()));
   const [bike, setBike] = useState(loadBike);
-  const [found, setFound] = useState<FoundBike[] | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
+  const [changing, setChanging] = useState(false);
   const ftp = Number(ftpText);
   const ftpValid = Number.isInteger(ftp) && ftp >= 50 && ftp <= 600;
-
-  const find = () => {
-    setProblem(null);
-    setFound(null);
-    setBusy("Asking for Bluetooth permission…");
-    requestBikePermission()
-      .then((ok) => {
-        if (!ok) throw new Error("Bluetooth permission was not granted. Allow Nearby devices for Varg in Android settings.");
-        setBusy("Looking for bikes — start pedalling to wake it…");
-        return scanBikes(8);
-      })
-      .then((list) => {
-        setFound(list);
-        if (list.length === 0) setProblem("No bike found. Wake it by pedalling, and make sure no other app is connected to it.");
-      })
-      .catch((e: unknown) => { setProblem(e instanceof Error ? e.message : String(e)); })
-      .finally(() => { setBusy(null); });
-  };
 
   return (
     <>
@@ -394,43 +374,23 @@ function CyclingSetting() {
             <div style={{ flex: 1, alignSelf: "center" }}>
               {bike ? <strong>{bike.name}</strong> : <span className="muted">No bike paired</span>}
             </div>
-            <button className="btn sm" style={{ width: "auto" }} disabled={busy !== null} onClick={find}>
-              {bike ? "Change" : "Find bike"}
-            </button>
+            {bike && !changing && (
+              <button className="btn sm" style={{ width: "auto" }} onClick={() => { setChanging(true); }}>Change</button>
+            )}
             {bike && (
-              <button className="btn sm ghost" style={{ width: "auto" }} onClick={() => { saveBike(null); setBike(null); }}>
+              <button className="btn sm ghost" style={{ width: "auto" }} onClick={() => { saveBike(null); setBike(null); setChanging(false); }}>
                 Forget
               </button>
             )}
           </div>
         </Field>
-        {found && found.length > 0 && (
-          <div style={{ display: "grid", gap: 6 }}>
-            {found.map((b) => (
-              <button
-                key={b.address}
-                className="list-item"
-                onClick={() => {
-                  const chosen = { address: b.address, name: b.name };
-                  saveBike(chosen);
-                  setBike(chosen);
-                  setFound(null);
-                }}
-              >
-                <div>
-                  <div className="title">{b.name}</div>
-                  <div className="sub">{b.protocol === "ftms" ? "Power, cadence and kcal (FTMS)" : "Power and cadence (Cycling Power)"} · signal {b.rssi} dBm</div>
-                </div>
-              </button>
-            ))}
-          </div>
+        {(!bike || changing) && (
+          <BikePicker onPicked={(b) => { setBike(b); setChanging(false); }} />
         )}
         <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
           Varg reads power, cadence and kcal straight from the bike. Most
           bikes accept one app at a time, so close Body Bike or Mowl first.
         </div>
-        {busy && <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>{busy}</div>}
-        {problem && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>{problem}</div>}
       </div>
     </>
   );

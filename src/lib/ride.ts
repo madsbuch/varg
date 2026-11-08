@@ -90,6 +90,8 @@ export interface RideConfig {
   templateId: string;
   segments: RideSegment[];
   race: boolean;
+  /** Connected in the pre-ride step; false when the rider chose to ride without it. */
+  withBike: boolean;
 }
 
 /** One segment as ridden: how long it took, its average power and kcal. */

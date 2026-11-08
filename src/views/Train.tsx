@@ -24,6 +24,8 @@ import { WorkoutDetails } from "../components/WorkoutDetails";
 import WodPlayer from "../components/WodPlayer";
 import ForTimePlayer from "../components/ForTimePlayer";
 import RidePlayer from "../components/RidePlayer";
+import { RideConnectSheet } from "../components/BikeConnect";
+import { disconnectBike } from "../lib/bike";
 import type { RideConfig } from "../lib/ride";
 import { bestRide } from "../lib/ride";
 import type { WodConfig } from "../lib/wod";
@@ -126,6 +128,8 @@ function StartScreen() {
   const [runningWod, setRunningWod] = useState<WodConfig | null>(null);
   const [runningForTime, setRunningForTime] = useState<ForTimeConfig | null>(null);
   const [runningRide, setRunningRide] = useState<RideConfig | null>(null);
+  /** A ride waiting on its connect-the-bike step. */
+  const [pendingRide, setPendingRide] = useState<Omit<RideConfig, "withBike"> | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   // Alphabetical, Danish collation so æ/ø/å sort where a Dane expects, and
   // numeric so "Mobility 5" comes before "Mobility 20".
@@ -197,10 +201,9 @@ function StartScreen() {
       return;
     }
     if (tpl.ride) {
-      // Indoor bike: segments against live power from the paired bike.
-      unlockAudio(); // must happen inside the tap gesture
+      // Indoor bike: connect the bike first (or skip), then ride.
       setSelectedTemplate(null);
-      setRunningRide({ title: tpl.name, templateId: tpl.id, segments: tpl.ride.segments, race: tpl.ride.race === true });
+      setPendingRide({ title: tpl.name, templateId: tpl.id, segments: tpl.ride.segments, race: tpl.ride.race === true });
       return;
     }
     if (tpl.flow || tpl.interval) {
@@ -325,8 +328,28 @@ function StartScreen() {
       {runningForTime && (
         <ForTimePlayer config={runningForTime} onClose={() => { setRunningForTime(null); }} />
       )}
+      {pendingRide && (
+        <RideConnectSheet
+          title={pendingRide.title}
+          onCancel={() => { void disconnectBike().catch(() => undefined); setPendingRide(null); }}
+          onStart={(withBike) => {
+            unlockAudio(); // inside the Start tap: unlocks cues and music
+            // Riding without it means not reading it either.
+            if (!withBike) void disconnectBike().catch(() => undefined);
+            setRunningRide({ ...pendingRide, withBike });
+            setPendingRide(null);
+          }}
+        />
+      )}
       {runningRide && (
-        <RidePlayer config={runningRide} onClose={() => { setRunningRide(null); }} />
+        <RidePlayer
+          config={runningRide}
+          onClose={() => {
+            // Release the bike so Body Bike or Mowl can have it back.
+            void disconnectBike().catch(() => undefined);
+            setRunningRide(null);
+          }}
+        />
       )}
     </div>
   );

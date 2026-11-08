@@ -69,8 +69,9 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
   const loggedId = useRef<string | null>(null);
   const [discarded, setDiscarded] = useState(false);
   const [voiceOn, setVoiceOn] = useState(loadVoiceOn);
-  const saved = useMemo(loadBike, []);
-  const [bikeBusy, setBikeBusy] = useState(saved !== null);
+  // The pre-ride step already connected the bike (or the rider skipped it).
+  const saved = useMemo(() => (config.withBike ? loadBike() : null), [config.withBike]);
+  const [bikeBusy, setBikeBusy] = useState(false);
 
   const paused = clock.pausedAt !== null;
   const finished = view.idx >= config.segments.length;
@@ -87,8 +88,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
       })
       .finally(() => { setBikeBusy(false); });
   }, [saved]);
-  // Connect the paired bike as the ride opens; "busy" starts true for it.
-  useEffect(() => { void attach(); }, [attach]);
+  /** Reconnect after a dropout mid-ride. */
   const connect = () => {
     setBikeBusy(true);
     setView((v) => ({ ...v, bikeError: undefined }));
@@ -388,7 +388,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
     : `${String(Math.max(0, Math.ceil((seg.kcal ?? 0) - view.segKcal)))} kcal`;
   const upNext = config.segments.slice(view.idx + 1, view.idx + 3);
   const bikeProblem = !saved
-    ? "No bike paired — pair one in Settings → Cycling. Ride by feel; kcal targets need Done."
+    ? null
     : view.bikeError
       ? `Bike: ${view.bikeError}`
       : view.bike !== "connected"
@@ -436,6 +436,11 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         {serviceError && (
           <div className="fortime-gps bad">
             Can't keep riding in the background: {serviceError} Keep Varg on screen.
+          </div>
+        )}
+        {!saved && !ready && (
+          <div className="muted" style={{ fontSize: 13, textAlign: "center" }}>
+            Riding without the bike — targets by feel{config.segments.some((x) => x.kcal !== undefined) ? ", Done ends a kcal block" : ""}. Keep Varg on screen.
           </div>
         )}
         {bikeProblem && (
