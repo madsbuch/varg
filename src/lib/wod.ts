@@ -1,4 +1,4 @@
-import type { Exercise, SessionEntry, Side } from "../types";
+import type { Exercise, SessionEntry, Side, Template } from "../types";
 import { newSession, uid } from "./store";
 import { formatSeconds } from "./units";
 
@@ -9,8 +9,15 @@ export interface SequenceStep {
   side?: Side | undefined;
 }
 
+/** Which voice speaks a workout's cues: calm for yoga, firm for training. */
+export type VoiceRole = "yoga" | "workout";
+
 export interface WodConfig {
   exercises: Exercise[];
+  /** Spoken cues ("Next: push-ups") in this voice; none when unset. */
+  voice?: VoiceRole | undefined;
+  /** Flows: seconds to move between poses (and the lead-in). */
+  transition?: number | undefined;
   /**
    * A flow (yoga): explicit steps with their own lengths, no rests. When set,
    * it replaces the work/rest/rounds circuit, and the player speaks each pose
@@ -51,9 +58,14 @@ export function buildSteps(cfg: WodConfig): Step[] {
   };
 
   if (cfg.sequence) {
+    // A flow: lead-in, then hold / move / hold … The move between poses is
+    // a rest step that already belongs to the NEXT pose — that is what the
+    // athlete is getting into, and what the voice names.
+    const move = cfg.transition ?? 0;
     const first = cfg.sequence[0];
-    push({ kind: "ready", exercise: first?.exercise, round: 1, secs: READY_SECS, side: first?.side });
+    push({ kind: "ready", exercise: first?.exercise, round: 1, secs: move > 0 ? move : READY_SECS, side: first?.side });
     cfg.sequence.forEach((s, i) => {
+      if (i > 0 && move > 0) push({ kind: "rest", exercise: s.exercise, round: i + 1, secs: move, side: s.side });
       push({ kind: "work", exercise: s.exercise, round: i + 1, secs: s.secs, side: s.side });
     });
     return steps;
@@ -78,6 +90,42 @@ export function buildSteps(cfg: WodConfig): Step[] {
     });
   }
   return steps;
+}
+
+/**
+ * The guided-player config for a template, or the reason it cannot run.
+ * Used by the Hunt screen to start a workout and by the voice generator to
+ * know every line the player will speak — one definition, so the two
+ * cannot drift apart. Never runs a short version: every station or pose
+ * must resolve.
+ */
+export function configForTemplate(tpl: Template, exById: Map<string, Exercise>): WodConfig | string {
+  const missing = (have: number, want: number, what: string) =>
+    `${tpl.name} needs ${String(want)} ${what} but only ${String(have)} exist on this device. ` +
+    `Reinstalling or updating the app restores the built-in exercises.`;
+  if (tpl.flow) {
+    const sequence = tpl.flow.steps.flatMap((st) => {
+      const exercise = exById.get(st.exerciseId);
+      return exercise ? [{ exercise, secs: st.seconds, side: st.side }] : [];
+    });
+    if (sequence.length !== tpl.flow.steps.length) return missing(sequence.length, tpl.flow.steps.length, "poses");
+    return {
+      exercises: sequence.map((s) => s.exercise),
+      sequence,
+      transition: tpl.flow.transition,
+      work: 0, rest: 0, rounds: 1,
+      title: tpl.name, trackKey: tpl.id, voice: "yoga",
+    };
+  }
+  if (tpl.interval) {
+    const exercises = tpl.exerciseIds.flatMap((id) => {
+      const ex = exById.get(id);
+      return ex ? [ex] : [];
+    });
+    if (exercises.length !== tpl.exerciseIds.length) return missing(exercises.length, tpl.exerciseIds.length, "stations");
+    return { exercises, ...tpl.interval, title: tpl.name, trackKey: tpl.id, voice: "workout" };
+  }
+  return `${tpl.name} is not a guided workout.`;
 }
 
 /** Track only time actually traversed; seeks move position without adding work. */

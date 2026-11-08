@@ -17,14 +17,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../lib/app-context";
 import { deleteSession, upsertSession } from "../lib/store";
-import { advanceProgress, buildSteps, newWodProgress, recordedSession, READY_SECS } from "../lib/wod";
+import { advanceProgress, buildSteps, newWodProgress, recordedSession } from "../lib/wod";
 import type { Step, StepKind, WodConfig } from "../lib/wod";
 import { libraryFor } from "../lib/library";
 import { useBackHandler } from "../lib/back";
 import type { AnimKey } from "./ExerciseAnim";
 import { cueFinish, cueRest, cueTick, cueWork, unlockAudio } from "../lib/beep";
-import { loadVoiceOn, poseLine, saveVoiceOn, speak } from "../lib/voice";
-import { playClip, prepareClips, voiceConfigured } from "../lib/voice-clips";
+import { loadVoiceOn, saveVoiceOn, speak } from "../lib/voice";
+import { cueLine, playClip, prepareClips, voiceConfigured } from "../lib/voice-clips";
 import ExerciseAnim from "./ExerciseAnim";
 import { IconCheck, IconClose, IconVoice } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
@@ -55,21 +55,28 @@ function stepIndexAt(steps: Step[], elapsed: number): number {
   return Math.max(0, lo);
 }
 
-function stepTitle(step: Step): string {
-  if (step.kind === "rest") return "Rest";
-  if (step.kind === "ready") return "Get ready";
+/**
+ * In a circuit, rest is rest: a still figure, never the next exercise
+ * (which reads as "start moving"). In a flow the move between poses IS
+ * getting into the next pose, so it shows that pose — and its side.
+ */
+const showsPose = (step: Step, flow: boolean) =>
+  step.kind === "work" || (flow && step.kind === "rest");
+
+function stepTitle(step: Step, flow = false): string {
+  if (!showsPose(step, flow)) return step.kind === "rest" ? "Rest" : "Get ready";
   const name = step.exercise?.name ?? "Work";
   return step.side ? `${name} · ${step.side}` : name;
 }
 
-function stepAnim(step: Step): AnimKey {
-  if (step.kind === "work" && step.exercise) return libraryFor(step.exercise).anim;
+function stepAnim(step: Step, flow = false): AnimKey {
+  if (showsPose(step, flow) && step.exercise) return libraryFor(step.exercise).anim;
   return "rest";
 }
 
 /** A one-sided pose on the side its animation does not draw: flip it. */
-function stepMirror(step: Step): boolean {
-  if (step.kind !== "work" || !step.exercise || !step.side) return false;
+function stepMirror(step: Step, flow = false): boolean {
+  if (!showsPose(step, flow) || !step.exercise || !step.side) return false;
   const drawn = libraryFor(step.exercise).side;
   return drawn !== undefined && drawn !== step.side;
 }
@@ -120,8 +127,9 @@ export default function WodPlayer({
 
   // The lead-in countdown is not workout time. Report the same figure the
   // template card promises: stations and rests, nothing else.
-  const workTotal = total - READY_SECS;
-  const workElapsed = Math.min(workTotal, Math.max(0, elapsed - READY_SECS));
+  const leadIn = steps[0]?.secs ?? 0;
+  const workTotal = total - leadIn;
+  const workElapsed = Math.min(workTotal, Math.max(0, elapsed - leadIn));
 
   // Sample the clock: immediately whenever it changes, then on a cadence
   // while it is running. Reaching the end does not pause the clock, so the
@@ -153,43 +161,46 @@ export default function WodPlayer({
   const remain = step ? Math.max(0, Math.ceil(step.at + step.secs - elapsed)) : 0;
 
   // The next two steps — rest included, because with 10 s rests the useful
-  // lookahead is "rest, then push-ups".
+  // lookahead is "rest, then push-ups". A flow's moves are just the way
+  // into the next pose, so its lookahead is the next two poses.
+  const flow = config.sequence !== undefined;
   const upNext = useMemo(
-    () => steps.slice(stepIdx + 1, stepIdx + 3),
-    [steps, stepIdx],
+    () => (flow
+      // During a move the pose being moved into is already on screen.
+      ? steps.slice(stepIdx + (steps[stepIdx]?.kind === "rest" ? 2 : 1)).filter((s) => s.kind === "work").slice(0, 2)
+      : steps.slice(stepIdx + 1, stepIdx + 3)),
+    [steps, stepIdx, flow],
   );
 
   // --- Audio cues ----------------------------------------------------------
   // Cue on entering a step. Deriving the step from the clock means a long
   // standby gap lands on one step and fires one cue, never a burst.
-  // A flow speaks each pose as it begins instead of beeping — including the
-  // first one, during the lead-in, so the athlete can get into it.
-  const flow = config.sequence !== undefined;
+  // A voiced workout names what comes next BEFORE it starts: the first
+  // exercise in the lead-in, the next one as each rest (or, in a flow, each
+  // move between poses) begins. The work itself starts on a beep.
+  const voiceRole = config.voice;
+  const voiced = voiceRole !== undefined;
   const [voiceOn, setVoiceOn] = useState(loadVoiceOn);
   const [voiceError, setVoiceError] = useState<string | null>(null);
-  // ElevenLabs clips for this flow, decoded before the first cue so every
-  // line plays the instant its pose begins. Lines without a clip fall back
+  // Generated clips for this workout, decoded before the first cue so every
+  // line plays the instant its step begins. Lines without a clip fall back
   // to the phone's voice, and the player says how many.
   const [clips, setClips] = useState<{ buffers: Map<string, AudioBuffer>; missing: string[] } | null>(
-    flow ? null : { buffers: new Map(), missing: [] },
-  );
-  const lineFor = useCallback(
-    (s: Step) => (s.exercise ? poseLine(s.exercise.name, s.side, s.kind === "ready") : ""),
-    [],
+    voiced ? null : { buffers: new Map(), missing: [] },
   );
   useEffect(() => {
-    if (!flow) return;
+    if (!voiceRole) return;
     let alive = true;
-    const lines = [...new Set(steps.map(lineFor).filter(Boolean))];
-    prepareClips(lines).then(
+    const lines = [...new Set(steps.map(cueLine).filter(Boolean))];
+    prepareClips(voiceRole, lines).then(
       (r) => { if (alive) setClips(r); },
       () => { if (alive) setClips({ buffers: new Map(), missing: lines }); },
     );
     return () => { alive = false; };
-  }, [flow, steps, lineFor]);
-  const cuedStep = useRef(flow ? -1 : 0);
+  }, [voiceRole, steps]);
+  const cuedStep = useRef(voiced ? -1 : 0);
   useEffect(() => {
-    if (flow && voiceOn && !clips) return; // wait for the clips: speak properly, once
+    if (voiced && voiceOn && !clips) return; // wait for the clips: speak properly, once
     if (cuedStep.current === stepIdx) return;
     cuedStep.current = stepIdx;
     const s = steps[stepIdx];
@@ -197,33 +208,38 @@ export default function WodPlayer({
       cueFinish();
       return;
     }
-    if (flow && voiceOn && s.exercise) {
-      const line = lineFor(s);
-      const clip = clips?.buffers.get(line);
-      if (clip && playClip(clip)) return;
-      speak(line).then(
-        () => { setVoiceError(null); },
-        (e: unknown) => {
-          // Say why there is no voice, and still give the transition a sound.
-          setVoiceError(e instanceof Error ? e.message : String(e));
-          if (s.kind === "work") cueRest();
-        },
-      );
+    // The beep a step gets without a spoken line. A flow's hold starts on a
+    // soft tone, a circuit's work on the two rising beeps.
+    const beep = () => {
+      if (s.kind === "work") {
+        if (flow) cueRest();
+        else cueWork();
+      } else if (s.kind === "rest") {
+        cueRest();
+      }
+    };
+    const line = voiced && voiceOn ? cueLine(s) : "";
+    if (!line) {
+      beep();
       return;
     }
-    if (flow) {
-      if (s.kind === "work") cueRest();
-      return;
-    }
-    if (s.kind === "work") cueWork();
-    else cueRest();
-  }, [stepIdx, steps, flow, voiceOn, clips, lineFor]);
+    const clip = clips?.buffers.get(line);
+    if (clip && playClip(clip)) return;
+    speak(line).then(
+      () => { setVoiceError(null); },
+      (e: unknown) => {
+        // Say why there is no voice, and still give the step a sound.
+        setVoiceError(e instanceof Error ? e.message : String(e));
+        beep();
+      },
+    );
+  }, [stepIdx, steps, flow, voiced, voiceOn, clips]);
 
   const cuedTick = useRef("");
   useEffect(() => {
-    // Holds in a flow end on the next pose's name, not a 3-2-1 beep — except
-    // the lead-in, which still counts down.
-    if (flow && steps[stepIdx]?.kind !== "ready") return;
+    // A flow counts down into each hold — the lead-in and every move — but
+    // holds end quietly: the next line names what comes after.
+    if (flow && steps[stepIdx]?.kind === "work") return;
     if (paused || done || remain > 3 || remain < 1) return;
     const key = `${String(stepIdx)}:${String(remain)}`;
     if (cuedTick.current === key) return;
@@ -415,10 +431,10 @@ export default function WodPlayer({
         <span className="chip">
           {formatSeconds(workElapsed)} / {formatSeconds(workTotal)}
         </span>
-        {flow && (
+        {voiced && (
           <button
             className={`check music ${voiceOn ? "on" : ""}`}
-            aria-label={voiceOn ? "Stop speaking pose names" : "Speak pose names"}
+            aria-label={voiceOn ? "Stop the spoken cues" : "Speak the cues"}
             onClick={() => {
               const next = !voiceOn;
               setVoiceOn(next);
@@ -440,28 +456,30 @@ export default function WodPlayer({
       </div>
 
       <div className="wod-center">
-        <div className="wod-phase">{flow && step.kind === "work" ? "Hold" : PHASE_LABEL[step.kind]}</div>
+        <div className="wod-phase">
+          {flow && step.kind === "work" ? "Hold" : flow && step.kind === "rest" ? "Move to" : PHASE_LABEL[step.kind]}
+        </div>
         <div className={`wod-time ${remain <= 3 ? "urgent" : ""}`}>
           {formatSeconds(remain)}
         </div>
 
         <div className="wod-anim">
-          <ExerciseAnim anim={stepAnim(step)} size={170} mirror={stepMirror(step)} />
+          <ExerciseAnim anim={stepAnim(step, flow)} size={170} mirror={stepMirror(step, flow)} />
         </div>
-        <div className="wod-exname">{stepTitle(step)}</div>
+        <div className="wod-exname">{stepTitle(step, flow)}</div>
         {flow && step.exercise && (
           <ul className="wod-cues">
             {libraryFor(step.exercise).cues.slice(0, 2).map((c) => <li key={c}>{c}</li>)}
           </ul>
         )}
-        {flow && voiceOn && voiceError && (
+        {voiced && voiceOn && voiceError && (
           <div className="wod-voice-error">Voice unavailable: {voiceError}</div>
         )}
-        {flow && voiceOn && step.kind === "ready" && clips && clips.missing.length > 0 && (
+        {voiced && voiceOn && step.kind === "ready" && clips && clips.missing.length > 0 && (
           <div className="wod-voice-note">
             {voiceConfigured()
               ? `Phone voice for ${String(clips.missing.length)} line${clips.missing.length === 1 ? "" : "s"} — generate them in Settings → Voice.`
-              : "Phone voice — add ElevenLabs in Settings → Voice for a natural one."}
+              : "Phone voice — add your kie.ai key in Settings for a natural one."}
           </div>
         )}
 
@@ -483,9 +501,9 @@ export default function WodPlayer({
               className={`wod-queue-row ${s.kind === "work" ? "" : "is-rest"} ${i > 0 ? "dim" : ""}`}
             >
               <div className="wod-queue-anim">
-                <ExerciseAnim anim={stepAnim(s)} size={38} mirror={stepMirror(s)} />
+                <ExerciseAnim anim={stepAnim(s, flow)} size={38} mirror={stepMirror(s, flow)} />
               </div>
-              <span className="wod-queue-name">{stepTitle(s)}</span>
+              <span className="wod-queue-name">{stepTitle(s, flow)}</span>
               <span className="wod-queue-secs">{formatSeconds(s.secs)}</span>
             </div>
           ))

@@ -34,9 +34,9 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
             : " Move straight to the next station, with no rest."}
         </p>}
         {flow && <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
-          A guided flow of {flow.steps.length} poses, each held for its own time. Each
-          pose is spoken as it begins, with form cues on screen; one-sided poses
-          are done left, then right.
+          A guided flow of {flow.steps.length} poses, each held for its own time. Between
+          poses you get {flow.transition} seconds to move while the voice names the next one,
+          with form cues on screen; one-sided poses are done left, then right.
         </p>}
         {forTime && <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
           For time: the clock runs from the start until the last stage is done.

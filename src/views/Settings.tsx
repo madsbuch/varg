@@ -27,13 +27,15 @@ import {
   type WorkoutMusic,
 } from "../lib/music";
 import { parseDecimal } from "../lib/units";
+import type { VoiceRole } from "../lib/wod";
 import { gpsAvailable, loadGpsEnabled, requestGpsPermission, saveGpsEnabled } from "../lib/gps";
 import {
   VOICE_MODELS,
   isGemini,
   previewLine,
   voicesFor,
-  allFlowLines,
+  allVoiceLines,
+  voiceIdFor,
   countReady,
   ensureVoiceClips,
   loadVoiceSettings,
@@ -129,7 +131,10 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
         </button>
       </div>
 
-      <VoiceSetting hasKey={settings.apiKey.trim() !== ""} />
+      <VoiceSetting
+        hasKey={settings.apiKey.trim() !== ""}
+        saveKey={() => { saveMusicSettings(settings); }}
+      />
 
       <ComposerStatus status={status} />
 
@@ -202,12 +207,12 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
  * Lines are generated once and cached on the device; until they are, the
  * phone's own voice stands in.
  */
-function VoiceSetting({ hasKey }: { hasKey: boolean }) {
+function VoiceSetting({ hasKey, saveKey }: { hasKey: boolean; saveKey: () => void }) {
   const [settings, setSettings] = useState(loadVoiceSettings);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [ready, setReady] = useState(0);
-  const total = useMemo(() => allFlowLines().length, []);
+  const total = useMemo(() => allVoiceLines().length, []);
 
   const refreshCount = useCallback(() => {
     void countReady().then(setReady).catch(() => undefined);
@@ -222,6 +227,8 @@ function VoiceSetting({ hasKey }: { hasKey: boolean }) {
   };
 
   const generate = () => {
+    // The key typed above counts even if its card was not saved first.
+    saveKey();
     saveVoiceSettings(settings);
     setBusy("Generating lines on kie.ai…");
     setProblem(null);
@@ -235,63 +242,76 @@ function VoiceSetting({ hasKey }: { hasKey: boolean }) {
     if (revoke) a.onended = () => { URL.revokeObjectURL(src); };
     return a.play();
   };
-  const hear = () => {
+  const hear = (role: VoiceRole) => {
     setProblem(null);
     if (!isGemini(settings.model)) {
       // ElevenLabs voices have free samples on kie's CDN.
-      play(previewUrl(settings.voiceId)).catch((e: unknown) => {
+      play(previewUrl(voiceIdFor(settings, role))).catch((e: unknown) => {
         setProblem(`Could not play the sample: ${e instanceof Error ? e.message : String(e)}`);
       });
       return;
     }
     // Gemini has none: generate a real line (a fraction of a credit).
+    saveKey();
     setBusy("Speaking a sample on kie.ai…");
-    previewLine(settings, "Warrior two, left side")
+    previewLine(settings, role, role === "yoga" ? "Next: Warrior two, left side" : "Next: Push-up")
       .then((blob) => play(URL.createObjectURL(blob), true))
       .catch((e: unknown) => { setProblem(e instanceof Error ? e.message : String(e)); })
       .finally(() => { setBusy(null); });
   };
   const { voices } = voicesFor(settings.model);
 
+  const picker = (role: VoiceRole, label: string) => (
+    <Field label={label}>
+      <div className="btn-row">
+        <select
+          value={voiceIdFor(settings, role)}
+          onChange={(e) => {
+            change(role === "yoga" ? { ...settings, voiceId: e.target.value } : { ...settings, workoutVoiceId: e.target.value });
+          }}
+          style={{ flex: 1 }}
+        >
+          {voices.map((v) => (
+            <option key={v.voiceId} value={v.voiceId}>
+              {v.name}{v.description ? ` — ${v.description}` : ""}
+            </option>
+          ))}
+        </select>
+        <button className="btn sm" style={{ width: "auto" }} disabled={busy !== null || (isGemini(settings.model) && !hasKey)} onClick={() => { hear(role); }}>
+          Hear
+        </button>
+      </div>
+    </Field>
+  );
+
   return (
     <>
       <div className="section-label">Voice · {ready}/{total} lines ready</div>
       <div className="card">
         <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
-          Spoken pose names in the yoga flows, in a natural Gemini or
-          ElevenLabs voice. Lines not generated yet are read by the phone's
-          own voice.
+          The guided workouts name what comes next: each pose in the yoga
+          flows, each station in the interval workouts. Two voices — calm for
+          yoga, firm for training. Lines not generated yet are read by the
+          phone's own voice.
         </div>
         <Field label="Voice model">
           <select
             value={settings.model}
             onChange={(e) => {
-              // Each model has its own voices; keep the voice only if it exists there.
-              const { voices: vs, fallback } = voicesFor(e.target.value);
-              change({ model: e.target.value, voiceId: vs.some((v) => v.voiceId === settings.voiceId) ? settings.voiceId : fallback });
+              // Each model has its own voices; keep a voice only if it exists there.
+              const model = e.target.value;
+              const keep = (id: string, role: VoiceRole) => {
+                const { voices: vs, fallback } = voicesFor(model, role);
+                return vs.some((v) => v.voiceId === id) ? id : fallback;
+              };
+              change({ model, voiceId: keep(settings.voiceId, "yoga"), workoutVoiceId: keep(settings.workoutVoiceId, "workout") });
             }}
           >
             {VOICE_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
           </select>
         </Field>
-        <Field label="Voice">
-          <div className="btn-row">
-            <select
-              value={settings.voiceId}
-              onChange={(e) => { change({ ...settings, voiceId: e.target.value }); }}
-              style={{ flex: 1 }}
-            >
-              {voices.map((v) => (
-                <option key={v.voiceId} value={v.voiceId}>
-                  {v.name}{v.description ? ` — ${v.description}` : ""}
-                </option>
-              ))}
-            </select>
-            <button className="btn sm" style={{ width: "auto" }} disabled={busy !== null || (isGemini(settings.model) && !hasKey)} onClick={hear}>
-              Hear
-            </button>
-          </div>
-        </Field>
+        {picker("yoga", "Yoga voice")}
+        {picker("workout", "Workout voice")}
         <button className="btn primary" disabled={!hasKey || busy !== null} onClick={generate}>
           Generate voice lines
         </button>

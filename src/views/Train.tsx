@@ -23,6 +23,7 @@ import { WorkoutDetails } from "../components/WorkoutDetails";
 import WodPlayer from "../components/WodPlayer";
 import ForTimePlayer from "../components/ForTimePlayer";
 import type { WodConfig } from "../lib/wod";
+import { configForTemplate } from "../lib/wod";
 import type { ForTimeConfig } from "../lib/fortime";
 import { bestForTime } from "../lib/fortime";
 import { loadFavorites, saveFavorites } from "../lib/favorites";
@@ -64,6 +65,11 @@ function intervalSeconds(
 ): number {
   const steps = stations * rounds;
   return steps * work + Math.max(0, steps - 1) * rest;
+}
+
+/** Clock time of a flow: every hold, plus the moves between poses. */
+function flowSeconds(flow: { steps: { seconds: number }[]; transition: number }): number {
+  return flow.steps.reduce((sum, s) => sum + s.seconds, 0) + Math.max(0, flow.steps.length - 1) * flow.transition;
 }
 
 /** How a template runs when started — the library's filter categories. */
@@ -177,58 +183,16 @@ function StartScreen() {
       setRunningForTime({ title: tpl.name, templateId: tpl.id, stages, exercises });
       return;
     }
-    if (tpl.flow) {
-      // Flow (yoga): every pose its own length, spoken and cued.
-      const exById = new Map(data.exercises.map((e) => [e.id, e]));
-      const sequence = tpl.flow.steps.flatMap((st) => {
-        const exercise = exById.get(st.exerciseId);
-        return exercise ? [{ exercise, secs: st.seconds, side: st.side }] : [];
-      });
-      if (sequence.length !== tpl.flow.steps.length) {
-        setStartError(
-          `${tpl.name} has ${String(tpl.flow.steps.length)} poses but only ` +
-            `${String(sequence.length)} exist on this device. Reinstalling or ` +
-            `updating the app restores the built-in exercises.`,
-        );
+    if (tpl.flow || tpl.interval) {
+      // Guided: a circuit or a yoga flow — timing, cues, voice, music.
+      const cfg = configForTemplate(tpl, new Map(data.exercises.map((e) => [e.id, e])));
+      if (typeof cfg === "string") {
+        setStartError(cfg);
         return;
       }
       unlockAudio(); // must happen inside the tap gesture
       setSelectedTemplate(null);
-      setRunningWod({
-        exercises: sequence.map((s) => s.exercise),
-        sequence,
-        work: 0,
-        rest: 0,
-        rounds: 1,
-        title: tpl.name,
-        trackKey: tpl.id,
-      });
-      return;
-    }
-    if (tpl.interval) {
-      // Circuit template: run it guided — exercises, timing, cues, music.
-      const exById = new Map(data.exercises.map((e) => [e.id, e]));
-      const exercises = tpl.exerciseIds
-        .map((id) => exById.get(id))
-        .filter((e): e is Exercise => !!e);
-      // Never quietly run a short version of a prescribed circuit: a
-      // dropped station changes the whole workout.
-      if (exercises.length !== tpl.exerciseIds.length) {
-        setStartError(
-          `${tpl.name} needs ${String(tpl.exerciseIds.length)} stations but only ` +
-            `${String(exercises.length)} exist on this device. Reinstalling or ` +
-            `updating the app restores the built-in exercises.`,
-        );
-        return;
-      }
-      unlockAudio(); // must happen inside the tap gesture
-      setSelectedTemplate(null);
-      setRunningWod({
-        exercises,
-        ...tpl.interval,
-        title: tpl.name,
-        trackKey: tpl.id,
-      });
+      setRunningWod(cfg);
       return;
     }
     update((d) => {
@@ -330,7 +294,7 @@ function TemplateCard({ t, favorite, best, onOpen, onStart, onToggleFavorite }: 
   const duration = t.interval
     ? intervalSeconds(t.exerciseIds.length, t.interval)
     : t.flow
-      ? t.flow.steps.reduce((sum, s) => sum + s.seconds, 0)
+      ? flowSeconds(t.flow)
       : null;
   // The card body opens the details sheet; star and Start now are their own
   // buttons beside it, never nested inside it.
