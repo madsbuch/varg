@@ -22,23 +22,33 @@ import type { Side } from "../types";
 import { buildSteps, configForTemplate } from "./wod";
 import type { Step, VoiceRole } from "./wod";
 
-const GEMINI_MODEL = "google/gemini-3-1-flash-tts";
+const GEMINI_38 = "google/gemini-3-8-flash-tts";
+const GEMINI_31 = "google/gemini-3-1-flash-tts";
 /**
- * kie.ai's text-to-speech models. Gemini is the default: kie's ElevenLabs
+ * kie.ai's text-to-speech models. Gemini 3.8 Flash is the default: the
+ * newest, and the owner's pick after hearing it side by side with 3.1 Flash
+ * and 2.5 Pro (8 Nov 2026). kie's ElevenLabs
  * jobs were accepted and then failed server-side ("Internal Error") for
  * every voice in November 2026 (re-verified 8 Nov, even with kie's own docs
  * example verbatim), while Gemini generated cleanly with the
  * same key. ElevenLabs stays selectable for when kie fixes it.
  */
 export const VOICE_MODELS = [
-  { id: GEMINI_MODEL, label: "Google Gemini 3.1 Flash" },
+  { id: GEMINI_38, label: "Google Gemini 3.8 Flash" },
+  { id: GEMINI_31, label: "Google Gemini 3.1 Flash" },
   { id: "elevenlabs/text-to-speech-multilingual-v2", label: "ElevenLabs Multilingual v2" },
   { id: "elevenlabs/text-to-speech-turbo-2-5", label: "ElevenLabs Turbo 2.5 — faster, cheaper" },
 ];
-const SETTINGS_KEY = "varg.voice.kie.v1";
-const DEFAULT_VOICE_MODEL = GEMINI_MODEL;
+/**
+ * v2 moved everyone to Gemini 3.8. Settings saved under v1 keep their
+ * voices where 3.8 has them, but not their model: v1 saved the model with
+ * any voice change, so a stored 3.1 or ElevenLabs was rarely a choice.
+ */
+const SETTINGS_KEY = "varg.voice.kie.v2";
+const LEGACY_SETTINGS_KEY = "varg.voice.kie.v1";
+const DEFAULT_VOICE_MODEL = GEMINI_38;
 
-/** Gemini's voices, with Google's one-word character and the voice's register. */
+/** Gemini 3.1's voices, with Google's one-word character and the voice's register. */
 export const GEMINI_VOICES: KieVoice[] = [
   ["Achernar", "Soft · female"], ["Achird", "Friendly · male"], ["Algenib", "Gravelly · male"],
   ["Algieba", "Smooth · male"], ["Alnilam", "Firm · male"], ["Aoede", "Breezy · female"],
@@ -51,6 +61,29 @@ export const GEMINI_VOICES: KieVoice[] = [
   ["Schedar", "Even · male"], ["Sulafat", "Warm · female"], ["Umbriel", "Easy-going · male"],
   ["Vindemiatrix", "Gentle · female"], ["Zephyr", "Bright · female"], ["Zubenelgenubi", "Casual · male"],
 ].map(([name, description]) => ({ voiceId: name ?? "", name: name ?? "", description: description ?? "" }));
+
+/**
+ * Gemini 3.8's 70 voices, from kie's API reference, under the use case kie
+ * files each one. The 30 it shares with 3.1 keep Google's character note.
+ */
+const GEMINI_38_GROUPS: [string, string[]][] = [
+  ["Tutor", ["Bodi", "Lumi", "Sadaltager", "Sola", "Sulafat", "Varo", "Zephyr"]],
+  ["Commercial voiceover", ["Koda", "Kore", "Nika", "Tavi", "Zeno"]],
+  ["Instructional", ["Algenib", "Despina", "Erinome", "Kira", "Ludo", "Mako", "Rasalgethi", "Rina"]],
+  ["Podcast", ["Alnilam", "Brio", "Jori", "Laomedeia", "Rami", "Veda"]],
+  ["Storyteller", ["Achird", "Enzo", "Riko", "Sami", "Zali", "Zubenelgenubi"]],
+  ["Digital assistant", ["Algieba", "Aoede", "Autonoe", "Callirrhoe", "Enceladus", "Gero", "Iapetus", "Neno", "Olin", "Tari", "Umbriel"]],
+  ["Call center", ["Achernar", "Charon", "Daro", "Fola", "Hali", "Milo", "Puck"]],
+  ["Concierge", ["Arlo", "Cleo", "Fenrir", "Finn", "Leda", "Lora", "Orus"]],
+  ["Tech support", ["Enya", "Jett", "Knox", "Nyla", "Sadachbia", "Vindemiatrix"]],
+  ["Professional", ["Cruz", "Elio", "Gacrux", "Pulcherrima", "Schedar", "Tova", "Zuri"]],
+];
+export const GEMINI_38_VOICES: KieVoice[] = GEMINI_38_GROUPS.flatMap(([group, names]) =>
+  names.map((name) => {
+    const known = GEMINI_VOICES.find((v) => v.name === name);
+    return { voiceId: name, name, description: known ? `${known.description} · ${group}` : group };
+  }),
+).sort((a, b) => a.name.localeCompare(b.name));
 
 export interface KieVoice {
   voiceId: string;
@@ -151,6 +184,7 @@ export function isGemini(model: string): boolean {
 
 /** The voices a model offers, and its default for a role. */
 export function voicesFor(model: string, role: VoiceRole = "yoga"): { voices: KieVoice[]; fallback: string } {
+  if (model === GEMINI_38) return { voices: GEMINI_38_VOICES, fallback: DEFAULTS[role].gemini };
   return isGemini(model)
     ? { voices: GEMINI_VOICES, fallback: DEFAULTS[role].gemini }
     : { voices: KIE_VOICES, fallback: DEFAULTS[role].eleven };
@@ -179,9 +213,11 @@ export function voiceIdFor(s: VoiceSettings, role: VoiceRole): string {
 
 export function loadVoiceSettings(): VoiceSettings {
   try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
+    const current = localStorage.getItem(SETTINGS_KEY);
+    const raw = current ?? localStorage.getItem(LEGACY_SETTINGS_KEY);
     if (raw) {
       const p = JSON.parse(raw) as Partial<VoiceSettings>;
+      if (current == null) delete p.model;
       const model = p.model && VOICE_MODELS.some((m) => m.id === p.model) ? p.model : DEFAULT_VOICE_MODEL;
       const pick = (id: string | undefined, role: VoiceRole) => {
         const { voices, fallback } = voicesFor(model, role);
@@ -309,13 +345,14 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** How each voice is directed: a calm teacher, a firm drill instructor. */
 const DIRECTION: Record<VoiceRole, {
-  scene: string; context: string; profile: string; style: string; stability: number; speed: number;
+  scene: string; context: string; profile: string; style: string; direction: string; stability: number; speed: number;
 }> = {
   yoga: {
     scene: "A quiet yoga studio.",
     context: "A yoga class. Calm, warm guidance between poses.",
     profile: "A calm, warm yoga teacher",
     style: "Empathetic",
+    direction: "A calm, warm yoga teacher guiding a class between poses. Gentle, unhurried, British accent.",
     stability: 0.6,
     speed: 0.95,
   },
@@ -324,6 +361,7 @@ const DIRECTION: Record<VoiceRole, {
     context: "A military-style workout. Short, clear, energetic calls between stations.",
     profile: "A firm, motivating drill instructor",
     style: "Promo/Hype",
+    direction: "A firm, motivating drill instructor calling the next station in a hard circuit. Short, clear and energetic, British accent.",
     stability: 0.5,
     speed: 1.05,
   },
@@ -341,9 +379,18 @@ const DIRECTION: Record<VoiceRole, {
  */
 export function speechInput(model: string, role: VoiceRole, voice: string, text: string): Record<string, unknown> {
   const d = DIRECTION[role];
+  if (model === GEMINI_38) {
+    // 3.8 drops the scene and speaker profile for one free-text style per
+    // turn, which carries the whole direction.
+    return {
+      temperature: 1,
+      speakers: [{ speaker_id: "Speaker 1", voice_name: voice }],
+      dialogue_turns: [{ speaker_id: "Speaker 1", style: d.direction, text }],
+    };
+  }
   if (isGemini(model)) {
-    // Gemini speaks a scripted "dialogue": one speaker, one line, directed
-    // for the role.
+    // Gemini 3.1 speaks a scripted "dialogue": one speaker, one line,
+    // directed for the role.
     return {
       temperature: 1,
       scene: d.scene,
