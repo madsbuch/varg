@@ -206,6 +206,7 @@ class BikePlugin(private val activity: Activity) : Plugin(activity) {
         o.put("protocol", BikeLink.protocol)
         o.put("name", BikeLink.deviceName)
         o.put("background", RideService.running)
+        RideService.startError?.let { o.put("serviceError", it) }
         BikeLink.error?.let { o.put("error", it) }
         val list = JSArray()
         if (drain) {
@@ -225,6 +226,15 @@ class BikePlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun startRide(invoke: Invoke) {
         val args = invoke.parseArgs(StartRideArgs::class.java)
+        // Android 14+ kills the whole app if a connected-device foreground
+        // service starts without Bluetooth permission. Check first, refuse
+        // with a reason — never start a service that cannot start.
+        if (Build.VERSION.SDK_INT >= 31 &&
+            ContextCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            invoke.reject("Bluetooth permission is not granted — pair your bike in Settings → Cycling.")
+            return
+        }
         RideService.title = args.title
         RideService.schedule = args.schedule
         try {

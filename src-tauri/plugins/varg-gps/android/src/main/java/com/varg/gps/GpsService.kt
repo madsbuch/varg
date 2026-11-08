@@ -76,7 +76,14 @@ class GpsService : Service() {
         } else {
             0
         }
-        ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(), type)
+        try {
+            ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(), type)
+        } catch (e: Exception) {
+            // Never let run tracking take the app down; the stage shows why.
+            RunTracker.error = "Could not start run tracking: ${e.message}"
+            stopSelf()
+            return START_NOT_STICKY
+        }
 
         val lm = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         locationManager = lm
