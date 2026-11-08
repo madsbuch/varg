@@ -162,6 +162,8 @@ export interface BikeRead {
   protocol: "" | "ftms" | "cps";
   name: string;
   error?: string;
+  /** The background service failed to start (it never takes the app down). */
+  serviceError?: string;
   packets: BikePacket[];
 }
 

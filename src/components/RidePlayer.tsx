@@ -161,7 +161,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         kcal: meter.current.kcal,
         bike: read?.state ?? "none",
         bikeName: read?.name ?? "",
-        bikeError: read?.error,
+        bikeError: read?.error ?? read?.serviceError,
         live,
       });
     };
@@ -200,6 +200,8 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
     return rideSchedule(config.segments, r.idx, c.anchor + (LEAD_IN + r.segmentStart) * 1000, c.pausedAt !== null);
   }, [config.segments]);
   useEffect(() => {
+    // No paired bike, nothing to keep connected: the ride stays on screen.
+    if (!saved) return;
     startRideService(config.title, scheduleNow())
       .then(async () => {
         for (const [i, seg] of config.segments.entries()) {
@@ -210,7 +212,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
       })
       .catch((e: unknown) => { setServiceError(e instanceof Error ? e.message : String(e)); });
     return () => { void stopRideService().catch(() => undefined); };
-  }, [config.title, config.segments, scheduleNow]);
+  }, [config.title, config.segments, scheduleNow, saved]);
   // A new block, a pause or a resume moves every future cue.
   useEffect(() => {
     if (done) {

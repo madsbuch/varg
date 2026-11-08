@@ -48,6 +48,8 @@ class RideService : Service() {
         /** Spoken line → cached audio file (the generated voice clips). */
         val clips = java.util.concurrent.ConcurrentHashMap<String, File>()
         @Volatile var running = false; private set
+        /** Why the last start failed, for the plugin to report. */
+        @Volatile var startError: String? = null
     }
 
     private val main = Handler(Looper.getMainLooper())
@@ -69,7 +71,16 @@ class RideService : Service() {
             else -> {
                 ensureChannel()
                 val type = if (Build.VERSION.SDK_INT >= 30) ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE else 0
-                ServiceCompat.startForeground(this, NOTIFICATION_ID, notification("Starting…"), type)
+                try {
+                    ServiceCompat.startForeground(this, NOTIFICATION_ID, notification("Starting…"), type)
+                } catch (e: Exception) {
+                    // Belt and braces behind the plugin's permission check: a
+                    // ride that cannot run in the background must not take
+                    // the app down with it.
+                    startError = "Can't run in the background: ${e.message}"
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
                 running = true
                 if (tts == null) {
                     tts = TextToSpeech(applicationContext) { status ->
