@@ -84,7 +84,7 @@ export interface TaskInfo {
 }
 
 export async function getTask(apiKey: string, taskId: string): Promise<TaskInfo> {
-  const data = await call<{ state?: TaskState; failMsg?: string | null; resultJson?: string | null; response?: unknown }>(
+  const data = await call<{ state?: TaskState; failCode?: string | number | null; failMsg?: string | null; resultJson?: string | null; response?: unknown }>(
     apiKey,
     `/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`,
   );
@@ -96,7 +96,10 @@ export async function getTask(apiKey: string, taskId: string): Promise<TaskInfo>
       result = null;
     }
   }
-  return { state: data.state ?? "waiting", failMsg: data.failMsg ?? "", result };
+  // "Internal Error" alone says nothing; kie's failCode tells a server fault
+  // (500) from a refused input (422) or a failed generation (501).
+  const code = data.failCode != null && String(data.failCode).trim() ? ` [failCode ${String(data.failCode)}]` : "";
+  return { state: data.state ?? "waiting", failMsg: (data.failMsg ?? "") + code, result };
 }
 
 export interface AudioResult {
