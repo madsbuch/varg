@@ -1,5 +1,5 @@
 /**
- * Built-in content: every exercise, split and workout program the app ships.
+ * Built-in content: every exercise and workout program the app ships.
  *
  * THIS FILE IS THE PROGRAM LIBRARY, AND IT IS EDITED BY HAND.
  *
@@ -23,9 +23,9 @@
  *
  * See CLAUDE.md for the full authoring procedure.
  */
-import type { Exercise, Split, Template } from "../types";
+import type { Exercise, Template } from "../types";
 
-// Stable IDs so built-in content can be referenced from splits & templates.
+// Stable IDs so built-in content can be referenced from templates.
 export const EX = {
   backSquat: "ex-back-squat",
   frontSquat: "ex-front-squat",
@@ -156,8 +156,8 @@ export function seedExercises(): Exercise[] {
     // only adds ids it has never seen, and the SQLite loader only writes
     // rows it does not already know, so editing a shipped exercise's name,
     // metric or muscles is a no-op on every device except a fresh install.
-    // A semantic correction therefore ships as a NEW id with templates and
-    // splits repointed. The old id keeps its library.ts entry so existing
+    // A semantic correction therefore ships as a NEW id with templates
+    // repointed. The old id keeps its library.ts entry so existing
     // history and personal records still resolve to the right movement,
     // and it is left out of this list so no fresh install offers both.
     e(
@@ -267,80 +267,6 @@ export function seedExercises(): Exercise[] {
     e(EX.assaultBike, "Assault Bike", "cardio", "distance_time", [
       "conditioning",
     ]),
-  ];
-}
-
-export function seedSplits(): Split[] {
-  return [
-    {
-      id: "split-ppl",
-      name: "Push / Pull / Legs",
-      description: "Classic 3-day hypertrophy + strength rotation.",
-      builtIn: true,
-      days: [
-        {
-          id: "ppl-push",
-          name: "Push",
-          exerciseIds: [EX.benchPress, EX.overheadPress, EX.dip, EX.pushUp],
-        },
-        {
-          id: "ppl-pull",
-          name: "Pull",
-          exerciseIds: [EX.deadlift, EX.barbellRow, EX.pullUp, EX.chinUp],
-        },
-        {
-          id: "ppl-legs",
-          name: "Legs",
-          exerciseIds: [EX.backSquat, EX.frontSquat, EX.lunge, EX.boxJump],
-        },
-      ],
-    },
-    {
-      id: "split-upper-lower",
-      name: "Upper / Lower",
-      description: "4-day strength split.",
-      builtIn: true,
-      days: [
-        {
-          id: "ul-upper",
-          name: "Upper",
-          exerciseIds: [
-            EX.benchPress,
-            EX.barbellRow,
-            EX.overheadPress,
-            EX.pullUp,
-          ],
-        },
-        {
-          id: "ul-lower",
-          name: "Lower",
-          exerciseIds: [EX.backSquat, EX.deadlift, EX.lunge, EX.plank],
-        },
-      ],
-    },
-    {
-      id: "split-pt",
-      name: "PT / Conditioning",
-      description: "Bodyweight + conditioning for field readiness.",
-      builtIn: true,
-      days: [
-        {
-          id: "pt-strength",
-          name: "Strength Base",
-          exerciseIds: [EX.backSquat, EX.deadlift, EX.overheadPress, EX.pullUp],
-        },
-        {
-          id: "pt-grind",
-          name: "Grinder",
-          exerciseIds: [EX.burpee, EX.pushUp, EX.sitUp, EX.flutterKick],
-        },
-        {
-          id: "pt-ruck",
-          name: "Ruck Day",
-          exerciseIds: [EX.ruck, EX.farmerCarryDistance, EX.plank],
-        },
-      ],
-    },
   ];
 }
 

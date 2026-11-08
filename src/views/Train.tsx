@@ -35,7 +35,6 @@ import { ConfirmSheet, Sheet } from "../components/ui";
 import {
   IconCheck,
   IconClock,
-  IconDumbbell,
   IconFlag,
   IconPlus,
   IconStar,
@@ -117,7 +116,6 @@ export default function Train() {
 
 function StartScreen() {
   const { data, update } = useApp();
-  const [showSplit, setShowSplit] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [runningWod, setRunningWod] = useState<WodConfig | null>(null);
   const [runningForTime, setRunningForTime] = useState<ForTimeConfig | null>(null);
@@ -217,12 +215,6 @@ function StartScreen() {
       <div className="eyebrow">Hunt</div>
       <h2 className="screen-title">Workout library</h2>
 
-      <div className="btn-row" style={{ flexWrap: "wrap" }}>
-        <button className="btn sm" onClick={() => { setShowSplit(true); }}>
-          <IconDumbbell /> From a split
-        </button>
-      </div>
-
       <input
         className="hunt-search"
         type="search"
@@ -304,7 +296,6 @@ function StartScreen() {
           </button>
         </Sheet>
       )}
-      {showSplit && <SplitPicker onClose={() => { setShowSplit(false); }} />}
       {runningWod && (
         <WodPlayer config={runningWod} onClose={() => { setRunningWod(null); }} />
       )}
@@ -371,67 +362,6 @@ function TemplateCard({ t, favorite, best, onOpen, onStart, onToggleFavorite }: 
         </button>
       </div>
     </div>
-  );
-}
-
-function SplitPicker({ onClose }: { onClose: () => void }) {
-  const { data, update } = useApp();
-  const [splitId, setSplitId] = useState<string | null>(null);
-  const split = data.splits.find((s) => s.id === splitId);
-
-  const startDay = (dayId: string) => {
-    const sp = data.splits.find((s) => s.id === splitId);
-    const day = sp?.days.find((d) => d.id === dayId);
-    if (!sp || !day) return;
-    update((d) => {
-      const s = newSession(`${sp.name} — ${day.name}`);
-      s.splitId = sp.id;
-      s.splitDayId = day.id;
-      s.entries = day.exerciseIds.map((id) => newEntry(id));
-      return upsertSession(d, s);
-    });
-    onClose();
-  };
-
-  return (
-    <Sheet title={split ? split.name : "Choose split"} onClose={onClose}>
-      {!split ? (
-        data.splits.map((s) => (
-          <button
-            key={s.id}
-            className="list-item"
-            onClick={() => { setSplitId(s.id); }}
-          >
-            <div>
-              <div className="title">{s.name}</div>
-              <div className="sub">{s.days.length} days</div>
-            </div>
-          </button>
-        ))
-      ) : (
-        <>
-          {split.days.map((day) => (
-            <button
-              key={day.id}
-              className="list-item"
-              onClick={() => { startDay(day.id); }}
-            >
-              <div>
-                <div className="title">{day.name}</div>
-                <div className="sub">{day.exerciseIds.length} exercises</div>
-              </div>
-            </button>
-          ))}
-          <button
-            className="btn ghost"
-            style={{ marginTop: 12 }}
-            onClick={() => { setSplitId(null); }}
-          >
-            Back
-          </button>
-        </>
-      )}
-    </Sheet>
   );
 }
 

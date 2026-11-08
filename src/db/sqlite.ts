@@ -13,12 +13,10 @@
 import Database from "@tauri-apps/plugin-sql";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 import {
-  and,
   eq,
   getTableColumns,
   getTableName,
   inArray,
-  notInArray,
   sql,
 } from "drizzle-orm";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
@@ -27,7 +25,6 @@ import type {
   Exercise,
   PersonalRecord,
   Session,
-  Split,
 } from "../types";
 import { loadData, mergeBuiltIns, STORAGE_KEY } from "../lib/store";
 import type { Persistence } from "./persistence";
@@ -197,14 +194,11 @@ export class SqlitePersistence implements Persistence {
       return initial;
     }
 
-    const [splitRows, dayRows, dayExRows, sessionRows, entryRows, setRows, prRows] =
+    const [sessionRows, entryRows, setRows, prRows] =
       await Promise.all([
-        this.all<{ id: string; name: string; description?: string; builtIn: boolean }>(t.splits),
-        this.all<{ id: string; splitId: string; name: string; position: number }>(t.splitDays),
-        this.all<{ dayId: string; exerciseId: string; position: number }>(t.splitDayExercises),
         this.all<{
           id: string; name: string; date: string; finishedAt?: string;
-          splitId?: string; splitDayId?: string; templateId?: string; note?: string;
+          templateId?: string; note?: string;
         }>(t.sessions),
         this.all<{ id: string; sessionId: string; exerciseId: string; position: number; note?: string }>(t.sessionEntries),
         this.all<{
@@ -225,14 +219,6 @@ export class SqlitePersistence implements Persistence {
       else m.set(k, [v]);
     };
 
-    const daysBySplit = new Map<string, typeof dayRows>();
-    for (const d of dayRows) {
-      groupPush(daysBySplit, d.splitId, d);
-    }
-    const exByDay = new Map<string, typeof dayExRows>();
-    for (const de of dayExRows) {
-      groupPush(exByDay, de.dayId, de);
-    }
     const entriesBySession = new Map<string, typeof entryRows>();
     for (const e of entryRows) {
       groupPush(entriesBySession, e.sessionId, e);
@@ -252,17 +238,6 @@ export class SqlitePersistence implements Persistence {
         muscles: JSON.parse(e.muscles || "[]") as string[],
         builtIn: e.builtIn,
       })),
-      splits: splitRows.map((s) => ({
-        id: s.id,
-        name: s.name,
-        description: s.description,
-        builtIn: s.builtIn,
-        days: (daysBySplit.get(s.id) ?? []).sort(byPos).map((d) => ({
-          id: d.id,
-          name: d.name,
-          exerciseIds: (exByDay.get(d.id) ?? []).sort(byPos).map((x) => x.exerciseId),
-        })),
-      })),
       sessions: sessionRows
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .map((s) => ({
@@ -270,8 +245,6 @@ export class SqlitePersistence implements Persistence {
           name: s.name,
           date: s.date,
           finishedAt: s.finishedAt,
-          splitId: s.splitId,
-          splitDayId: s.splitDayId,
           templateId: s.templateId,
           note: s.note,
           entries: (entriesBySession.get(s.id) ?? []).sort(byPos).map((e) => ({
@@ -306,13 +279,9 @@ export class SqlitePersistence implements Persistence {
     // Without this, a new template's stations silently do not exist and
     // the workout runs short. Merge, then write the new rows through.
     const knownExercises = new Set(data.exercises.map((e) => e.id));
-    const knownSplits = new Set(data.splits.map((s) => s.id));
     mergeBuiltIns(data);
     for (const ex of data.exercises) {
       if (!knownExercises.has(ex.id)) await this.saveExercise(ex);
-    }
-    for (const sp of data.splits) {
-      if (!knownSplits.has(sp.id)) await this.saveSplit(sp);
     }
 
     return data;
@@ -321,7 +290,6 @@ export class SqlitePersistence implements Persistence {
   /** Used when seeding a fresh DB (or importing legacy data). */
   private async persistAll(data: AppData): Promise<void> {
     for (const ex of data.exercises) await this.saveExercise(ex);
-    for (const sp of data.splits) await this.saveSplit(sp);
     for (const s of data.sessions) await this.saveSession(s);
     await this.replacePRs(data.prs);
   }
@@ -343,117 +311,6 @@ export class SqlitePersistence implements Persistence {
 
   async deleteExercise(id: string): Promise<void> {
     await this.db.delete(t.exercises).where(eq(t.exercises.id, id));
-  }
-
-  async saveSplit(split: Split): Promise<void> {
-    const row = {
-      id: split.id,
-      name: split.name,
-      description: split.description ?? null,
-      builtIn: split.builtIn,
-    };
-    await this.db
-      .insert(t.splits)
-      .values(row)
-      .onConflictDoUpdate({ target: t.splits.id, set: row });
-
-    // Upsert then prune — never the reverse. Deleting the day structure
-    // first autocommits, so a rejected insert (SQLITE_BUSY, the WebView
-    // suspended mid-IPC) or an Android process kill in that window left the
-    // split permanently empty: mergeBuiltIns only adds splits whose id is
-    // MISSING, and the id survives, so nothing ever repaired it.
-    //
-    // Deduped on (dayId, exerciseId), the table's primary key. A day listing
-    // the same exercise twice is a UNIQUE violation inside load(); db-smoke
-    // rejects it in seed content, but splits are user-editable so the write
-    // path must not be fatal either.
-    const dayEx: { dayId: string; exerciseId: string; position: number }[] = [];
-    for (const d of split.days) {
-      const seen = new Set<string>();
-      for (const exId of d.exerciseIds) {
-        if (seen.has(exId)) continue;
-        seen.add(exId);
-        dayEx.push({ dayId: d.id, exerciseId: exId, position: seen.size - 1 });
-      }
-    }
-
-    if (split.days.length > 0) {
-      await this.db
-        .insert(t.splitDays)
-        .values(
-          split.days.map((d, i) => ({
-            id: d.id,
-            splitId: split.id,
-            name: d.name,
-            position: i,
-          })),
-        )
-        .onConflictDoUpdate({
-          target: t.splitDays.id,
-          set: {
-            splitId: sql`excluded.split_id`,
-            name: sql`excluded.name`,
-            position: sql`excluded.position`,
-          },
-        });
-    }
-    if (dayEx.length > 0) {
-      await this.db
-        .insert(t.splitDayExercises)
-        .values(dayEx)
-        .onConflictDoUpdate({
-          target: [t.splitDayExercises.dayId, t.splitDayExercises.exerciseId],
-          set: { position: sql`excluded.position` },
-        });
-    }
-
-    // Only now remove what actually disappeared. Both deletes are scoped to
-    // this split, so a concurrent edit to another split is untouched.
-    const dayIds = split.days.map((d) => d.id);
-    const keptPairs = new Set(dayEx.map((x) => `${x.dayId} ${x.exerciseId}`));
-    const staleRows = await this.sqlite.select<
-      { day_id: string; exercise_id: string }[]
-    >(
-      `SELECT sde.day_id, sde.exercise_id FROM split_day_exercises sde
-         JOIN split_days sd ON sd.id = sde.day_id
-        WHERE sd.split_id = $1`,
-      [split.id],
-    );
-    for (const r of staleRows) {
-      if (keptPairs.has(`${r.day_id} ${r.exercise_id}`)) continue;
-      await this.db
-        .delete(t.splitDayExercises)
-        .where(
-          and(
-            eq(t.splitDayExercises.dayId, r.day_id),
-            eq(t.splitDayExercises.exerciseId, r.exercise_id),
-          ),
-        );
-    }
-    await this.db
-      .delete(t.splitDays)
-      .where(
-        dayIds.length > 0
-          ? and(
-              eq(t.splitDays.splitId, split.id),
-              notInArray(t.splitDays.id, dayIds),
-            )
-          : eq(t.splitDays.splitId, split.id),
-      );
-  }
-
-  async deleteSplit(id: string): Promise<void> {
-    await this.db.delete(t.splitDayExercises).where(
-      inArray(
-        t.splitDayExercises.dayId,
-        this.db
-          .select({ id: t.splitDays.id })
-          .from(t.splitDays)
-          .where(eq(t.splitDays.splitId, id)),
-      ),
-    );
-    await this.db.delete(t.splitDays).where(eq(t.splitDays.splitId, id));
-    await this.db.delete(t.splits).where(eq(t.splits.id, id));
   }
 
   /**
@@ -489,8 +346,6 @@ export class SqlitePersistence implements Persistence {
       name: session.name,
       date: session.date,
       finishedAt: session.finishedAt ?? null,
-      splitId: session.splitId ?? null,
-      splitDayId: session.splitDayId ?? null,
       templateId: session.templateId ?? null,
       note: session.note ?? null,
     };

@@ -56,26 +56,9 @@ export interface Session {
   name: string;
   date: string; // ISO timestamp of start
   finishedAt?: string | undefined; // ISO timestamp when completed
-  splitId?: string | undefined;
-  splitDayId?: string | undefined;
   templateId?: string | undefined;
   entries: SessionEntry[];
   note?: string | undefined;
-}
-
-/** A day within a training split. */
-export interface SplitDay {
-  id: string;
-  name: string;
-  exerciseIds: string[];
-}
-
-export interface Split {
-  id: string;
-  name: string;
-  description?: string | undefined;
-  days: SplitDay[];
-  builtIn: boolean;
 }
 
 export type PRKind =
@@ -214,7 +197,6 @@ export interface Template {
 export interface AppData {
   version: number;
   exercises: Exercise[];
-  splits: Split[];
   sessions: Session[];
   prs: PersonalRecord[];
 }

@@ -16,7 +16,7 @@ export function Sheet({
 }: {
   title: string;
   onClose: () => void;
-  /** Off for sheets holding an uncommitted draft, e.g. the split editor. */
+  /** Off for sheets holding an uncommitted draft. */
   dismissOnBackdrop?: boolean;
   children: ReactNode;
 }) {
