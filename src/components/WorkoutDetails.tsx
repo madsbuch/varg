@@ -1,5 +1,6 @@
 import type { Exercise, Template } from "../types";
 import { libraryFor } from "../lib/library";
+import { LEVEL_LABEL } from "../lib/catalog";
 import { BattleTrack } from "./BattleTrack";
 import ExerciseAnim from "./ExerciseAnim";
 import { Sheet } from "./ui";
@@ -22,7 +23,10 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
 
   return (
     <Sheet title={template.name} onClose={onClose}>
-      <span className="chip gold">{template.branch}</span>
+      <span className="row" style={{ gap: 6, justifyContent: "flex-start", flexWrap: "wrap" }}>
+        <span className="chip gold">{template.branch}</span>
+        <span className={`chip level-${template.level}`}>{LEVEL_LABEL[template.level]}</span>
+      </span>
       <p className="muted">{template.description}</p>
       <div className="card">
         <h3 style={{ fontSize: 15 }}>The workout</h3>

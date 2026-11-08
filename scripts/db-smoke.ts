@@ -20,6 +20,7 @@ import * as t from "../src/db/schema";
 import { seedExercises, seedSplits, seedTemplates } from "../src/lib/seed";
 import { hasLibraryEntry, libraryFor } from "../src/lib/library";
 import { buildStyle, STYLE_LIMIT } from "../src/lib/music";
+import { lengthBucket } from "../src/lib/catalog";
 import * as prsModule from "../src/lib/prs";
 import { estimate1RM } from "../src/lib/units";
 import * as typesModule from "../src/types";
@@ -526,6 +527,22 @@ for (const probe of METRIC_PROBES) {
       assert(tpl.scheme.includes(part), `${where}: scheme "${tpl.scheme}" does not say "${part}"`);
     }
   }
+}
+
+// The library filters every workout by level and length. A template that
+// cannot say how long it takes would silently drop out of every length
+// filter, so: an estimate exactly when the length is not computable.
+for (const tpl of seedTemplates()) {
+  const where = `template "${tpl.name}"`;
+  assert(["beginner", "intermediate", "advanced"].includes(tpl.level), `${where}: level must be beginner, intermediate or advanced`);
+  const computed = tpl.interval !== undefined || tpl.flow !== undefined;
+  if (computed) {
+    assert(tpl.estimateMinutes === undefined, `${where}: has an exact clock time, so no estimateMinutes`);
+  } else {
+    const m = tpl.estimateMinutes;
+    assert(m !== undefined && Number.isInteger(m) && m >= 1 && m <= 600, `${where}: needs estimateMinutes (typical finishing time, 1-600)`);
+  }
+  assert(lengthBucket(tpl) !== undefined, `${where}: falls in no length bucket`);
 }
 
 // Every built-in's music description must fit the gateway's limit untrimmed — a

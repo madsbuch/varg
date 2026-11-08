@@ -286,6 +286,20 @@ input.invalid,
   font-size: 13px;
   font-weight: 700;
 }
+/* Level and length rows sit tight under the type row. */
+.filter-row.tight {
+  padding-top: 0;
+}
+.workout-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+/* Level reads at a glance: olive, brass, rust — easy to hard. */
+.chip.level-beginner { color: var(--accent); border-color: var(--accent-dim); }
+.chip.level-intermediate { color: var(--gold); border-color: #c0a95e; }
+.chip.level-advanced { color: var(--danger); border-color: #cf9a8b; }
 .filter-chip.on {
   background: var(--accent);
   border-color: var(--accent);

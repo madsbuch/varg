@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
   Exercise,
+  Level,
   Session,
   SessionEntry,
   Template,
@@ -26,6 +27,8 @@ import type { WodConfig } from "../lib/wod";
 import { configForTemplate } from "../lib/wod";
 import type { ForTimeConfig } from "../lib/fortime";
 import { bestForTime } from "../lib/fortime";
+import { LENGTHS, LEVEL_LABEL, lengthBucket, templateLength } from "../lib/catalog";
+import type { LengthId } from "../lib/catalog";
 import { loadFavorites, saveFavorites } from "../lib/favorites";
 import { unlockAudio } from "../lib/beep";
 import { ConfirmSheet, Sheet } from "../components/ui";
@@ -55,23 +58,6 @@ function setHasData(s: WorkoutSet): boolean {
   );
 }
 
-/**
- * Clock time an interval prescription actually takes: every station once
- * per round, with a rest between them but none after the very last one.
- */
-function intervalSeconds(
-  stations: number,
-  { work, rest, rounds }: { work: number; rest: number; rounds: number },
-): number {
-  const steps = stations * rounds;
-  return steps * work + Math.max(0, steps - 1) * rest;
-}
-
-/** Clock time of a flow: every hold, plus the moves between poses. */
-function flowSeconds(flow: { steps: { seconds: number }[]; transition: number }): number {
-  return flow.steps.reduce((sum, s) => sum + s.seconds, 0) + Math.max(0, flow.steps.length - 1) * flow.transition;
-}
-
 /** How a template runs when started — the library's filter categories. */
 type Kind = "interval" | "flow" | "forTime" | "logged";
 function kindOf(t: Template): Kind {
@@ -88,15 +74,28 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "logged", label: "Logged" },
 ];
 const FILTER_KEY = "varg.hunt.filter.v1";
+const LEVEL_KEY = "varg.hunt.level.v1";
+const LENGTH_KEY = "varg.hunt.length.v1";
 
-function loadFilter(): Filter {
+const LEVELS: Level[] = ["beginner", "intermediate", "advanced"];
+
+/** A remembered library choice, or the default when storage has none (or no storage). */
+function loadChoice<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
-    const f = localStorage.getItem(FILTER_KEY);
-    return FILTERS.some((x) => x.id === f) ? (f as Filter) : "all";
+    const v = localStorage.getItem(key);
+    return allowed.includes(v as T) ? (v as T) : fallback;
   } catch {
-    return "all";
+    return fallback;
   }
 }
+function saveChoice(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // remembered for this session only
+  }
+}
+const loadFilter = () => loadChoice<Filter>(FILTER_KEY, FILTERS.map((f) => f.id), "all");
 
 export default function Train() {
   const { data } = useApp();
@@ -131,6 +130,9 @@ function StartScreen() {
   );
   const [favorites, setFavorites] = useState(loadFavorites);
   const [filter, setFilter] = useState<Filter>(loadFilter);
+  const [level, setLevel] = useState<Level | "any">(() => loadChoice<Level | "any">(LEVEL_KEY, ["any", ...LEVELS], "any"));
+  const [length, setLength] = useState<LengthId | "any">(() =>
+    loadChoice<LengthId | "any">(LENGTH_KEY, ["any", ...LENGTHS.map((l) => l.id)], "any"));
   const [query, setQuery] = useState("");
 
   const toggleFavorite = (id: string) => {
@@ -144,17 +146,23 @@ function StartScreen() {
   };
   const chooseFilter = (f: Filter) => {
     setFilter(f);
-    try {
-      localStorage.setItem(FILTER_KEY, f);
-    } catch {
-      // remembered for this session only
-    }
+    saveChoice(FILTER_KEY, f);
+  };
+  const chooseLevel = (l: Level | "any") => {
+    setLevel(l);
+    saveChoice(LEVEL_KEY, l);
+  };
+  const chooseLength = (l: LengthId | "any") => {
+    setLength(l);
+    saveChoice(LENGTH_KEY, l);
   };
 
   const q = query.trim().toLowerCase();
   const shown = templates.filter((t) => {
     if (filter === "favorites" && !favorites.has(t.id)) return false;
     if (filter !== "all" && filter !== "favorites" && kindOf(t) !== filter) return false;
+    if (level !== "any" && t.level !== level) return false;
+    if (length !== "any" && lengthBucket(t) !== length) return false;
     if (!q) return true;
     return [t.name, t.branch, t.scheme, t.description].some((x) => x.toLowerCase().includes(q));
   });
@@ -235,6 +243,30 @@ function StartScreen() {
           </button>
         ))}
       </div>
+      <div className="filter-row tight" role="group" aria-label="Filter by level">
+        {(["any", ...LEVELS] as const).map((l) => (
+          <button
+            key={l}
+            className={`filter-chip ${level === l ? "on" : ""}`}
+            aria-pressed={level === l}
+            onClick={() => { chooseLevel(l); }}
+          >
+            {l === "any" ? "Any level" : LEVEL_LABEL[l]}
+          </button>
+        ))}
+      </div>
+      <div className="filter-row tight" role="group" aria-label="Filter by length">
+        {([{ id: "any", label: "Any length" }, ...LENGTHS] as const).map((l) => (
+          <button
+            key={l.id}
+            className={`filter-chip ${length === l.id ? "on" : ""}`}
+            aria-pressed={length === l.id}
+            onClick={() => { chooseLength(l.id); }}
+          >
+            {l.label}
+          </button>
+        ))}
+      </div>
 
       {shown.length === 0 && (
         <p className="muted" style={{ textAlign: "center", marginTop: 24 }}>
@@ -291,11 +323,7 @@ function TemplateCard({ t, favorite, best, onOpen, onStart, onToggleFavorite }: 
   onStart: () => void;
   onToggleFavorite: () => void;
 }) {
-  const duration = t.interval
-    ? intervalSeconds(t.exerciseIds.length, t.interval)
-    : t.flow
-      ? flowSeconds(t.flow)
-      : null;
+  const len = templateLength(t);
   // The card body opens the details sheet; star and Start now are their own
   // buttons beside it, never nested inside it.
   return (
@@ -319,18 +347,20 @@ function TemplateCard({ t, favorite, best, onOpen, onStart, onToggleFavorite }: 
         <span className="sub" style={{ display: "block", marginTop: 4, fontSize: 13 }}>
           {t.scheme}
         </span>
-        {duration !== null && (
-          <span className="chip accent" style={{ marginTop: 8 }}>
-            <IconClock style={{ width: 14, height: 14 }} /> {formatSeconds(duration)}{" "}
-            on the clock
-          </span>
-        )}
-        {t.forTime && (
-          <span className="chip accent" style={{ marginTop: 8 }}>
-            <IconClock style={{ width: 14, height: 14 }} />{" "}
-            {best != null ? `Best ${formatSeconds(best)}` : "For time · no best yet"}
-          </span>
-        )}
+        <span className="workout-card-chips">
+          <span className={`chip level-${t.level}`}>{LEVEL_LABEL[t.level]}</span>
+          {len && (
+            <span className="chip accent">
+              <IconClock style={{ width: 14, height: 14 }} />{" "}
+              {len.exact ? `${formatSeconds(len.seconds)} on the clock` : `≈ ${String(Math.round(len.seconds / 60))} min`}
+            </span>
+          )}
+          {t.forTime && (
+            <span className="chip accent">
+              {best != null ? `Best ${formatSeconds(best)}` : "For time · no best yet"}
+            </span>
+          )}
+        </span>
       </button>
       <div className="workout-card-actions">
         <button className="workout-card-link" onClick={onOpen}>
