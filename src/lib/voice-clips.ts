@@ -20,6 +20,7 @@ import { audioResults, createTask, download, getTask } from "./kie";
 import { duckMusic, getAudioContext } from "./beep";
 import type { Side } from "../types";
 import { buildSteps, configForTemplate } from "./wod";
+import { rideLine } from "./ride";
 import type { Step, VoiceRole } from "./wod";
 
 const GEMINI_MODEL = "google/gemini-3-1-flash-tts";
@@ -254,6 +255,16 @@ export function allVoiceLines(): VoiceLine[] {
       seen.add(id);
       out.push({ role: cfg.voice, text });
     }
+  }
+  // Rides: the workout voice names each segment ahead of it.
+  for (const t of seedTemplates()) {
+    t.ride?.segments.forEach((seg, i) => {
+      const text = rideLine(seg, i === 0);
+      const id = `workout|${text}`;
+      if (seen.has(id)) return;
+      seen.add(id);
+      out.push({ role: "workout", text });
+    });
   }
   return out;
 }

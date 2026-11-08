@@ -3,6 +3,7 @@
  * it takes, and whether that length is exact or a typical estimate.
  */
 import type { Level, Template } from "../types";
+import { rideSeconds } from "./ride";
 
 /**
  * Clock time an interval prescription actually takes: every station once
@@ -29,6 +30,10 @@ export function flowSeconds(flow: { steps: { seconds: number }[]; transition: nu
 export function templateLength(t: Template): { seconds: number; exact: boolean } | undefined {
   if (t.interval) return { seconds: intervalSeconds(t.exerciseIds.length, t.interval), exact: true };
   if (t.flow) return { seconds: flowSeconds(t.flow), exact: true };
+  if (t.ride) {
+    const s = rideSeconds(t.ride.segments);
+    if (s !== undefined) return { seconds: s, exact: true };
+  }
   if (t.estimateMinutes) return { seconds: t.estimateMinutes * 60, exact: false };
   return undefined;
 }

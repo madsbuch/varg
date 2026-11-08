@@ -17,7 +17,7 @@ import { eq } from "drizzle-orm";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as t from "../src/db/schema";
-import { seedExercises, seedSplits, seedTemplates } from "../src/lib/seed";
+import { EX, seedExercises, seedSplits, seedTemplates } from "../src/lib/seed";
 import { hasLibraryEntry, libraryFor } from "../src/lib/library";
 import { buildStyle, STYLE_LIMIT } from "../src/lib/music";
 import { lengthBucket } from "../src/lib/catalog";
@@ -529,13 +529,45 @@ for (const probe of METRIC_PROBES) {
   }
 }
 
+// Rides run in the ride player against live bike data. Each segment ends
+// on time or on kcal — exactly one — and its targets must be sane, or the
+// player shows a target no rider can hold. A kcal segment makes the ride a
+// race (scored by total time), so it must say so.
+{
+  const players = (t: { interval?: unknown; forTime?: unknown; flow?: unknown; ride?: unknown }) =>
+    [t.interval, t.forTime, t.flow, t.ride].filter((x) => x !== undefined).length;
+  for (const tpl of seedTemplates()) {
+    assert(players(tpl) <= 1, `template "${tpl.name}": more than one of interval, forTime, flow and ride`);
+    const r = tpl.ride;
+    if (!r) continue;
+    const where = `template "${tpl.name}" ride`;
+    assert(r.segments.length >= 1 && r.segments.length <= 100, `${where}: needs 1-100 segments`);
+    let anyKcal = false;
+    r.segments.forEach((sg, i) => {
+      const at = `${where} segment ${i + 1} ("${sg.label}")`;
+      assert((sg.seconds === undefined) !== (sg.kcal === undefined), `${at}: needs exactly one of seconds or kcal`);
+      if (sg.seconds !== undefined) assert(Number.isInteger(sg.seconds) && sg.seconds >= 5 && sg.seconds <= 4 * 3600, `${at}: seconds must be 5-14400`);
+      if (sg.kcal !== undefined) {
+        anyKcal = true;
+        assert(Number.isInteger(sg.kcal) && sg.kcal >= 5 && sg.kcal <= 3000, `${at}: kcal must be 5-3000`);
+      }
+      const [lo, hi] = sg.ftp;
+      assert(lo >= 20 && hi <= 300 && lo < hi, `${at}: FTP target ${lo}-${hi} % is not a sane range`);
+      if (sg.cadence) assert(sg.cadence[0] >= 40 && sg.cadence[1] <= 160 && sg.cadence[0] < sg.cadence[1], `${at}: cadence target is not a sane range`);
+    });
+    assert(anyKcal === (r.race === true), `${where}: a ride with kcal segments is a race (race: true), and only then`);
+    assert(tpl.exerciseIds.length === 1 && tpl.exerciseIds[0] === EX.spinBike, `${where}: exerciseIds must be [EX.spinBike]`);
+  }
+}
+
 // The library filters every workout by level and length. A template that
 // cannot say how long it takes would silently drop out of every length
 // filter, so: an estimate exactly when the length is not computable.
 for (const tpl of seedTemplates()) {
   const where = `template "${tpl.name}"`;
   assert(["beginner", "intermediate", "advanced"].includes(tpl.level), `${where}: level must be beginner, intermediate or advanced`);
-  const computed = tpl.interval !== undefined || tpl.flow !== undefined;
+  const computed = tpl.interval !== undefined || tpl.flow !== undefined ||
+    (tpl.ride !== undefined && tpl.ride.segments.every((sg) => sg.seconds !== undefined));
   if (computed) {
     assert(tpl.estimateMinutes === undefined, `${where}: has an exact clock time, so no estimateMinutes`);
   } else {

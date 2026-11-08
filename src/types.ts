@@ -178,6 +178,29 @@ export interface ForTimePlan {
   stages: ForTimeStage[];
 }
 
+/**
+ * One block of an indoor-bike ride. It ends after `seconds`, or once the
+ * rider has burned `kcal` more — exactly one of the two. The target is a
+ * share of the rider's FTP, so it follows the FTP set in Settings.
+ */
+export interface RideSegment {
+  /** What the block is, spoken and shown: "Zone 2", "Sweet spot", "Sprint". */
+  label: string;
+  /** Target power as % of FTP, low to high. */
+  ftp: [number, number];
+  seconds?: number | undefined;
+  kcal?: number | undefined;
+  /** Target cadence in rpm, low to high. */
+  cadence?: [number, number] | undefined;
+}
+
+/** A ride on the indoor bike, run by the ride player against live bike data. */
+export interface RidePlan {
+  segments: RideSegment[];
+  /** Scored by total time (kcal races): best time on the card, like for time. */
+  race?: boolean | undefined;
+}
+
 /** How hard a workout is to start with — the Hunt screen filters on it. */
 export type Level = "beginner" | "intermediate" | "advanced";
 
@@ -209,6 +232,12 @@ export interface Template {
    * steps, each its own length. Never set together with interval or forTime.
    */
   flow?: FlowPlan | undefined;
+  /**
+   * An indoor-bike ride: starting it launches the ride player, which reads
+   * power, cadence and kcal from the bike over Bluetooth. Never set
+   * together with interval, forTime or flow.
+   */
+  ride?: RidePlan | undefined;
 }
 
 export interface AppData {

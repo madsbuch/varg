@@ -102,6 +102,7 @@ export const EX = {
   bandPullup: "ex-band-pull-up",
   singleUnder: "ex-single-under",
   doubleUnder: "ex-double-under",
+  spinBike: "ex-spin-bike",
 } as const;
 
 export function seedExercises(): Exercise[] {
@@ -238,6 +239,7 @@ export function seedExercises(): Exercise[] {
     e(EX.bandPullup, "Band-Assisted Pull-up", "bodyweight", "reps", ["lats", "biceps"]),
     e(EX.singleUnder, "Single-Under", "conditioning", "reps", ["calves", "coordination"]),
     e(EX.doubleUnder, "Double-Under", "conditioning", "reps", ["calves", "coordination"]),
+    e(EX.spinBike, "Spin Bike", "cardio", "time", ["legs", "conditioning"]),
     e(EX.burpee, "Burpee", "conditioning", "reps", ["full body"]),
     e(EX.boxJump, "Box Jump", "conditioning", "reps", ["legs"]),
     e(EX.boxStepUp, "Box Step-up", "conditioning", "reps", ["legs", "glutes"]),
@@ -518,6 +520,139 @@ export function seedTemplates(): Template[] {
         style: "calm ambient, warm pads, soft piano, slow hand drums, no vocals",
         theme: "Twenty unhurried minutes of strength, balance and release — breathe and settle",
       },
+    },
+    // --- Indoor bike rides ----------------------------------------------------
+    // Targets are % of FTP (Settings → Cycling), so they follow the rider's
+    // FTP. Zones are Coggan's: Z2 56–75 %, sweet spot 88–94 %, VO2 106–120 %.
+    {
+      id: "tpl-ride-z2-40",
+      name: "Zone 2 · 40",
+      branch: "Spin bike",
+      description:
+        "Forty minutes in zone 2: easy enough to talk, steady enough to " +
+        "build the engine. The screen shows your watts against the zone, " +
+        "and the ride logs how much of it you spent on target.",
+      scheme: "40 min @ zone 2 (56–75 % FTP) · 85–95 rpm",
+      level: "beginner",
+      exerciseIds: [EX.spinBike],
+      ride: {
+        segments: [{ label: "Zone 2", ftp: [56, 75], seconds: 2400, cadence: [85, 95] }],
+      },
+      music: { bpm: 128, style: "steady deep house, warm bass, rolling groove, no vocals", theme: "Forty easy, even minutes — a long steady engine-building ride" },
+    },
+    {
+      id: "tpl-ride-200-kcal",
+      name: "First to 200 kcal",
+      branch: "Spin bike",
+      description:
+        "A race against the clock: 200 kcal as fast as you can make them. " +
+        "Kcal come from the bike, so it ends itself at 200; the target is " +
+        "threshold and above — pace it, then empty the tank.",
+      scheme: "200 kcal @ 95–120 % FTP — for time",
+      level: "intermediate",
+      estimateMinutes: 12,
+      exerciseIds: [EX.spinBike],
+      ride: {
+        race: true,
+        segments: [{ label: "All out", ftp: [95, 120], kcal: 200, cadence: [90, 110] }],
+      },
+      music: { bpm: 172, style: "hard electronic, driving drums, aggressive synth", theme: "A flat-out calorie race — no pacing after halfway" },
+    },
+    {
+      id: "tpl-ride-sweet-spot",
+      name: "Sweet Spot 3×10",
+      branch: "Spin bike",
+      description:
+        "The FTP builder: three ten-minute blocks just under threshold, five " +
+        "easy minutes between, a ten-minute warm-up and a five-minute spin " +
+        "to finish.",
+      scheme: "10 min warm-up · 3 × 10 min @ 88–94 % FTP, 5 min easy between · 5 min cool-down",
+      level: "intermediate",
+      exerciseIds: [EX.spinBike],
+      // 600 + 600 + 300 + 600 + 300 + 600 + 300 = 3300 s (55:00).
+      ride: {
+        segments: [
+          { label: "Warm-up", ftp: [50, 65], seconds: 600, cadence: [85, 95] },
+          { label: "Sweet spot", ftp: [88, 94], seconds: 600, cadence: [85, 95] },
+          { label: "Easy spin", ftp: [45, 55], seconds: 300 },
+          { label: "Sweet spot", ftp: [88, 94], seconds: 600, cadence: [85, 95] },
+          { label: "Easy spin", ftp: [45, 55], seconds: 300 },
+          { label: "Sweet spot", ftp: [88, 94], seconds: 600, cadence: [85, 95] },
+          { label: "Cool-down", ftp: [40, 55], seconds: 300 },
+        ],
+      },
+      music: { bpm: 132, style: "progressive house, building synths, steady kick, no vocals", theme: "Long controlled efforts just under the red line" },
+    },
+    {
+      id: "tpl-ride-vo2-5x3",
+      name: "VO2 Max 5×3",
+      branch: "Spin bike",
+      description:
+        "Five three-minute efforts above threshold with equal recovery. Hard " +
+        "from the second minute of each — that's the point.",
+      scheme: "10 min warm-up · 5 × 3 min @ 106–120 % FTP, 3 min easy between · 5 min cool-down",
+      level: "advanced",
+      exerciseIds: [EX.spinBike],
+      // 600 + 5 × (180 + 180) + 300 = 2700 s (45:00); the fifth recovery
+      // runs straight into the cool-down.
+      ride: {
+        segments: [
+          { label: "Warm-up", ftp: [50, 70], seconds: 600, cadence: [85, 95] },
+          ...[1, 2, 3, 4, 5].flatMap((n) => [
+            { label: `VO2 effort ${String(n)}`, ftp: [106, 120] as [number, number], seconds: 180, cadence: [95, 105] as [number, number] },
+            { label: "Easy spin", ftp: [40, 55] as [number, number], seconds: 180 },
+          ]),
+          { label: "Cool-down", ftp: [40, 55], seconds: 300 },
+        ],
+      },
+      music: { bpm: 140, style: "hard techno, pounding kick, rising tension, no vocals", theme: "Three minutes at a time, deep in the red" },
+    },
+    {
+      id: "tpl-ride-tabata",
+      name: "Bike Tabata",
+      branch: "Spin bike",
+      description:
+        "Eight rounds of 20 seconds all out, 10 seconds easy, after a proper " +
+        "warm-up. Four minutes that feel like forty.",
+      scheme: "8 min warm-up · 8 × 20 s all out (150 %+ FTP) / 10 s easy · 6 min cool-down",
+      level: "advanced",
+      exerciseIds: [EX.spinBike],
+      // 480 + 8 × 30 + 360 = 1080 s (18:00).
+      ride: {
+        segments: [
+          { label: "Warm-up", ftp: [50, 65], seconds: 480, cadence: [85, 95] },
+          ...[1, 2, 3, 4, 5, 6, 7, 8].flatMap(() => [
+            { label: "Sprint", ftp: [150, 250] as [number, number], seconds: 20, cadence: [110, 130] as [number, number] },
+            { label: "Easy", ftp: [30, 50] as [number, number], seconds: 10 },
+          ]),
+          { label: "Cool-down", ftp: [40, 55], seconds: 360 },
+        ],
+      },
+      music: { bpm: 174, style: "frantic drum and bass, huge drops, no vocals", theme: "Eight sprints, nothing held back" },
+    },
+    {
+      id: "tpl-ride-kcal-ladder",
+      name: "Calorie Ladder",
+      branch: "Spin bike",
+      description:
+        "A race up a ladder: 50, 100, then 150 kcal at threshold, with three " +
+        "easy minutes between rungs. The clock never stops — the score is " +
+        "your total time.",
+      scheme: "50 kcal · 3 min easy · 100 kcal · 3 min easy · 150 kcal @ 95–110 % FTP — for time",
+      level: "intermediate",
+      estimateMinutes: 26,
+      exerciseIds: [EX.spinBike],
+      ride: {
+        race: true,
+        segments: [
+          { label: "Rung one", ftp: [95, 110], kcal: 50, cadence: [90, 100] },
+          { label: "Easy spin", ftp: [45, 55], seconds: 180 },
+          { label: "Rung two", ftp: [95, 110], kcal: 100, cadence: [90, 100] },
+          { label: "Easy spin", ftp: [45, 55], seconds: 180 },
+          { label: "Rung three", ftp: [95, 110], kcal: 150, cadence: [90, 100] },
+        ],
+      },
+      music: { bpm: 150, style: "driving electro, big bassline, no vocals", theme: "Climb the ladder — every rung longer than the last" },
     },
     // --- CrossFit benchmarks, for time ------------------------------------
     // The classic "Girls" at their standard prescription, and scaled

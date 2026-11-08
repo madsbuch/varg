@@ -23,6 +23,9 @@ import { BattleTrack } from "../components/BattleTrack";
 import { WorkoutDetails } from "../components/WorkoutDetails";
 import WodPlayer from "../components/WodPlayer";
 import ForTimePlayer from "../components/ForTimePlayer";
+import RidePlayer from "../components/RidePlayer";
+import type { RideConfig } from "../lib/ride";
+import { bestRide } from "../lib/ride";
 import type { WodConfig } from "../lib/wod";
 import { configForTemplate } from "../lib/wod";
 import type { ForTimeConfig } from "../lib/fortime";
@@ -59,9 +62,9 @@ function setHasData(s: WorkoutSet): boolean {
 }
 
 /** How a template runs when started — the library's filter categories. */
-type Kind = "interval" | "flow" | "forTime" | "logged";
+type Kind = "interval" | "flow" | "forTime" | "ride" | "logged";
 function kindOf(t: Template): Kind {
-  return t.interval ? "interval" : t.flow ? "flow" : t.forTime ? "forTime" : "logged";
+  return t.interval ? "interval" : t.flow ? "flow" : t.forTime ? "forTime" : t.ride ? "ride" : "logged";
 }
 
 type Filter = "all" | "favorites" | Kind;
@@ -71,6 +74,7 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "interval", label: "Intervals" },
   { id: "flow", label: "Yoga" },
   { id: "forTime", label: "For time" },
+  { id: "ride", label: "Bike" },
   { id: "logged", label: "Logged" },
 ];
 const FILTER_KEY = "varg.hunt.filter.v1";
@@ -121,6 +125,7 @@ function StartScreen() {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [runningWod, setRunningWod] = useState<WodConfig | null>(null);
   const [runningForTime, setRunningForTime] = useState<ForTimeConfig | null>(null);
+  const [runningRide, setRunningRide] = useState<RideConfig | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   // Alphabetical, Danish collation so æ/ø/å sort where a Dane expects, and
   // numeric so "Mobility 5" comes before "Mobility 20".
@@ -189,6 +194,13 @@ function StartScreen() {
       unlockAudio(); // must happen inside the tap gesture
       setSelectedTemplate(null);
       setRunningForTime({ title: tpl.name, templateId: tpl.id, stages, exercises });
+      return;
+    }
+    if (tpl.ride) {
+      // Indoor bike: segments against live power from the paired bike.
+      unlockAudio(); // must happen inside the tap gesture
+      setSelectedTemplate(null);
+      setRunningRide({ title: tpl.name, templateId: tpl.id, segments: tpl.ride.segments, race: tpl.ride.race === true });
       return;
     }
     if (tpl.flow || tpl.interval) {
@@ -280,7 +292,9 @@ function StartScreen() {
           key={t.id}
           t={t}
           favorite={favorites.has(t.id)}
-          best={t.forTime ? bestForTime(data.sessions, t.id, t.forTime.stages.length) : undefined}
+          best={t.forTime
+            ? bestForTime(data.sessions, t.id, t.forTime.stages.length)
+            : t.ride?.race ? bestRide(data.sessions, t.id, t.ride.segments.length) : undefined}
           onOpen={() => { setSelectedTemplate(t); }}
           onStart={() => { startFromTemplate(t.id); }}
           onToggleFavorite={() => { toggleFavorite(t.id); }}
@@ -310,6 +324,9 @@ function StartScreen() {
       )}
       {runningForTime && (
         <ForTimePlayer config={runningForTime} onClose={() => { setRunningForTime(null); }} />
+      )}
+      {runningRide && (
+        <RidePlayer config={runningRide} onClose={() => { setRunningRide(null); }} />
       )}
     </div>
   );
@@ -355,7 +372,7 @@ function TemplateCard({ t, favorite, best, onOpen, onStart, onToggleFavorite }: 
               {len.exact ? `${formatSeconds(len.seconds)} on the clock` : `≈ ${String(Math.round(len.seconds / 60))} min`}
             </span>
           )}
-          {t.forTime && (
+          {(t.forTime ?? t.ride?.race) && (
             <span className="chip accent">
               {best != null ? `Best ${formatSeconds(best)}` : "For time · no best yet"}
             </span>

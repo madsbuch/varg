@@ -68,7 +68,11 @@ should shape what you build:
    also gets a `level` (beginner / intermediate / advanced — how hard it is
    to start with) and, unless it is an interval or flow whose length is
    computed, `estimateMinutes`: the typical finishing time the library's
-   length filter and cards use.
+   length filter and cards use. An indoor-bike session gets `ride`
+   segments instead: each targets a % of FTP (the rider's FTP lives in
+   Settings, so watts follow it) and ends on `seconds` or on `kcal` —
+   exactly one. Any kcal segment makes it a race (`race: true`), scored by
+   total time.
 4. Run `bun run build && bun run db:smoke`. The smoke test is the only
    reviewer this content gets. It asserts that every built-in exercise has its
    own animation, that no template or split references an exercise that does
@@ -169,6 +173,12 @@ joints and makes limbs shrink in the intermediate frames.
   Do not move distance tracking into JavaScript — it would stop at the
   pocket. Every GPS failure is shown on the stage in red; never fall back to
   a quiet "off".
+- **The bike.** Power, cadence and kcal come from the bike over Bluetooth
+  ([`src-tauri/plugins/varg-bike`](src-tauri/plugins/varg-bike)), which
+  only forwards raw FTMS / Cycling Power packets; all byte parsing is in
+  [`src/lib/bike.ts`](src/lib/bike.ts), unit-tested. Keep it that way —
+  native code is the part nobody can test without the bike. No data is
+  shown in red with a manual Done for kcal targets, never a silent stall.
 - **Spoken cues.** Guided workouts name what comes next — the first
   exercise in the lead-in, the next one as each rest or move begins — in a
   calm yoga voice or a firm workout voice. The lines are generated through

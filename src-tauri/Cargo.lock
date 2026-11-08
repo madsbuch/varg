@@ -4325,6 +4325,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-varg-bike"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+]
+
+[[package]]
 name = "tauri-plugin-varg-gps"
 version = "0.1.0"
 dependencies = [
@@ -4979,6 +4988,7 @@ dependencies = [
  "tauri-plugin-http",
  "tauri-plugin-process",
  "tauri-plugin-sql",
+ "tauri-plugin-varg-bike",
  "tauri-plugin-varg-gps",
  "tauri-plugin-varg-voice",
 ]
