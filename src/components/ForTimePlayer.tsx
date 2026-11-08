@@ -107,7 +107,8 @@ export default function ForTimePlayer({
    */
   const [carried, setCarried] = useState<Record<number, number>>({});
   const isGpsStage =
-    gpsOn && !ready && !done && stage?.meters != null && exercise?.metric === "distance_time";
+    // Outdoor distance only: a 1000 m row on an erg must not start GPS.
+    gpsOn && !ready && !done && stage?.meters != null && exercise !== undefined && libraryFor(exercise).gps === true;
   // Paused: the tracker is stopped, so distance walked meanwhile never counts.
   const gpsStageIdx = isGpsStage && !paused ? stageIdx : -1;
   const gpsTarget = isGpsStage && !reopened.has(stageIdx) ? (stage.meters ?? 0) : 0;

@@ -10,6 +10,8 @@ import { EX } from "./seed";
 interface LibraryEntry {
   anim: AnimKey;
   cues: string[];
+  /** Measured outdoors over distance: the for-time player offers GPS for it. */
+  gps?: true;
   /**
    * For one-sided poses: which side the animation as drawn demonstrates.
    * The player mirrors it for the other side. Front-facing figures show the
@@ -413,6 +415,62 @@ const LIB: Record<string, LibraryEntry> = {
       "Lift the arms overhead and the chest up. Cushion the back knee if it's sore.",
     ],
   },
+  [EX.ringRow]: {
+    anim: "ringRow",
+    cues: [
+      "Rings at hip height or higher; heels on the floor, body in one straight line.",
+      "Pull the chest to the rings, elbows back, squeeze the shoulder blades.",
+      "Too hard: walk the feet back to stand more upright. Too easy: walk them forward.",
+    ],
+  },
+  [EX.deadHang]: {
+    anim: "deadHang",
+    cues: [
+      "Full grip on the bar, hands just outside the shoulders, arms long.",
+      "Ribs down, legs together and still — no swinging.",
+      "Builds the grip and shoulders your first pull-up needs. Step down before the hands slip.",
+    ],
+  },
+  [EX.scapPull]: {
+    anim: "scapPull",
+    cues: [
+      "Hang with straight arms; the elbows never bend.",
+      "Pull the shoulders down away from the ears — the body rises a few centimetres.",
+      "Pause at the top, lower with control. This is the first inch of every pull-up.",
+    ],
+  },
+  [EX.pullupNegative]: {
+    anim: "pullupNegative",
+    cues: [
+      "Step or jump up so the chin is over the bar.",
+      "Lower as slowly as you can — aim for 3–5 seconds down to straight arms.",
+      "Step back up; never jump down. Slow negatives build the strength to pull up.",
+    ],
+  },
+  [EX.bandPullup]: {
+    anim: "bandPullup",
+    cues: [
+      "Loop a band over the bar and stand or kneel in it; thicker band, more help.",
+      "Pull the chest towards the bar, chin over, then lower under control.",
+      "Move to a thinner band when 8 clean reps feel easy.",
+    ],
+  },
+  [EX.singleUnder]: {
+    anim: "singleUnder",
+    cues: [
+      "Elbows close to the ribs; the turn comes from the wrists, not the arms.",
+      "Small, quick hops on the balls of the feet — just high enough for the rope.",
+      "Tripped? Reset and keep going; rhythm matters more than speed.",
+    ],
+  },
+  [EX.doubleUnder]: {
+    anim: "doubleUnder",
+    cues: [
+      "A slightly higher hop, body straight, feet together.",
+      "Flick the wrists twice as fast so the rope passes under twice per jump.",
+      "Can't link them yet? Do 3 single-unders per attempt in the same time instead.",
+    ],
+  },
   [EX.savasana]: {
     anim: "savasana",
     cues: [
@@ -471,6 +529,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.run]: {
     anim: "run",
+    gps: true,
     cues: [
       "Tall posture, slight forward lean.",
       "Quick cadence (~180 steps/min), land under the hips.",
@@ -495,6 +554,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.ruck]: {
     anim: "ruck",
+    gps: true,
     cues: [
       "Pack high and tight against the back.",
       "Aggressive walking pace — stride out, don't jog it all.",

@@ -256,6 +256,52 @@ const seatedFold = (lean: number) =>
 const corpse = (spine: number) =>
   pose([50, 86], -90, [83.9, 87], [50, 87], { farFoot: [83.9, 86.5], farHand: [49, 87.5], knees: [-1, -1], elbows: [-1, -1], headLean: -90, spine });
 
+/* --- Pull-up progressions and jump rope ------------------------------------ */
+/** Ring row: heels planted, a straight body pivots about them, hands on the rings. */
+const RINGS: Point = [38, 38.5];
+function ringRowAt(angle: number): Pose {
+  const heel: Point = [84, 88];
+  const hip = add(heel, vector(angle, LEG * 2));
+  return pose(hip, angle + 90, heel, RINGS, { farFoot: heel, farHand: add(RINGS, [-1.5, 0]), knees: [-1, -1], elbows: [1, 1], headLean: angle + 90 });
+}
+const ringStraps = gear("M36.5 6 V38.5 M38 6 V38.5");
+/** Hanging from the bar with the shoulders "packed" — the scapular pull. */
+const hangPacked: Pose = { ...hangLow, hip: [49, 55.5], feet: [add(hangLow.feet[0], [0, -2.5]), add(hangLow.feet[1], [0, -2.5])] };
+/** Resistance band looped over the bar and under the near foot. */
+const bandGear = (_t: number, s: Skeleton) => {
+  const foot = required(required(s.legs, 1), 2);
+  return { shapes: [pullBar, gear(path([[46, 11], foot, [52, 11]]))] };
+};
+/**
+ * Jump rope, seen from the front. The rope is a curve from hand to hand
+ * through a point travelling round the body — over the head, under the
+ * feet — timed so it passes under the feet while they are in the air.
+ */
+function ropeFrame(t: number, turns: number, airtime: (t: number) => number): Pose & { ropePoint: Point } {
+  const lift = airtime(t);
+  const hip: Point = [49, 55.5 - lift];
+  const theta = TAU * turns * t;
+  const wrist = (side: number): Point => add([49 + side * 9, 51.5 - lift], [side * 1.2 * Math.sin(theta), 1.2 * Math.cos(theta)]);
+  const p = pose(hip, 0, [52, 88 - lift], wrist(1), { farFoot: [46, 88 - lift], farHand: wrist(-1), knees: [-1, 1], elbows: [-1, 1] });
+  return { ...p, ropePoint: [49, 55 - 33.5 * Math.cos(theta)] };
+}
+function ropeMotion(dur: number, turns: number, airtime: (t: number) => number): Motion {
+  return {
+    dur,
+    at: (t: number) => {
+      const { ropePoint: _r, ...p } = ropeFrame(t, turns, airtime);
+      return p;
+    },
+    equipment: (t: number, s: Skeleton) => {
+      const { ropePoint } = ropeFrame(t, turns, airtime);
+      const a = s.arms[0][2], b = s.arms[1][2];
+      // Quadratic through the rope point: control = 2p − midpoint of the hands.
+      const c: Point = [2 * ropePoint[0] - (a[0] + b[0]) / 2, 2 * ropePoint[1] - (a[1] + b[1]) / 2];
+      return { shapes: [gear(`M${f(a[0])} ${f(a[1])} Q${f(c[0])} ${f(c[1])} ${f(b[0])} ${f(b[1])}`)] };
+    },
+  };
+}
+
 export const MOTIONS = {
   rest: rep(4, standing([58, 52]), pose(standHip, 0, [54, 88], [58, 51.5], { farFoot: [39, 88], farHand: [34, 51.5], elbows: [-1, 1] })),
   squat: rep(3, squatTop, squatLow, handBar),
@@ -310,6 +356,18 @@ export const MOTIONS = {
   bench: rep(3, pose([57, 68], -90, [72, 88], [36, 44.2], { farFoot: [67, 88], farHand: [32, 44.2], elbows: [-1, -1], headLean: -90 }), pose([57, 68], -90, [72, 88], [43, 62], { farFoot: [67, 88], farHand: [39, 62], elbows: [-1, -1], headLean: -90 }), (t: number, s: Skeleton) => ({ shapes: [bench, ...handBar(t, s).shapes] })),
   row: rep(2.8, pose([38, 61], 57, [51, 88], [60, 72], { farFoot: [43, 88], elbows: [1, 1], headLean: 45 }), pose([38, 61], 57, [51, 88], [48, 59], { farFoot: [43, 88], elbows: [1, 1], headLean: 45 }), handBar),
   pullup: rep(3, hangLow, pullHigh, () => ({ shapes: [pullBar] })),
+  // A still hang: arms long, a slow breath, nothing else.
+  deadHang: { ...breathe(5, hangLow, { ...hangLow, hip: [49, 57.4], feet: [add(hangLow.feet[0], [0, -0.6]), add(hangLow.feet[1], [0, -0.6])] }), equipment: () => ({ shapes: [pullBar] }) },
+  // Arms stay straight; the shoulder blades pull down and the body rises a hand's width.
+  scapPull: rep(2.6, hangLow, hangPacked, () => ({ shapes: [pullBar] })),
+  // Get to the top (jump or step), then lower for as long as possible.
+  pullupNegative: { dur: 5, at: timeline([[0, hangLow], [0.12, pullHigh], [0.22, pullHigh], [0.86, hangLow], [1, hangLow]]), equipment: () => ({ shapes: [pullBar] }) },
+  bandPullup: rep(3, hangLow, pullHigh, bandGear),
+  ringRow: { dur: 2.8, at: (t: number) => ringRowAt(scalar(t, [[0, -152], [0.12, -152], [0.45, -136], [0.58, -136], [0.94, -152], [1, -152]])), equipment: () => ({ shapes: [ringStraps] }) },
+  // One turn per small hop, the rope under the feet at the top of it.
+  singleUnder: ropeMotion(0.8, 1, (t: number) => 3.5 * (1 - Math.cos(TAU * t)) / 2),
+  // Two turns per higher hop: the rope passes under twice while airborne.
+  doubleUnder: ropeMotion(1.1, 2, (t: number) => (t > 0.1 && t < 0.9 ? 7 * Math.sin(Math.PI * (t - 0.1) / 0.8) : 0)),
   hang: {
     dur: 3,
     at: (t: number) => {

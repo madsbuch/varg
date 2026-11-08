@@ -46,7 +46,10 @@ documented in [CLAUDE.md](CLAUDE.md).
   interval, or empty-workout builder.
 - **Workout library** — pick a template and go. Ships with a Træn med
   Forsvaret-inspired section (Grundtræning, Feltmarch, Kredsløbstræning)
-  plus Murph, ACFT, USMC PFT, Navy PRT, Cindy, DT, Chad 1000x, and more.
+  plus Murph, ACFT, USMC PFT, Navy PRT, Cindy, DT, Chad 1000x, the CrossFit
+  benchmarks Fran, Helen, Jackie, Karen, Kelly and Annie (each with a scaled
+  version where a movement is a barrier), two yoga flows, and a two-level
+  Pull-up Path from dead hangs to band-assisted pull-ups.
 - **Battle tracks (Suno) and spoken cues (ElevenLabs), one key** — both are
   generated through [kie.ai](https://kie.ai) with your own API key, set once
   in Settings. Each workout gets an instrumental Suno V6 track (up to six
