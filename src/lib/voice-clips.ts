@@ -317,7 +317,6 @@ export async function countReady(lines: VoiceLine[] = allVoiceLines()): Promise<
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** One line, as a kie.ai job: submit, poll until done, download the clip. */
 /** How each voice is directed: a calm teacher, a firm drill instructor. */
 const DIRECTION: Record<VoiceRole, {
   scene: string; context: string; profile: string; style: string; stability: number; speed: number;
@@ -340,39 +339,53 @@ const DIRECTION: Record<VoiceRole, {
   },
 };
 
-async function synthesize(s: VoiceSettings, role: VoiceRole, text: string): Promise<Blob> {
-  const voice = voiceIdFor(s, role);
+/**
+ * The job input for one line. Exported so scripts/kie-voice-probe.ts sends
+ * byte-for-byte what the app sends.
+ *
+ * ElevenLabs gets every field kie's own example sends, empty ones included.
+ * With only the five we set, kie accepted the job and then failed it with
+ * "Internal Error" for every voice; its backend appears to read the optional
+ * fields unconditionally.
+ */
+export function speechInput(model: string, role: VoiceRole, voice: string, text: string): Record<string, unknown> {
   const d = DIRECTION[role];
+  if (isGemini(model)) {
+    // Gemini speaks a scripted "dialogue": one speaker, one line, directed
+    // for the role.
+    return {
+      temperature: 1,
+      scene: d.scene,
+      sample_context: d.context,
+      speakers: [{
+        speaker_id: "Speaker 1",
+        voice_name: voice,
+        audio_profile: d.profile,
+        accent: "British (RP)",
+        style: d.style,
+        pace: "Natural",
+      }],
+      dialogue_turns: [{ speaker_id: "Speaker 1", text }],
+    };
+  }
+  return {
+    text,
+    voice,
+    stability: d.stability,
+    similarity_boost: 0.75,
+    style: 0,
+    speed: d.speed,
+    timestamps: false,
+    previous_text: "",
+    next_text: "",
+    language_code: "",
+  };
+}
+
+async function synthesize(s: VoiceSettings, role: VoiceRole, text: string): Promise<Blob> {
   const apiKey = loadMusicSettings().apiKey.trim();
   if (!apiKey) throw new Error("No kie.ai API key — add it in Settings.");
-  const taskId = await createTask(
-    apiKey,
-    s.model,
-    isGemini(s.model)
-      ? {
-          // Gemini speaks a scripted "dialogue": one speaker, one line,
-          // directed for the role.
-          temperature: 1,
-          scene: d.scene,
-          sample_context: d.context,
-          speakers: [{
-            speaker_id: "Speaker 1",
-            voice_name: voice,
-            audio_profile: d.profile,
-            accent: "British (RP)",
-            style: d.style,
-            pace: "Natural",
-          }],
-          dialogue_turns: [{ speaker_id: "Speaker 1", text }],
-        }
-      : {
-          text,
-          voice,
-          stability: d.stability,
-          similarity_boost: 0.75,
-          speed: d.speed,
-        },
-  );
+  const taskId = await createTask(apiKey, s.model, speechInput(s.model, role, voiceIdFor(s, role), text));
   for (let i = 0; i < 60; i++) {
     await sleep(i === 0 ? 1500 : 2000);
     const info = await getTask(apiKey, taskId);
