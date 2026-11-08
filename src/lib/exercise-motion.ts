@@ -288,9 +288,9 @@ function ropeFrame(t: number, turns: number, airtime: (t: number) => number): Po
 function ropeMotion(dur: number, turns: number, airtime: (t: number) => number): Motion {
   return {
     dur,
-    at: (t: number) => {
-      const { ropePoint: _r, ...p } = ropeFrame(t, turns, airtime);
-      return p;
+    at: (t: number): Pose => {
+      const p = ropeFrame(t, turns, airtime);
+      return { hip: p.hip, lean: p.lean, feet: p.feet, hands: p.hands, knees: p.knees, elbows: p.elbows, headLean: p.headLean, spine: p.spine, legProjection: p.legProjection };
     },
     equipment: (t: number, s: Skeleton) => {
       const { ropePoint } = ropeFrame(t, turns, airtime);
