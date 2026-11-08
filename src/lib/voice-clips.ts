@@ -26,7 +26,8 @@ const GEMINI_MODEL = "google/gemini-3-1-flash-tts";
 /**
  * kie.ai's text-to-speech models. Gemini is the default: kie's ElevenLabs
  * jobs were accepted and then failed server-side ("Internal Error") for
- * every voice in November 2026, while Gemini generated cleanly with the
+ * every voice in November 2026 (re-verified 8 Nov, even with kie's own docs
+ * example verbatim), while Gemini generated cleanly with the
  * same key. ElevenLabs stays selectable for when kie fixes it.
  */
 export const VOICE_MODELS = [
@@ -332,10 +333,11 @@ const DIRECTION: Record<VoiceRole, {
  * The job input for one line. Exported so scripts/kie-voice-probe.ts sends
  * byte-for-byte what the app sends.
  *
- * ElevenLabs gets every field kie's own example sends, empty ones included.
- * With only the five we set, kie accepted the job and then failed it with
- * "Internal Error" for every voice; its backend appears to read the optional
- * fields unconditionally.
+ * ElevenLabs gets every field kie's own example sends, empty ones included,
+ * so our input is never the variable. As of 8 Nov 2026 kie fails every
+ * ElevenLabs job with "Internal Error" [failCode 500] — its docs example
+ * sent verbatim, a bare text+voice, any voice, both models — while Gemini
+ * works on the same key. Re-check with `bun run voice:probe elevenlabs`.
  */
 export function speechInput(model: string, role: VoiceRole, voice: string, text: string): Record<string, unknown> {
   const d = DIRECTION[role];
