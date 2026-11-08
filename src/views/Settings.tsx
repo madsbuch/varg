@@ -99,7 +99,7 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
       <div className="card">
         <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
           One key from kie.ai pays for both the Suno battle tracks and the
-          ElevenLabs voice in the yoga flows. Everything is generated once and
+          spoken cues in the guided workouts. Everything is generated once and
           kept on this device; workouts never need the network.
         </div>
         <Field label="kie.ai API key">
@@ -208,7 +208,7 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
 }
 
 /**
- * The ElevenLabs voice for spoken pose names, through the shared kie.ai key.
+ * The voice for spoken cues (Gemini by default), through the shared kie.ai key.
  * Lines are generated once and cached on the device; until they are, the
  * phone's own voice stands in.
  */
