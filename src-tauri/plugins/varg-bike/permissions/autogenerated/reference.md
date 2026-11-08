@@ -1,6 +1,6 @@
 ## Default Permission
 
-Indoor bike link: ask for Bluetooth permission, scan, connect, disconnect, read the latest measurements.
+Indoor bike link: Bluetooth permission, scan, connect, disconnect, read measurements, and the ride's background service.
 
 #### This default permission set includes the following:
 
@@ -9,6 +9,10 @@ Indoor bike link: ask for Bluetooth permission, scan, connect, disconnect, read 
 - `allow-connect`
 - `allow-disconnect`
 - `allow-read`
+- `allow-start-ride`
+- `allow-schedule`
+- `allow-cue-audio`
+- `allow-stop-ride`
 
 ## Permission Table
 
@@ -41,6 +45,32 @@ Enables the connect command without any pre-configured scope.
 <td>
 
 Denies the connect command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:allow-cue-audio`
+
+</td>
+<td>
+
+Enables the cue_audio command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:deny-cue-audio`
+
+</td>
+<td>
+
+Denies the cue_audio command without any pre-configured scope.
 
 </td>
 </tr>
@@ -145,6 +175,84 @@ Enables the scan command without any pre-configured scope.
 <td>
 
 Denies the scan command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:allow-schedule`
+
+</td>
+<td>
+
+Enables the schedule command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:deny-schedule`
+
+</td>
+<td>
+
+Denies the schedule command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:allow-start-ride`
+
+</td>
+<td>
+
+Enables the start_ride command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:deny-start-ride`
+
+</td>
+<td>
+
+Denies the start_ride command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:allow-stop-ride`
+
+</td>
+<td>
+
+Enables the stop_ride command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:deny-stop-ride`
+
+</td>
+<td>
+
+Denies the stop_ride command without any pre-configured scope.
 
 </td>
 </tr>

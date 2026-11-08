@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-stop-ride"
+description = "Enables the stop_ride command without any pre-configured scope."
+commands.allow = ["stop_ride"]
+
+[[permission]]
+identifier = "deny-stop-ride"
+description = "Denies the stop_ride command without any pre-configured scope."
+commands.deny = ["stop_ride"]

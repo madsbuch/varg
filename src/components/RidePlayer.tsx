@@ -14,22 +14,22 @@ import { deleteSession, upsertSession } from "../lib/store";
 import { useBackHandler } from "../lib/back";
 import { cueFinish, cueTick, cueWork, unlockAudio } from "../lib/beep";
 import { formatSeconds } from "../lib/units";
-import { RideMeter, connectBike, loadBike, readBike } from "../lib/bike";
+import {
+  RideMeter, connectBike, loadBike, readBike, sendCueAudio, startRideService, stopRideService, updateRideSchedule,
+} from "../lib/bike";
 import type { BikeRead } from "../lib/bike";
 import {
-  bestRide, fit, loadFtp, recordedRide, rideLine, RideRun, shownAmount, targetWatts, zoneOf,
+  ANNOUNCE_AHEAD, bestRide, fit, loadFtp, recordedRide, rideLine, RideRun, rideSchedule, shownAmount, targetWatts, zoneOf,
 } from "../lib/ride";
 import type { RideConfig } from "../lib/ride";
 import { EX } from "../lib/seed";
 import { loadVoiceOn, saveVoiceOn, speak } from "../lib/voice";
-import { playClip, prepareClips } from "../lib/voice-clips";
+import { clipBlob, playClip, prepareClips } from "../lib/voice-clips";
 import ExerciseAnim from "./ExerciseAnim";
 import { IconCheck, IconClose, IconVoice } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
 
 const LEAD_IN = 10;
-/** Speak the next segment this long before a timed segment ends. */
-const ANNOUNCE_AHEAD = 10;
 
 interface Clock {
   anchor: number;
@@ -113,15 +113,26 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
       if (!alive) return;
       const now = Date.now();
       const c = clockRef.current;
-      // Paused or still in the lead-in: drain the packets but count nothing.
-      if (read && !pausedRef.current && rawTime(c, now) >= LEAD_IN) for (const p of read.packets) meter.current.add(p);
-      const t = rideTime(c, now);
       const r = run.current;
+      const visible = document.visibilityState === "visible";
+      const before = r.idx;
+      // Replay every packet at its own time — after a stretch in the
+      // background there can be thousands — so blocks end, kcal counts and
+      // time on target come out exactly as if Varg had been on screen.
+      // Paused, or still in the lead-in: drain the packets, count nothing.
+      if (read && !pausedRef.current) {
+        for (const p of read.packets) {
+          if (rawTime(c, p.t) < LEAD_IN) continue;
+          meter.current.add(p);
+          r.tick(rideTime(c, p.t), meter.current, true, p.t);
+        }
+      }
+      const t = rideTime(c, now);
       const live = read?.state === "connected" && now - meter.current.lastAt < 3000;
       if (rawTime(c, now) >= LEAD_IN && !pausedRef.current) {
-        const before = r.idx;
         r.tick(t, meter.current, live, now);
-        if (r.idx !== before) {
+        // Off screen, the background service beeps and speaks instead.
+        if (r.idx !== before && visible) {
           if (r.done) cueFinish();
           else cueWork();
         }
@@ -135,7 +146,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
           const soon = cur.seconds !== undefined ? left <= ANNOUNCE_AHEAD : left <= Math.max(5, (cur.kcal ?? 0) * 0.05);
           if (soon) {
             spokenFor.current = r.idx;
-            say.current(rideLine(next, false));
+            if (visible) say.current(rideLine(next, false));
           }
         }
       }
@@ -178,6 +189,37 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
       void speak(text).catch(() => undefined);
     };
   }, [voiceOn, clips]);
+  // --- Background: keep riding while another app is on screen ---------------
+  // The native service holds the bike, records packets, shows the ride in a
+  // notification and plays the cues while Varg is away. Start it with the
+  // ride, hand it the voice clips, keep its schedule current, stop it at the end.
+  const [serviceError, setServiceError] = useState<string | null>(null);
+  const scheduleNow = useCallback(() => {
+    const r = run.current;
+    const c = clockRef.current;
+    return rideSchedule(config.segments, r.idx, c.anchor + (LEAD_IN + r.segmentStart) * 1000, c.pausedAt !== null);
+  }, [config.segments]);
+  useEffect(() => {
+    startRideService(config.title, scheduleNow())
+      .then(async () => {
+        for (const [i, seg] of config.segments.entries()) {
+          const text = rideLine(seg, i === 0);
+          const blob = await clipBlob("workout", text);
+          if (blob) await sendCueAudio(text, blob);
+        }
+      })
+      .catch((e: unknown) => { setServiceError(e instanceof Error ? e.message : String(e)); });
+    return () => { void stopRideService().catch(() => undefined); };
+  }, [config.title, config.segments, scheduleNow]);
+  // A new block, a pause or a resume moves every future cue.
+  useEffect(() => {
+    if (done) {
+      void stopRideService().catch(() => undefined);
+      return;
+    }
+    void updateRideSchedule(scheduleNow()).catch(() => undefined);
+  }, [view.idx, clock, done, scheduleNow]);
+
   const spokeFirst = useRef(false);
   useEffect(() => {
     if (spokeFirst.current || !clips || !config.segments[0]) return;
@@ -389,6 +431,11 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
           <div><strong>{Math.round(view.kcal)}</strong><span>kcal</span></div>
           <div className="ride-anim"><ExerciseAnim anim="spinBike" size={56} /></div>
         </div>
+        {serviceError && (
+          <div className="fortime-gps bad">
+            Can't keep riding in the background: {serviceError} Keep Varg on screen.
+          </div>
+        )}
         {bikeProblem && (
           <div className="fortime-gps bad">
             {bikeProblem}

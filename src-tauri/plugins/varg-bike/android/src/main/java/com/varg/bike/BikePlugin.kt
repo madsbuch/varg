@@ -4,22 +4,19 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothGatt
-import android.bluetooth.BluetoothGattCallback
-import android.bluetooth.BluetoothGattCharacteristic
-import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
-import android.bluetooth.BluetoothProfile
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
+import android.util.Base64
+import androidx.core.content.ContextCompat
 import app.tauri.PermissionState
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
@@ -30,8 +27,8 @@ import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
-import java.util.UUID
-import java.util.concurrent.ConcurrentLinkedQueue
+import java.io.File
+import java.security.MessageDigest
 
 @InvokeArg
 class ScanArgs {
@@ -43,38 +40,52 @@ class ConnectArgs {
     var address: String = ""
 }
 
-private fun uuid16(short: Int): UUID =
-    UUID.fromString(String.format("0000%04x-0000-1000-8000-00805f9b34fb", short))
+@InvokeArg
+class StartRideArgs {
+    var title: String = "Ride"
+    var schedule: String = "{}"
+}
 
-private val FTMS = uuid16(0x1826)
-private val INDOOR_BIKE_DATA = uuid16(0x2AD2)
-private val CYCLING_POWER = uuid16(0x1818)
-private val POWER_MEASUREMENT = uuid16(0x2A63)
-private val CCCD = uuid16(0x2902)
+@InvokeArg
+class ScheduleArgs {
+    var schedule: String = "{}"
+}
+
+@InvokeArg
+class CueAudioArgs {
+    var text: String = ""
+    var b64: String = ""
+    var ext: String = "mp3"
+}
 
 /**
- * Bluetooth LE link to an indoor bike. Scans for the two standard services
- * bikes use — Fitness Machine (FTMS, power + cadence + energy) and Cycling
- * Power — connects, subscribes to the measurement, and queues every raw
- * packet. The frontend drains the queue and parses the bytes; this side
- * knows nothing about watts. Every failure is a rejected invoke or an
- * `error` in the state the ride player shows.
+ * Bluetooth LE link to an indoor bike, plus the ride's background service.
+ * Scans for the two standard services bikes use — Fitness Machine (FTMS)
+ * and Cycling Power — and hands the connection to BikeLink, which records
+ * raw packets for the frontend to parse. Every failure is a rejected
+ * invoke or an `error` in the state the ride player shows.
  */
 @TauriPlugin(
     permissions = [
         Permission(strings = [Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT], alias = "bluetooth"),
         Permission(strings = [Manifest.permission.ACCESS_FINE_LOCATION], alias = "location"),
+        Permission(strings = [Manifest.permission.POST_NOTIFICATIONS], alias = "notifications"),
     ],
 )
 class BikePlugin(private val activity: Activity) : Plugin(activity) {
     private val main = Handler(Looper.getMainLooper())
-    private val packets = ConcurrentLinkedQueue<JSObject>()
     private val found = LinkedHashMap<String, JSObject>()
-    private var gatt: BluetoothGatt? = null
-    @Volatile private var state = "disconnected"
-    @Volatile private var protocol = ""
-    @Volatile private var deviceName = ""
-    @Volatile private var error: String? = null
+
+    // The ride service speaks only while Varg is off screen.
+    override fun onResume() {
+        super.onResume()
+        BikeLink.appVisible = true
+    }
+
+    override fun onPause() {
+        super.onPause()
+        BikeLink.appVisible = false
+    }
 
     private fun adapter(): BluetoothAdapter? =
         (activity.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager?)?.adapter
@@ -90,7 +101,10 @@ class BikePlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve(JSObject().put("granted", true))
             return
         }
-        requestPermissionForAlias(neededAlias(), invoke, "permissionsDone")
+        // Android 13+: also the notification, so a ride in the background
+        // shows its block and time left. Riding works without it.
+        val aliases = if (Build.VERSION.SDK_INT >= 33) arrayOf(neededAlias(), "notifications") else arrayOf(neededAlias())
+        requestPermissionForAliases(aliases, invoke, "permissionsDone")
     }
 
     @PermissionCallback
@@ -120,6 +134,7 @@ class BikePlugin(private val activity: Activity) : Plugin(activity) {
             return
         }
         synchronized(found) { found.clear() }
+        var scanError: String? = null
         val callback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
                 val services = result.scanRecord?.serviceUuids?.map { it.uuid } ?: emptyList()
@@ -137,7 +152,7 @@ class BikePlugin(private val activity: Activity) : Plugin(activity) {
             }
 
             override fun onScanFailed(errorCode: Int) {
-                error = "Bluetooth scan failed (code $errorCode)."
+                scanError = "Bluetooth scan failed (code $errorCode)."
             }
         }
         val filters = listOf(
@@ -145,7 +160,6 @@ class BikePlugin(private val activity: Activity) : Plugin(activity) {
             ScanFilter.Builder().setServiceUuid(ParcelUuid(CYCLING_POWER)).build(),
         )
         val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
-        error = null
         scanner.startScan(filters, settings, callback)
         main.postDelayed({
             try {
@@ -155,115 +169,32 @@ class BikePlugin(private val activity: Activity) : Plugin(activity) {
             synchronized(found) { found.values.forEach { list.put(it) } }
             val o = JSObject()
             o.put("devices", list)
-            error?.let { o.put("error", it) }
+            scanError?.let { o.put("error", it) }
             invoke.resolve(o)
         }, args.seconds.coerceIn(2, 20) * 1000L)
     }
 
-    private val callback = object : BluetoothGattCallback() {
-        @SuppressLint("MissingPermission")
-        override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
-            if (newState == BluetoothProfile.STATE_CONNECTED) {
-                state = "discovering"
-                g.discoverServices()
-            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                if (state != "disconnected") error = "The bike disconnected (status $status)."
-                state = "disconnected"
-                g.close()
-                if (gatt == g) gatt = null
-            }
-        }
-
-        @SuppressLint("MissingPermission")
-        override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
-            // Prefer FTMS: it carries cadence and energy as well as power.
-            val ch = g.getService(FTMS)?.getCharacteristic(INDOOR_BIKE_DATA)?.also { protocol = "ftms" }
-                ?: g.getService(CYCLING_POWER)?.getCharacteristic(POWER_MEASUREMENT)?.also { protocol = "cps" }
-            if (ch == null) {
-                error = "This device has no bike power data (FTMS or Cycling Power)."
-                state = "disconnected"
-                g.disconnect()
-                return
-            }
-            g.setCharacteristicNotification(ch, true)
-            val d = ch.getDescriptor(CCCD)
-            if (d == null) {
-                error = "The bike does not allow notifications."
-                return
-            }
-            if (Build.VERSION.SDK_INT >= 33) {
-                g.writeDescriptor(d, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
-            } else {
-                @Suppress("DEPRECATION")
-                d.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                @Suppress("DEPRECATION")
-                g.writeDescriptor(d)
-            }
-            state = "connected"
-        }
-
-        // Android 13+ delivers the value directly; older versions read it off
-        // the characteristic. Both land in the same queue.
-        override fun onCharacteristicChanged(g: BluetoothGatt, ch: BluetoothGattCharacteristic, value: ByteArray) {
-            enqueue(ch.uuid, value)
-        }
-
-        @Deprecated("Deprecated in Java")
-        override fun onCharacteristicChanged(g: BluetoothGatt, ch: BluetoothGattCharacteristic) {
-            if (Build.VERSION.SDK_INT < 33) {
-                @Suppress("DEPRECATION")
-                enqueue(ch.uuid, ch.value ?: return)
-            }
-        }
-    }
-
-    private fun enqueue(uuid: UUID, value: ByteArray) {
-        val o = JSObject()
-        o.put("c", if (uuid == INDOOR_BIKE_DATA) "2ad2" else "2a63")
-        o.put("hex", value.joinToString("") { String.format("%02x", it) })
-        o.put("t", System.currentTimeMillis())
-        packets.add(o)
-        while (packets.size > 600) packets.poll()
-    }
-
-    @SuppressLint("MissingPermission")
     @Command
     fun connect(invoke: Invoke) {
         if (refuse(invoke)) return
         val args = invoke.parseArgs(ConnectArgs::class.java)
-        val device: BluetoothDevice = try {
+        val device = try {
             adapter()!!.getRemoteDevice(args.address)
         } catch (e: Exception) {
             invoke.reject("Unknown bike address ${args.address}.")
             return
         }
-        gatt?.let {
-            it.disconnect()
-            it.close()
-        }
-        packets.clear()
-        error = null
-        protocol = ""
-        deviceName = device.name ?: args.address
-        state = "connecting"
-        gatt = device.connectGatt(activity, false, callback, BluetoothDevice.TRANSPORT_LE)
+        BikeLink.connect(activity, device)
         invoke.resolve(snapshot(false))
     }
 
-    @SuppressLint("MissingPermission")
     @Command
     fun disconnect(invoke: Invoke) {
-        state = "disconnected"
-        gatt?.let {
-            it.disconnect()
-            it.close()
-        }
-        gatt = null
-        packets.clear()
+        BikeLink.disconnect()
         invoke.resolve(snapshot(false))
     }
 
-    /** State plus every packet since the last read. */
+    /** State plus every packet since the last read — all of them, however long Varg was away. */
     @Command
     fun read(invoke: Invoke) {
         invoke.resolve(snapshot(true))
@@ -271,15 +202,76 @@ class BikePlugin(private val activity: Activity) : Plugin(activity) {
 
     private fun snapshot(drain: Boolean): JSObject {
         val o = JSObject()
-        o.put("state", state)
-        o.put("protocol", protocol)
-        o.put("name", deviceName)
-        error?.let { o.put("error", it) }
+        o.put("state", BikeLink.state)
+        o.put("protocol", BikeLink.protocol)
+        o.put("name", BikeLink.deviceName)
+        o.put("background", RideService.running)
+        BikeLink.error?.let { o.put("error", it) }
         val list = JSArray()
         if (drain) {
-            while (true) list.put(packets.poll() ?: break)
+            for (p in BikeLink.drain()) {
+                val j = JSObject()
+                j.put("c", p.c)
+                j.put("hex", p.hex)
+                j.put("t", p.t)
+                list.put(j)
+            }
         }
         o.put("packets", list)
         return o
+    }
+
+    /** Start the background service for a ride: notification, recording, cues. */
+    @Command
+    fun startRide(invoke: Invoke) {
+        val args = invoke.parseArgs(StartRideArgs::class.java)
+        RideService.title = args.title
+        RideService.schedule = args.schedule
+        try {
+            ContextCompat.startForegroundService(
+                activity,
+                Intent(activity, RideService::class.java).setAction(RideService.ACTION_START),
+            )
+        } catch (e: Exception) {
+            invoke.reject("Could not keep the ride running in the background: ${e.message}")
+            return
+        }
+        invoke.resolve()
+    }
+
+    @Command
+    fun schedule(invoke: Invoke) {
+        RideService.schedule = invoke.parseArgs(ScheduleArgs::class.java).schedule
+        if (RideService.running) {
+            activity.startService(Intent(activity, RideService::class.java).setAction(RideService.ACTION_SCHEDULE))
+        }
+        invoke.resolve()
+    }
+
+    /** A generated voice clip for the service to play while Varg is off screen. */
+    @Command
+    fun cueAudio(invoke: Invoke) {
+        val args = invoke.parseArgs(CueAudioArgs::class.java)
+        try {
+            val dir = File(activity.cacheDir, "varg-cues").apply { mkdirs() }
+            val name = MessageDigest.getInstance("SHA-1").digest(args.text.toByteArray())
+                .joinToString("") { String.format("%02x", it) }
+            val ext = if (args.ext.matches(Regex("[a-z0-9]{1,5}"))) args.ext else "bin"
+            val file = File(dir, "$name.$ext")
+            file.writeBytes(Base64.decode(args.b64, Base64.DEFAULT))
+            RideService.clips[args.text] = file
+        } catch (e: Exception) {
+            invoke.reject("Could not store a voice clip: ${e.message}")
+            return
+        }
+        invoke.resolve()
+    }
+
+    @Command
+    fun stopRide(invoke: Invoke) {
+        if (RideService.running) {
+            activity.startService(Intent(activity, RideService::class.java).setAction(RideService.ACTION_STOP))
+        }
+        invoke.resolve()
     }
 }

@@ -520,6 +520,11 @@ export async function prepareClips(role: VoiceRole, lines: string[]): Promise<{ 
   return { buffers, missing };
 }
 
+/** A line's generated clip as a file, for the ride's background service. */
+export async function clipBlob(role: VoiceRole, text: string): Promise<Blob | undefined> {
+  return (await getClip(clipKey(loadVoiceSettings(), role, text)))?.blob;
+}
+
 /** Play a decoded line now. Returns false if there is no running context. */
 export function playClip(buffer: AudioBuffer): boolean {
   const ctx = getAudioContext();

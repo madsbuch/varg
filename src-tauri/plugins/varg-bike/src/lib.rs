@@ -56,9 +56,31 @@ async fn read<R: Runtime>(app: tauri::AppHandle<R>) -> Result<Value, String> {
     call(&app, "read", Value::Null)
 }
 
+#[tauri::command]
+async fn start_ride<R: Runtime>(app: tauri::AppHandle<R>, title: String, schedule: String) -> Result<Value, String> {
+    call(&app, "startRide", serde_json::json!({ "title": title, "schedule": schedule }))
+}
+
+#[tauri::command]
+async fn schedule<R: Runtime>(app: tauri::AppHandle<R>, schedule: String) -> Result<Value, String> {
+    call(&app, "schedule", serde_json::json!({ "schedule": schedule }))
+}
+
+#[tauri::command]
+async fn cue_audio<R: Runtime>(app: tauri::AppHandle<R>, text: String, b64: String, ext: String) -> Result<Value, String> {
+    call(&app, "cueAudio", serde_json::json!({ "text": text, "b64": b64, "ext": ext }))
+}
+
+#[tauri::command]
+async fn stop_ride<R: Runtime>(app: tauri::AppHandle<R>) -> Result<Value, String> {
+    call(&app, "stopRide", Value::Null)
+}
+
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("varg-bike")
-        .invoke_handler(tauri::generate_handler![ensure_permissions, scan, connect, disconnect, read])
+        .invoke_handler(tauri::generate_handler![
+            ensure_permissions, scan, connect, disconnect, read, start_ride, schedule, cue_audio, stop_ride
+        ])
         .setup(|_app, _api| {
             #[cfg(target_os = "android")]
             {

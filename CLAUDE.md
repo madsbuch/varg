@@ -179,6 +179,11 @@ joints and makes limbs shrink in the intermediate frames.
   [`src/lib/bike.ts`](src/lib/bike.ts), unit-tested. Keep it that way —
   native code is the part nobody can test without the bike. No data is
   shown in red with a manual Done for kcal targets, never a silent stall.
+  Rides keep running with another app on screen: a foreground service
+  (`RideService`) holds the connection, records every packet, and plays
+  the cues on a schedule the player sends (`rideSchedule`). On return the
+  player replays the packets one by one through `RideRun`. Cues sound once:
+  the service only while Varg is off screen, the app only while on it.
 - **Spoken cues.** Guided workouts name what comes next — the first
   exercise in the lead-in, the next one as each rest or move begins — in a
   calm yoga voice or a firm workout voice. The lines are generated through
