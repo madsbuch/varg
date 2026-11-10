@@ -167,3 +167,19 @@ export const IconVoice = (p: P) => (
     <path d="M18 6.5a7.5 7.5 0 0 1 0 11" />
   </svg>
 );
+
+/** Skip to the next block: a play triangle against a bar. */
+export const IconSkipNext = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M6 5.5v13l9-6.5z" fill="currentColor" />
+    <path d="M18 5.5v13" />
+  </svg>
+);
+
+/** Back to the start of the block: the mirror of IconSkipNext. */
+export const IconSkipBack = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M18 5.5v13l-9-6.5z" fill="currentColor" />
+    <path d="M6 5.5v13" />
+  </svg>
+);

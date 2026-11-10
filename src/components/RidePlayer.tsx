@@ -25,13 +25,13 @@ import {
 } from "../lib/bike";
 import type { BikeRead } from "../lib/bike";
 import {
-  ANNOUNCE_AHEAD, bestRide, fit, loadFtp, recordedRide, rideLine, RideRun, rideSchedule, rideSeconds, shownAmount, targetWatts, zoneOf, zoneTable,
+  ANNOUNCE_AHEAD, bestRide, fit, loadFtp, recordedRide, rideLine, RideRun, rideLeft, rideSchedule, rideSeconds, shownAmount, targetWatts, zoneOf, zoneTable,
 } from "../lib/ride";
 import type { RideConfig, SegmentResult } from "../lib/ride";
 import { EX } from "../lib/seed";
 import { loadVoiceOn, saveVoiceOn, speak } from "../lib/voice";
 import { clipBlob, playClip, prepareClips } from "../lib/voice-clips";
-import { IconCheck, IconClose, IconVoice } from "./icons";
+import { IconCheck, IconClose, IconSkipBack, IconSkipNext, IconVoice } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
 
 const LEAD_IN = 10;
@@ -456,6 +456,12 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
       ? ((rideSeconds(before) ?? 0) + view.segElapsed) / total
       : (view.idx + Math.min(1, segFrac)) / config.segments.length;
   const last = view.idx >= config.segments.length - 1;
+  // The whole ride's time left, lead-in included; a kcal block adds its kcal.
+  const left = rideLeft(config.segments, view.idx, ready ? 0 : view.segElapsed, ready ? 0 : view.segKcal);
+  const leftSecs = left.seconds + (ready ? Math.max(0, leadRemain) : 0);
+  const totalLeft = left.kcal > 0
+    ? leftSecs > 0 ? `${formatSeconds(leftSecs)} + ${String(Math.ceil(left.kcal))} kcal` : `${String(Math.ceil(left.kcal))} kcal`
+    : formatSeconds(leftSecs);
   const bikeProblem = !saved
     ? null
     : view.bikeError
@@ -480,8 +486,14 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         {track.musicButton}
         <button className="check" onClick={openConfirmStop} aria-label="Stop"><IconClose /></button>
       </div>
-      <div className="wod-progress" aria-hidden>
-        <div style={{ width: `${String(Math.min(1, rideFrac) * 100)}%` }} />
+      <div className="ride-total">
+        <div className="ride-total-row">
+          <span className="ride-total-label">Total left</span>
+          <span className="ride-total-time">{totalLeft}</span>
+        </div>
+        <div className="wod-progress" aria-hidden>
+          <div style={{ width: `${String(Math.min(1, rideFrac) * 100)}%` }} />
+        </div>
       </div>
 
       {/* Top half: what to do now. */}
@@ -489,7 +501,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         <div className="wod-phase">
           {ready ? "Get ready" : paused ? "Paused" : `Block ${String(view.idx + 1)} / ${String(config.segments.length)}`}
         </div>
-        <div className="ride-label">{seg.label}</div>
+        <div className="ride-label">{ready ? `First: ${seg.label}` : seg.label}</div>
         <div className="wod-time">{ready ? formatSeconds(leadRemain) : remaining}</div>
         <div className="wod-stepbar" aria-hidden>
           <div style={{ width: `${String(Math.min(1, segFrac) * 100)}%` }} />
@@ -510,8 +522,8 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
           </div>
         )}
         {!saved && !ready && (
-          <div className="muted" style={{ fontSize: 13, textAlign: "center" }}>
-            Riding without the bike — targets by feel{config.segments.some((x) => x.kcal !== undefined) ? ", Done ends a kcal block" : ""}. Keep Varg on screen.
+          <div className="ride-note">
+            No bike — ride by feel{config.segments.some((x) => x.kcal !== undefined) ? ", Done ends a kcal block" : ""}. Keep Varg on screen.
           </div>
         )}
         {bikeProblem && (
@@ -592,15 +604,16 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
             <IconCheck /> Done — {seg.kcal} kcal reached
           </button>
         )}
-        <div className="btn-row">
-          <button className="btn ghost" onClick={back} disabled={ready} aria-label="Restart block">◀</button>
+        {/* Labelled, with media-player icons, so they read as "the workout"
+            and not as arrows for the card above. */}
+        <div className="btn-row ride-transport">
+          <button className="btn ghost" onClick={back} disabled={ready}>
+            <IconSkipBack /><span>Restart</span>
+          </button>
           <button className="btn grow" onClick={togglePause}>{paused ? "Resume" : "Pause"}</button>
-          <button
-            className="btn ghost"
-            onClick={skip}
-            disabled={!ready && last}
-            aria-label={ready ? "Start now" : "Skip to the next block"}
-          >▶</button>
+          <button className="btn ghost" onClick={skip} disabled={!ready && last}>
+            <IconSkipNext /><span>{ready ? "Start now" : last ? "Last block" : "Skip block"}</span>
+          </button>
         </div>
       </div>
 

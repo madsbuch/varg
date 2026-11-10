@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { parseIndoorBikeData, parsePowerMeasurement, RideMeter } from "../src/lib/bike";
 import type { BikePacket } from "../src/lib/bike";
-import { bestRide, recordedRide, RideRun, rideLine, rideSchedule, targetWatts, zoneOf } from "../src/lib/ride";
+import { bestRide, recordedRide, RideRun, rideLeft, rideLine, rideSchedule, targetWatts, zoneOf } from "../src/lib/ride";
 import type { RideConfig } from "../src/lib/ride";
 import { seedTemplates } from "../src/lib/seed";
 import { allVoiceLines } from "../src/lib/voice-clips";
@@ -144,6 +144,18 @@ describe("rides", () => {
     expect(run.restarts).toBe(2);
     run.tick(140, meter(150, 9, 15, 140_000), true, 140_000);
     expect(run.results[0]!.seconds).toBe(60);
+  });
+
+  test("time left counts the rest of the ride; kcal blocks stay kcal", () => {
+    const segs: RideConfig["segments"] = [
+      { label: "Warm-up", ftp: [50, 65], seconds: 480 },
+      { label: "Rung", ftp: [95, 110], kcal: 50 },
+      { label: "Easy", ftp: [40, 55], seconds: 120 },
+    ];
+    expect(rideLeft(segs, 0, 0, 0)).toEqual({ seconds: 600, kcal: 50 });
+    expect(rideLeft(segs, 0, 80, 3)).toEqual({ seconds: 520, kcal: 50 });
+    expect(rideLeft(segs, 1, 30, 20)).toEqual({ seconds: 120, kcal: 30 });
+    expect(rideLeft(segs, 3, 0, 0)).toEqual({ seconds: 0, kcal: 0 });
   });
 
   test("every ride segment's spoken line is generated in the workout voice", () => {

@@ -1187,15 +1187,49 @@ input.invalid,
 .wod.ride .wod-top .check svg { width: 26px; height: 26px; }
 .wod.ride .wod-top .chip { font-size: 13px; }
 .wod.ride .wod-controls .btn { min-height: 60px; font-size: 18px; }
-.wod.ride .wod-controls .btn-row .btn.ghost { width: 76px; font-size: 22px; }
+.wod.ride .wod-controls .ride-transport .btn.ghost {
+  width: 92px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.wod.ride .ride-transport .btn.ghost svg { width: 26px; height: 26px; }
+
+/* The whole ride's time left: second only to the block countdown. */
+.ride-total { margin-top: 12px; flex-shrink: 0; }
+.ride-total-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ride-total-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ride-total-time {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ride-total .wod-progress { height: 8px; margin-top: 6px; }
 
 .ride-now {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-height: 0;
+  padding: 6px 0 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  /* safe: on a short screen, clip at the bottom, never the block name. */
+  justify-content: safe center;
   gap: 4px;
   overflow: hidden;
 }
@@ -1207,14 +1241,18 @@ input.invalid,
   text-align: center;
 }
 .ride-now .wod-stepbar { margin: 4px 0 6px; }
+.ride-now .wod-time { font-size: min(76px, 9.5vh); }
+.ride-now .ride-watts { font-size: min(64px, 7.5vh); }
+.ride-now .ride-power { margin-top: 2px; }
+.ride-note { font-size: 12px; color: var(--muted); text-align: center; }
 .ride-fit.in { color: var(--accent); }
 .ride-fit.below { color: var(--gold); }
 .ride-fit.above { color: var(--danger); }
 .ride-fit.none { color: var(--faint); }
 
 .ride-deck {
-  flex: 1 1 0;
-  min-height: 0;
+  flex: 0 1 220px;
+  min-height: 140px;
   display: flex;
   flex-direction: column;
   background: var(--panel);
@@ -1329,6 +1367,13 @@ input.invalid,
 }
 .ride-zones li.ride-zones-ftp { justify-content: center; font-size: 12px; }
 
+@media (max-height: 760px) {
+  .ride-deck { flex-basis: 180px; }
+  .ride-grid { gap: 6px 8px; }
+  .ride-stat strong { font-size: 22px; }
+  .ride-total-time { font-size: 26px; }
+  .ride-total { margin-top: 8px; }
+}
 @media (max-height: 560px) {
   .wod.ride .wod-top .check { width: 44px; height: 44px; flex-basis: 44px; }
   .ride-label { font-size: 16px; }

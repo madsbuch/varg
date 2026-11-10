@@ -96,6 +96,26 @@ export function rideSeconds(segments: RideSegment[]): number | undefined {
   return total;
 }
 
+/**
+ * What is left of the whole ride from block `idx`, `segElapsed` seconds and
+ * `segKcal` kcal into it: the timed blocks' seconds and the kcal blocks'
+ * kcal, kept apart because a kcal block's time is unknowable ahead.
+ */
+export function rideLeft(
+  segments: RideSegment[],
+  idx: number,
+  segElapsed: number,
+  segKcal: number,
+): { seconds: number; kcal: number } {
+  let seconds = 0, kcal = 0;
+  segments.forEach((s, i) => {
+    if (i < idx) return;
+    if (s.seconds !== undefined) seconds += i === idx ? Math.max(0, s.seconds - segElapsed) : s.seconds;
+    else kcal += i === idx ? Math.max(0, (s.kcal ?? 0) - segKcal) : (s.kcal ?? 0);
+  });
+  return { seconds, kcal };
+}
+
 export interface RideConfig {
   title: string;
   templateId: string;
