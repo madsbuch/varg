@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { parseIndoorBikeData, parsePowerMeasurement, RideMeter } from "../src/lib/bike";
 import type { BikePacket } from "../src/lib/bike";
-import { bestRide, recordedRide, RideRun, rideLeft, rideLine, rideSchedule, targetWatts, zoneOf } from "../src/lib/ride";
+import { bestRide, FREE_RIDE, recordedRide, RideRun, rideLeft, rideLine, rideSchedule, targetWatts, zoneOf } from "../src/lib/ride";
 import type { RideConfig } from "../src/lib/ride";
 import { seedTemplates } from "../src/lib/seed";
 import { allVoiceLines } from "../src/lib/voice-clips";
@@ -156,6 +156,17 @@ describe("rides", () => {
     expect(rideLeft(segs, 0, 80, 3)).toEqual({ seconds: 520, kcal: 50 });
     expect(rideLeft(segs, 1, 30, 20)).toEqual({ seconds: 120, kcal: 30 });
     expect(rideLeft(segs, 3, 0, 0)).toEqual({ seconds: 0, kcal: 0 });
+  });
+
+  test("a free ride never ends by itself and logs time, kcal and watts", () => {
+    const run = new RideRun([FREE_RIDE], 283);
+    run.tick(3600, meter(200, 600, 720, 3_600_000), true, 3_600_000);
+    expect(run.done).toBe(false);
+    run.complete(3600, meter(200, 600, 720, 3_600_000));
+    const cfg: RideConfig = { title: "Free ride", templateId: "tpl-ride-free", segments: [FREE_RIDE], race: false, withBike: true, free: true };
+    const s = recordedRide(cfg, run.results, "2026-11-10T08:00:00.000Z", "ex-spin-bike", 283, false);
+    expect(s.note).toBe("Free ride · 1:00:00 · 600 kcal · avg 200 W");
+    expect(rideSchedule([FREE_RIDE], 0, 0, false).cues).toEqual([]);
   });
 
   test("every ride segment's spoken line is generated in the workout voice", () => {

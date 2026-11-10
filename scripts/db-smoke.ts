@@ -538,6 +538,12 @@ for (const probe of METRIC_PROBES) {
     const r = tpl.ride;
     if (!r) continue;
     const where = `template "${tpl.name}" ride`;
+    assert(tpl.exerciseIds.length === 1 && tpl.exerciseIds[0] === EX.spinBike, `${where}: exerciseIds must be [EX.spinBike]`);
+    if (r.free) {
+      // The bike console: no program at all, so nothing to time or race.
+      assert(r.segments.length === 0 && r.race !== true, `${where}: a free ride has no segments and is no race`);
+      continue;
+    }
     assert(r.segments.length >= 1 && r.segments.length <= 100, `${where}: needs 1-100 segments`);
     let anyKcal = false;
     r.segments.forEach((sg, i) => {
@@ -564,7 +570,7 @@ for (const tpl of seedTemplates()) {
   const where = `template "${tpl.name}"`;
   assert(["beginner", "intermediate", "advanced"].includes(tpl.level), `${where}: level must be beginner, intermediate or advanced`);
   const computed = tpl.interval !== undefined || tpl.flow !== undefined ||
-    (tpl.ride !== undefined && tpl.ride.segments.every((sg) => sg.seconds !== undefined));
+    (tpl.ride !== undefined && !tpl.ride.free && tpl.ride.segments.every((sg) => sg.seconds !== undefined));
   if (computed) {
     assert(tpl.estimateMinutes === undefined, `${where}: has an exact clock time, so no estimateMinutes`);
   } else {

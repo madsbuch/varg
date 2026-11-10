@@ -451,6 +451,24 @@ export function seedTemplates(): Template[] {
     // Targets are % of FTP (Settings → Cycling), so they follow the rider's
     // FTP. Zones are Coggan's: Z2 56–75 %, sweet spot 88–94 %, VO2 106–120 %.
     {
+      // The bike console: no program, just what the bike reports and the
+      // clock since the start. For riding along to a video, a warm-up
+      // after another session, or checking the bike works.
+      id: "tpl-ride-free",
+      name: "Free ride",
+      branch: "Spin bike",
+      description:
+        "No program, just the bike: live watts, cadence, kcal and your " +
+        "power zone, with the clock counting up from the start. Ride as " +
+        "long as you like; Finish saves it to your history.",
+      scheme: "Open-ended · live watts, cadence, kcal and zone",
+      level: "beginner",
+      estimateMinutes: 30,
+      exerciseIds: [EX.spinBike],
+      ride: { segments: [], free: true },
+      music: { bpm: 124, style: "steady deep house, warm bass, rolling groove, no vocals", theme: "An easy open-ended ride with no plan, just turning the pedals" },
+    },
+    {
       id: "tpl-ride-z2-40",
       name: "Zone 2 · 40",
       branch: "Spin bike",

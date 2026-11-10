@@ -108,6 +108,8 @@ export class RideMeter {
   private lastCrank: { revs: number; time: number; at: number } | undefined;
   /** Seconds and watt-seconds ridden, for an average. */
   seconds = 0;
+  /** Highest power seen. */
+  maxPower = 0;
 
   add(p: BikePacket): void {
     const s = p.c === "2ad2" ? parseIndoorBikeData(p.hex) : parsePowerMeasurement(p.hex);
@@ -121,6 +123,7 @@ export class RideMeter {
         this.seconds += dt;
       }
       this.power = Math.max(0, s.power);
+      this.maxPower = Math.max(this.maxPower, this.power);
       this.lastPowerAt = p.t;
     }
     if (s.cadence !== undefined) this.cadence = s.cadence;

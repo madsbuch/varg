@@ -27,7 +27,7 @@ import RidePlayer from "../components/RidePlayer";
 import { RideConnectSheet } from "../components/BikeConnect";
 import { disconnectBike } from "../lib/bike";
 import type { RideConfig } from "../lib/ride";
-import { bestRide } from "../lib/ride";
+import { bestRide, FREE_RIDE } from "../lib/ride";
 import type { WodConfig } from "../lib/wod";
 import { configForTemplate } from "../lib/wod";
 import type { ForTimeConfig } from "../lib/fortime";
@@ -201,7 +201,13 @@ function StartScreen() {
     if (tpl.ride) {
       // Indoor bike: connect the bike first (or skip), then ride.
       setSelectedTemplate(null);
-      setPendingRide({ title: tpl.name, templateId: tpl.id, segments: tpl.ride.segments, race: tpl.ride.race === true });
+      setPendingRide({
+        title: tpl.name,
+        templateId: tpl.id,
+        segments: tpl.ride.free ? [FREE_RIDE] : tpl.ride.segments,
+        race: tpl.ride.race === true,
+        free: tpl.ride.free === true,
+      });
       return;
     }
     if (tpl.flow || tpl.interval) {

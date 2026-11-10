@@ -182,6 +182,11 @@ export interface RidePlan {
   segments: RideSegment[];
   /** Scored by total time (kcal races): best time on the card, like for time. */
   race?: boolean | undefined;
+  /**
+   * No program: the bike console. No segments, no targets, no end; the
+   * clock counts up and the rider finishes when they like.
+   */
+  free?: boolean | undefined;
 }
 
 /** How hard a workout is to start with — the Hunt screen filters on it. */

@@ -30,7 +30,7 @@ export function flowSeconds(flow: { steps: { seconds: number }[]; transition: nu
 export function templateLength(t: Template): { seconds: number; exact: boolean } | undefined {
   if (t.interval) return { seconds: intervalSeconds(t.exerciseIds.length, t.interval), exact: true };
   if (t.flow) return { seconds: flowSeconds(t.flow), exact: true };
-  if (t.ride) {
+  if (t.ride && !t.ride.free) {
     const s = rideSeconds(t.ride.segments);
     if (s !== undefined) return { seconds: s, exact: true };
   }

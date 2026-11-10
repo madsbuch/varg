@@ -123,7 +123,15 @@ export interface RideConfig {
   race: boolean;
   /** Connected in the pre-ride step; false when the rider chose to ride without it. */
   withBike: boolean;
+  /** The bike console: one open block (FREE_RIDE), clock counting up, no cues. */
+  free?: boolean;
 }
+
+/**
+ * The one block of a free ride. It has neither seconds nor kcal, so RideRun
+ * never ends it; the rider finishes with Stop & save. Its target is never shown.
+ */
+export const FREE_RIDE: RideSegment = { label: "Free ride", ftp: [0, 0] };
 
 /** One segment as ridden: how long it took, its average power and kcal. */
 export interface SegmentResult {
@@ -171,13 +179,19 @@ export function recordedRide(
   const kcal = results.reduce((a, r) => a + r.kcal, 0);
   const work = results.reduce((a, r) => a + r.avgPower * r.seconds, 0);
   const onTarget = seconds > 0 ? results.reduce((a, r) => a + r.inTarget * r.seconds, 0) / seconds : 0;
-  const parts = [
-    `${!finished ? "Ride · stopped" : skipped || restarts ? COMPLETED : FINISHED} in ${formatSeconds(seconds)}`,
-    `${String(Math.round(kcal))} kcal`,
-    `avg ${String(Math.round(seconds > 0 ? work / seconds : 0))} W`,
-    `${String(Math.round(onTarget * 100))}% on target`,
-    `FTP ${String(ftp)}`,
-  ];
+  const parts = cfg.free
+    ? [
+      `Free ride · ${formatSeconds(seconds)}`,
+      `${String(Math.round(kcal))} kcal`,
+      `avg ${String(Math.round(seconds > 0 ? work / seconds : 0))} W`,
+    ]
+    : [
+      `${!finished ? "Ride · stopped" : skipped || restarts ? COMPLETED : FINISHED} in ${formatSeconds(seconds)}`,
+      `${String(Math.round(kcal))} kcal`,
+      `avg ${String(Math.round(seconds > 0 ? work / seconds : 0))} W`,
+      `${String(Math.round(onTarget * 100))}% on target`,
+      `FTP ${String(ftp)}`,
+    ];
   const plural = (n: number, what: string) => `${String(n)} block${n === 1 ? "" : "s"} ${what}`;
   if (skipped) parts.push(plural(skipped, "skipped"));
   if (restarts) parts.push(plural(restarts, "restarted"));
