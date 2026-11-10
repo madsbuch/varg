@@ -7,6 +7,12 @@
  * the clock and the meter into segment changes. A kcal segment ends itself
  * on the bike's numbers — and when there are no numbers (no bike, a
  * dropout), the player says so in red and offers Done, never a silent stall.
+ *
+ * The screen is split: the top half is the instruction (block, time left,
+ * live power against the target) and never moves; the bottom half is a
+ * card that swipes between the ride's numbers, the plan and the zones.
+ * ◀ / ▶ restart and skip blocks like the interval player — a ride with
+ * either is logged as completed, not finished, so it never sets a best.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../lib/app-context";
@@ -19,13 +25,12 @@ import {
 } from "../lib/bike";
 import type { BikeRead } from "../lib/bike";
 import {
-  ANNOUNCE_AHEAD, bestRide, fit, loadFtp, recordedRide, rideLine, RideRun, rideSchedule, shownAmount, targetWatts, zoneOf,
+  ANNOUNCE_AHEAD, bestRide, fit, loadFtp, recordedRide, rideLine, RideRun, rideSchedule, rideSeconds, shownAmount, targetWatts, zoneOf, zoneTable,
 } from "../lib/ride";
-import type { RideConfig } from "../lib/ride";
+import type { RideConfig, SegmentResult } from "../lib/ride";
 import { EX } from "../lib/seed";
 import { loadVoiceOn, saveVoiceOn, speak } from "../lib/voice";
 import { clipBlob, playClip, prepareClips } from "../lib/voice-clips";
-import ExerciseAnim from "./ExerciseAnim";
 import { IconCheck, IconClose, IconVoice } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
 
@@ -45,9 +50,12 @@ interface View {
   idx: number;
   segElapsed: number;
   segKcal: number;
+  segAvg: number;
+  segOnTarget: number | null;
   power: number;
   cadence: number;
   kcal: number;
+  kj: number;
   bike: BikeRead["state"] | "none";
   bikeName: string;
   bikeError?: string | undefined;
@@ -63,7 +71,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
   const [startedAt] = useState(() => new Date().toISOString());
   const meter = useRef(new RideMeter());
   const run = useRef(new RideRun(config.segments, ftp));
-  const [view, setView] = useState<View>({ raw: 0, t: 0, idx: 0, segElapsed: 0, segKcal: 0, power: 0, cadence: 0, kcal: 0, bike: "none", bikeName: "", live: false });
+  const [view, setView] = useState<View>({ raw: 0, t: 0, idx: 0, segElapsed: 0, segKcal: 0, segAvg: 0, segOnTarget: null, power: 0, cadence: 0, kcal: 0, kj: 0, bike: "none", bikeName: "", live: false });
   const [stopped, setStopped] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
   const loggedId = useRef<string | null>(null);
@@ -156,9 +164,12 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         idx: r.idx,
         segElapsed: r.elapsed(t),
         segKcal: r.kcalIn(meter.current),
+        segAvg: r.avgPowerIn(t, meter.current),
+        segOnTarget: r.onTarget,
         power: meter.current.power,
         cadence: meter.current.cadence,
         kcal: meter.current.kcal,
+        kj: meter.current.kj,
         bike: read?.state ?? "none",
         bikeName: read?.name ?? "",
         bikeError: read?.error ?? read?.serviceError,
@@ -213,14 +224,15 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
       .catch((e: unknown) => { setServiceError(e instanceof Error ? e.message : String(e)); });
     return () => { void stopRideService().catch(() => undefined); };
   }, [config.title, config.segments, scheduleNow, saved]);
-  // A new block, a pause or a resume moves every future cue.
+  // A new block, a restart, a pause or a resume moves every future cue.
+  const [jumps, setJumps] = useState(0);
   useEffect(() => {
     if (done) {
       void stopRideService().catch(() => undefined);
       return;
     }
     void updateRideSchedule(scheduleNow()).catch(() => undefined);
-  }, [view.idx, clock, done, scheduleNow]);
+  }, [view.idx, jumps, clock, done, scheduleNow]);
 
   const spokeFirst = useRef(false);
   useEffect(() => {
@@ -281,6 +293,46 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
     setView((v) => ({ ...v, idx: run.current.idx }));
   };
 
+  /** Re-snapshot the block after a jump, without waiting for the next poll. */
+  const afterJump = () => {
+    const r = run.current;
+    const t = rideTime(clockRef.current, Date.now());
+    setJumps((n) => n + 1);
+    setView((v) => ({
+      ...v, idx: r.idx, segElapsed: r.elapsed(t), segKcal: r.kcalIn(meter.current),
+      segAvg: r.avgPowerIn(t, meter.current), segOnTarget: r.onTarget,
+    }));
+  };
+
+  /**
+   * ▶: in the lead-in, start now; mid-ride, end this block and start the
+   * next. Not on the last block — that would end the ride on one stray tap;
+   * the X (Stop & save) is the way out there.
+   */
+  const skip = () => {
+    unlockAudio();
+    const now = Date.now();
+    if (ready) {
+      setClock((c) => ({ ...c, anchor: (c.pausedAt ?? now) - LEAD_IN * 1000 }));
+      return;
+    }
+    const r = run.current;
+    if (r.idx >= config.segments.length - 1) return;
+    r.skip(rideTime(clockRef.current, now), meter.current);
+    cueWork();
+    afterJump();
+  };
+
+  /** ◀: restart this block, or go back one if it only just began. */
+  const back = () => {
+    unlockAudio();
+    if (ready) return;
+    run.current.back(rideTime(clockRef.current, Date.now()), meter.current);
+    spokenFor.current = -1;
+    cueWork();
+    afterJump();
+  };
+
   const stopAndSave = () => {
     const now = Date.now();
     const r = run.current;
@@ -296,7 +348,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
   const logSession = useCallback(() => {
     const results = run.current.results;
     if (results.length === 0) return null;
-    const session = recordedRide(config, results, startedAt, EX.spinBike, ftp, run.current.done);
+    const session = recordedRide(config, results, startedAt, EX.spinBike, ftp, run.current.done, run.current.restarts);
     update((d) => upsertSession(d, session));
     return session.id;
   }, [config, startedAt, ftp, update]);
@@ -327,10 +379,12 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
     const kcal = results.reduce((a, r) => a + r.kcal, 0);
     const avg = seconds > 0 ? results.reduce((a, r) => a + r.avgPower * r.seconds, 0) / seconds : 0;
     const onTarget = seconds > 0 ? results.reduce((a, r) => a + r.inTarget * r.seconds, 0) / seconds : 0;
+    const skipped = results.filter((r) => r.skipped).length;
+    const asWritten = skipped === 0 && run.current.restarts === 0;
     return (
       <div className="wod">
         <div className="wod-top">
-          <span className="eyebrow">{finished ? "Ride complete" : "Ride stopped"}</span>
+          <span className="eyebrow">{!finished ? "Ride stopped" : asWritten ? "Ride complete" : "Ride completed"}</span>
           <button className="check" onClick={onClose} aria-label="Close"><IconClose /></button>
         </div>
         <div className="wod-center fortime-result">
@@ -338,11 +392,13 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
           <div className="wod-time">{formatSeconds(seconds)}</div>
           {config.race && finished && (
             <div className="muted" style={{ textAlign: "center" }}>
-              {previousBest == null
-                ? "First recorded ride — this is the time to beat."
-                : seconds < previousBest
-                  ? `New best — ${formatSeconds(previousBest - seconds)} faster than ${formatSeconds(previousBest)}.`
-                  : `${formatSeconds(seconds - previousBest)} behind your best of ${formatSeconds(previousBest)}.`}
+              {!asWritten
+                ? "Blocks skipped or restarted — not counted as a best time."
+                : previousBest == null
+                  ? "First recorded ride — this is the time to beat."
+                  : seconds < previousBest
+                    ? `New best — ${formatSeconds(previousBest - seconds)} faster than ${formatSeconds(previousBest)}.`
+                    : `${formatSeconds(seconds - previousBest)} behind your best of ${formatSeconds(previousBest)}.`}
             </div>
           )}
           <div className="ride-stats">
@@ -353,7 +409,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
           <ol className="fortime-splits">
             {results.map((r, i) => (
               <li key={i}>
-                <span>{config.segments[i]?.label}</span>
+                <span>{config.segments[i]?.label}{r.skipped ? " · skipped" : ""}</span>
                 <span className="fortime-split">
                   {formatSeconds(r.seconds)} · {Math.round(r.avgPower)} W · {Math.round(r.inTarget * 100)}%
                 </span>
@@ -386,7 +442,20 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
   const remaining = seg.seconds !== undefined
     ? formatSeconds(Math.max(0, seg.seconds - view.segElapsed))
     : `${String(Math.max(0, Math.ceil((seg.kcal ?? 0) - view.segKcal)))} kcal`;
-  const upNext = config.segments.slice(view.idx + 1, view.idx + 3);
+  const segFrac = ready
+    ? 0
+    : seg.seconds !== undefined
+      ? view.segElapsed / seg.seconds
+      : view.segKcal / Math.max(1, seg.kcal ?? 1);
+  // Whole-ride progress by time when every block is timed, else by blocks.
+  const total = rideSeconds(config.segments);
+  const before = config.segments.slice(0, view.idx);
+  const rideFrac = ready
+    ? 0
+    : total
+      ? ((rideSeconds(before) ?? 0) + view.segElapsed) / total
+      : (view.idx + Math.min(1, segFrac)) / config.segments.length;
+  const last = view.idx >= config.segments.length - 1;
   const bikeProblem = !saved
     ? null
     : view.bikeError
@@ -398,10 +467,9 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
           : null;
 
   return (
-    <div className={`wod ${ready ? "resting" : ""}`}>
+    <div className={`wod ride ${ready ? "resting" : ""}`}>
       <div className="wod-top">
-        <span className="chip">{config.title} · {view.idx + 1}/{config.segments.length}</span>
-        <span className="chip">{formatSeconds(view.t)}</span>
+        <span className="chip">{config.title}</span>
         <button
           className={`check music ${voiceOn ? "on" : ""}`}
           aria-label={voiceOn ? "Stop the spoken cues" : "Speak the cues"}
@@ -412,26 +480,29 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         {track.musicButton}
         <button className="check" onClick={openConfirmStop} aria-label="Stop"><IconClose /></button>
       </div>
+      <div className="wod-progress" aria-hidden>
+        <div style={{ width: `${String(Math.min(1, rideFrac) * 100)}%` }} />
+      </div>
 
-      <div className="wod-center ride-center">
-        <div className="wod-phase">{ready ? "Get ready" : paused ? "Paused" : seg.label}</div>
+      {/* Top half: what to do now. */}
+      <div className="ride-now">
+        <div className="wod-phase">
+          {ready ? "Get ready" : paused ? "Paused" : `Block ${String(view.idx + 1)} / ${String(config.segments.length)}`}
+        </div>
+        <div className="ride-label">{seg.label}</div>
         <div className="wod-time">{ready ? formatSeconds(leadRemain) : remaining}</div>
-        <div className="ride-target">
-          Target {target[0]}–{target[1]} W{seg.cadence ? ` · ${String(seg.cadence[0])}–${String(seg.cadence[1])} rpm` : ""}
-          <span className="muted"> · {seg.ftp[0]}–{seg.ftp[1]} % of FTP {ftp}</span>
+        <div className="wod-stepbar" aria-hidden>
+          <div style={{ width: `${String(Math.min(1, segFrac) * 100)}%` }} />
         </div>
         <div className={`ride-power ${f ?? "none"}`}>
           <span className="ride-watts">{view.live ? Math.round(view.power) : "—"}</span>
           <span className="ride-unit">W</span>
         </div>
-        <div className="ride-fit">
-          {f === "in" ? "On target" : f === "below" ? "Push — below target" : f === "above" ? "Ease off — above target" : "No power reading"}
-          {view.live && <span className="muted"> · zone {zoneOf(view.power, ftp).zone}</span>}
+        <div className="ride-target">
+          {target[0]}–{target[1]} W{seg.cadence ? ` · ${String(seg.cadence[0])}–${String(seg.cadence[1])} rpm` : ""}
         </div>
-        <div className="ride-stats">
-          <div><strong>{view.live ? Math.round(view.cadence) : "—"}</strong><span>rpm</span></div>
-          <div><strong>{Math.round(view.kcal)}</strong><span>kcal</span></div>
-          <div className="ride-anim"><ExerciseAnim anim="spinBike" size={56} /></div>
+        <div className={`ride-fit ${f ?? "none"}`}>
+          {f === "in" ? "On target" : f === "below" ? "Push — below target" : f === "above" ? "Ease off — above target" : "No power reading"}
         </div>
         {serviceError && (
           <div className="fortime-gps bad">
@@ -453,28 +524,83 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         )}
       </div>
 
-      <div className="wod-queue">
-        <div className="wod-queue-label">Up next</div>
-        {upNext.length === 0 ? (
-          <div className="wod-queue-row last"><span className="wod-queue-name">Last block — finish strong</span></div>
-        ) : upNext.map((s, i) => (
-          <div key={`${String(view.idx)}-${String(i)}`} className={`wod-queue-row ${i > 0 ? "dim" : ""}`}>
-            <span className="wod-queue-name">{s.label}</span>
-            <span className="wod-queue-secs">{shownAmount(s)} · {targetWatts(s, ftp).join("–")} W</span>
-          </div>
-        ))}
-      </div>
+      {/* Bottom half: swipe between the numbers, the plan and the zones. */}
+      <RideDeck pages={[
+        {
+          title: "Ride",
+          body: (
+            <div className="ride-grid">
+              <Stat value={view.live ? Math.round(view.cadence) : "—"} unit="rpm" />
+              <Stat value={Math.round(view.kcal)} unit="kcal" />
+              <Stat value={formatSeconds(view.t)} unit="ride time" />
+              <Stat value={ready || view.segElapsed < 1 ? "—" : Math.round(view.segAvg)} unit="block avg W" />
+              <Stat value={view.segOnTarget == null ? "—" : `${String(Math.round(view.segOnTarget * 100))}%`} unit="block on target" />
+              <Stat value={view.t >= 1 ? Math.round((view.kj * 1000) / view.t) : "—"} unit="ride avg W" />
+            </div>
+          ),
+        },
+        {
+          title: "Plan",
+          body: (
+            <ol className="ride-plan">
+              {config.segments.map((s, i) => {
+                const r: SegmentResult | undefined = run.current.results[i];
+                const state = i < view.idx ? "done" : i === view.idx ? "now" : "later";
+                return (
+                  <li key={i} className={state}>
+                    <span className="ride-plan-mark">{state === "done" ? (r?.skipped ? "»" : "✓") : String(i + 1)}</span>
+                    <span className="ride-plan-name">{s.label}</span>
+                    <span className="ride-plan-amt">
+                      {state === "done" && r
+                        ? r.skipped ? `skipped · ${formatSeconds(r.seconds)}` : `${formatSeconds(r.seconds)} · ${String(Math.round(r.avgPower))} W`
+                        : state === "now" && !ready
+                          ? `${remaining} left`
+                          : `${shownAmount(s)} · ${targetWatts(s, ftp).join("–")} W`}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          ),
+        },
+        {
+          title: "Zones",
+          body: (
+            <ol className="ride-zones">
+              {zoneTable(ftp).map((z) => {
+                const live = view.live && zoneOf(view.power, ftp).zone === z.zone;
+                const inTarget = (z.to ?? Infinity) >= target[0] && z.from <= target[1];
+                return (
+                  <li key={z.zone} className={`${live ? "live" : ""} ${inTarget ? "target" : ""}`}>
+                    <span className="ride-plan-mark">Z{z.zone}</span>
+                    <span className="ride-plan-name">{z.name}</span>
+                    <span className="ride-plan-amt">{z.to == null ? `${String(z.from)}+ W` : `${String(z.from)}–${String(z.to)} W`}</span>
+                  </li>
+                );
+              })}
+              <li className="ride-zones-ftp muted">FTP {ftp} W · target {seg.ftp[0]}–{seg.ftp[1]} %</li>
+            </ol>
+          ),
+        },
+      ]} />
 
       {track.audioElement}
 
       <div className="wod-controls">
         {seg.kcal !== undefined && !ready && !view.live && (
-          <button className="btn primary fortime-done" onClick={completeSegment}>
+          <button className="btn primary fortime-done" style={{ marginBottom: 10 }} onClick={completeSegment}>
             <IconCheck /> Done — {seg.kcal} kcal reached
           </button>
         )}
-        <div className="btn-row" style={{ marginTop: 10 }}>
+        <div className="btn-row">
+          <button className="btn ghost" onClick={back} disabled={ready} aria-label="Restart block">◀</button>
           <button className="btn grow" onClick={togglePause}>{paused ? "Resume" : "Pause"}</button>
+          <button
+            className="btn ghost"
+            onClick={skip}
+            disabled={!ready && last}
+            aria-label={ready ? "Start now" : "Skip to the next block"}
+          >▶</button>
         </div>
       </div>
 
@@ -493,6 +619,67 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function Stat({ value, unit }: { value: string | number; unit: string }) {
+  return (
+    <div className="ride-stat">
+      <strong>{value}</strong>
+      <span>{unit}</span>
+    </div>
+  );
+}
+
+const DECK_KEY = "varg.rideDeck.v1";
+function loadDeckPage(): number {
+  try {
+    return Number(localStorage.getItem(DECK_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * The bottom card: pages side by side in a scroll-snapped strip, so a
+ * swipe flips them natively; the tabs above it jump straight to one. The
+ * last page viewed is remembered for the next ride.
+ */
+function RideDeck({ pages }: { pages: { title: string; body: React.ReactNode }[] }) {
+  const strip = useRef<HTMLDivElement | null>(null);
+  const [page, setPage] = useState(() => Math.min(loadDeckPage(), pages.length - 1));
+  const initial = useRef(page);
+  useEffect(() => {
+    const el = strip.current;
+    if (el) el.scrollLeft = initial.current * el.clientWidth;
+  }, []);
+  const onScroll = () => {
+    const el = strip.current;
+    if (!el || el.clientWidth === 0) return;
+    const p = Math.round(el.scrollLeft / el.clientWidth);
+    if (p === page) return;
+    setPage(p);
+    try { localStorage.setItem(DECK_KEY, String(p)); } catch { /* this ride only */ }
+  };
+  const go = (p: number) => {
+    const el = strip.current;
+    if (el) el.scrollTo({ left: p * el.clientWidth, behavior: "smooth" });
+  };
+  return (
+    <div className="ride-deck">
+      <div className="ride-tabs" role="tablist">
+        {pages.map((p, i) => (
+          <button key={p.title} role="tab" aria-selected={i === page} className={i === page ? "on" : ""} onClick={() => { go(i); }}>
+            {p.title}
+          </button>
+        ))}
+      </div>
+      <div className="ride-strip" ref={strip} onScroll={onScroll}>
+        {pages.map((p) => (
+          <section key={p.title} className="ride-page" aria-label={p.title}>{p.body}</section>
+        ))}
+      </div>
     </div>
   );
 }

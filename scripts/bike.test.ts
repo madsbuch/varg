@@ -106,6 +106,46 @@ describe("rides", () => {
     expect(bestRide([a, b], cfg.templateId, 1, b.date)).toBe(700);
   });
 
+  test("Next skips a block; a ride with skips logs but is never a best time", () => {
+    const segs: RideConfig["segments"] = [
+      { label: "Warm-up", ftp: [50, 65], seconds: 480 },
+      { label: "All out", ftp: [95, 120], kcal: 20 },
+    ];
+    const run = new RideRun(segs, 283);
+    run.tick(0, meter(0, 0, 0, 0), true, 0);
+    run.skip(0.4, meter(0, 0, 0, 400)); // skipped straight away: not ridden
+    expect(run.segment?.label).toBe("All out");
+    expect(run.results[0]).toMatchObject({ skipped: true });
+    run.tick(60, meter(300, 21, 18, 60_000), true, 60_000);
+    expect(run.done).toBe(true);
+    expect(run.results[1]!.seconds).toBeCloseTo(59.6, 5); // timed from the skip
+    const cfg: RideConfig = { title: "Rung", templateId: "tpl-x", segments: segs, race: true, withBike: true };
+    const s = recordedRide(cfg, run.results, "2026-11-10T08:00:00.000Z", "ex-spin-bike", 283, true, run.restarts);
+    expect(s.note).toStartWith("Ride · completed");
+    expect(s.note).toContain("1 block skipped");
+    expect(s.entries[0]!.sets).toHaveLength(1); // the 0.4 s warm-up logs no set
+    expect(bestRide([s], cfg.templateId, 1)).toBeUndefined();
+    expect(bestRide([s], cfg.templateId, 2)).toBeUndefined();
+  });
+
+  test("Back restarts the block, or returns to the previous one just after a change", () => {
+    const run = new RideRun([
+      { label: "A", ftp: [50, 65], seconds: 60 },
+      { label: "B", ftp: [56, 75], seconds: 60 },
+    ], 283);
+    run.tick(61, meter(150, 5, 9, 61_000), true, 61_000);
+    expect(run.segment?.label).toBe("B");
+    run.back(62, meter(150, 5, 9, 62_000)); // 2 s into B: back to A
+    expect(run.segment?.label).toBe("A");
+    expect(run.results).toHaveLength(0);
+    run.back(80, meter(150, 6, 10, 80_000)); // 18 s into A: restart A
+    expect(run.segment?.label).toBe("A");
+    expect(run.segmentStart).toBe(80);
+    expect(run.restarts).toBe(2);
+    run.tick(140, meter(150, 9, 15, 140_000), true, 140_000);
+    expect(run.results[0]!.seconds).toBe(60);
+  });
+
   test("every ride segment's spoken line is generated in the workout voice", () => {
     const lines = new Set(allVoiceLines().map((l) => `${l.role}|${l.text}`));
     for (const t of seedTemplates()) {

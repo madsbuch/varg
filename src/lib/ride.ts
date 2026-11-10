@@ -44,6 +44,17 @@ export function zoneOf(watts: number, ftp: number): { zone: number; name: string
   return { zone: z.zone, name: z.name };
 }
 
+/** The zones in watts for this FTP; the top one has no upper bound. */
+export function zoneTable(ftp: number): { zone: number; name: string; from: number; to: number | null }[] {
+  let from = 0;
+  return ZONES.map((z) => {
+    const to = z.upTo === Infinity ? null : Math.round((ftp * z.upTo) / 100);
+    const row = { zone: z.zone, name: z.name, from, to };
+    from = (to ?? 0) + 1;
+    return row;
+  });
+}
+
 /** A segment's target in watts for this FTP, rounded to 5 W. */
 export function targetWatts(seg: RideSegment, ftp: number): [number, number] {
   const r = (pct: number) => Math.round((ftp * pct) / 100 / 5) * 5;
@@ -101,14 +112,22 @@ export interface SegmentResult {
   avgPower: number;
   /** Share of the segment's measured seconds spent inside the target. */
   inTarget: number;
+  /** Ended early with Next instead of on its time or kcal. */
+  skipped?: boolean;
 }
 
 const FINISHED = "Ride · finished";
+/** Reached the end, but not as written: a block skipped or restarted. */
+const COMPLETED = "Ride · completed";
 
 /**
  * The session a ride logs: one unchecked Spin Bike set per segment ridden,
  * carrying its time, and a note with the numbers that matter — time,
  * average power, kcal, and how much of it was on target.
+ *
+ * A ride with any block skipped or restarted is "completed", never
+ * "finished": only a ride ridden as written can be a best time. A block
+ * skipped before it was ridden at all logs no set.
  */
 export function recordedRide(
   cfg: RideConfig,
@@ -117,25 +136,31 @@ export function recordedRide(
   exerciseId: string,
   ftp: number,
   finished: boolean,
+  restarts = 0,
 ): Session {
   const session = newSession(cfg.title);
   session.date = startedAt;
   session.finishedAt = new Date().toISOString();
   session.templateId = cfg.templateId;
-  session.entries = results.length
-    ? [{ id: uid("entry"), exerciseId, sets: results.map((r) => ({ id: uid("set"), done: false, seconds: Math.round(r.seconds) })) }]
+  const ridden = results.filter((r) => !r.skipped || r.seconds >= 1);
+  session.entries = ridden.length
+    ? [{ id: uid("entry"), exerciseId, sets: ridden.map((r) => ({ id: uid("set"), done: false, seconds: Math.round(r.seconds) })) }]
     : [];
+  const skipped = results.filter((r) => r.skipped).length;
   const seconds = results.reduce((a, r) => a + r.seconds, 0);
   const kcal = results.reduce((a, r) => a + r.kcal, 0);
   const work = results.reduce((a, r) => a + r.avgPower * r.seconds, 0);
   const onTarget = seconds > 0 ? results.reduce((a, r) => a + r.inTarget * r.seconds, 0) / seconds : 0;
   const parts = [
-    `${finished ? FINISHED : "Ride · stopped"} in ${formatSeconds(seconds)}`,
+    `${!finished ? "Ride · stopped" : skipped || restarts ? COMPLETED : FINISHED} in ${formatSeconds(seconds)}`,
     `${String(Math.round(kcal))} kcal`,
     `avg ${String(Math.round(seconds > 0 ? work / seconds : 0))} W`,
     `${String(Math.round(onTarget * 100))}% on target`,
     `FTP ${String(ftp)}`,
   ];
+  const plural = (n: number, what: string) => `${String(n)} block${n === 1 ? "" : "s"} ${what}`;
+  if (skipped) parts.push(plural(skipped, "skipped"));
+  if (restarts) parts.push(plural(restarts, "restarted"));
   session.note = parts.join(" · ");
   return session;
 }
@@ -175,6 +200,8 @@ export interface Meter {
 export class RideRun {
   idx = 0;
   results: SegmentResult[] = [];
+  /** Blocks restarted with Back; a ride with any is not ridden as written. */
+  restarts = 0;
   private segStart = 0;
   private kcalStart = 0;
   private kjStart = 0;
@@ -201,6 +228,15 @@ export class RideRun {
   /** kcal burned in the current segment. */
   kcalIn(meter: Meter): number {
     return Math.max(0, meter.kcal - this.kcalStart);
+  }
+  /** Average power over the current segment so far. */
+  avgPowerIn(t: number, meter: Meter): number {
+    const s = this.elapsed(t);
+    return s > 0 ? (Math.max(0, meter.kj - this.kjStart) * 1000) / s : 0;
+  }
+  /** Share of the current segment's measured time inside the target; null before any. */
+  get onTarget(): number | null {
+    return this.measured > 0 ? this.inTarget / this.measured : null;
   }
 
   /**
@@ -236,7 +272,29 @@ export class RideRun {
     if (this.segment) this.finish(t, meter);
   }
 
-  private finish(at: number, meter: Meter): void {
+  /** Next: end the current block now, marked skipped, and start the next. */
+  skip(t: number, meter: Meter): void {
+    if (this.segment) this.finish(t, meter, true);
+  }
+
+  /** Back skips to the previous block only within this many seconds of a block's start. */
+  static readonly BACK_GRACE = 3;
+
+  /**
+   * Back, as in a media player: restart the current block, or — within
+   * BACK_GRACE seconds of its start — drop it and the previous block's
+   * result and ride that one again from its start.
+   */
+  back(t: number, meter: Meter): void {
+    if (this.elapsed(t) <= RideRun.BACK_GRACE && this.idx > 0) {
+      this.results.pop();
+      this.idx--;
+    }
+    this.restarts++;
+    this.begin(t, meter);
+  }
+
+  private finish(at: number, meter: Meter, skipped = false): void {
     const seconds = Math.max(0, at - this.segStart);
     const kj = meter.kj - this.kjStart;
     this.results.push({
@@ -244,8 +302,13 @@ export class RideRun {
       kcal: this.kcalIn(meter),
       avgPower: seconds > 0 ? (kj * 1000) / seconds : 0,
       inTarget: this.measured > 0 ? this.inTarget / this.measured : 0,
+      ...(skipped ? { skipped: true } : {}),
     });
     this.idx++;
+    this.begin(at, meter);
+  }
+
+  private begin(at: number, meter: Meter): void {
     this.segStart = at;
     this.kcalStart = meter.kcal;
     this.kjStart = meter.kj;
