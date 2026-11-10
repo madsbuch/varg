@@ -167,27 +167,39 @@ describe("rides", () => {
     expect(rideLine({ label: "All out", ftp: [95, 120], kcal: 200 }, false)).toBe("Next: All out, 200 kilocalories");
   });
 
-  test("the background schedule: block ends, next-block lines 10 s ahead, beeps", () => {
+  test("the background schedule: block ends, the next block named just before 3-2-1, beeps", () => {
     const segs = [
       { label: "Warm-up", ftp: [50, 65] as [number, number], seconds: 600 },
       { label: "Sweet spot", ftp: [88, 94] as [number, number], seconds: 600 },
       { label: "Rung", ftp: [95, 110] as [number, number], kcal: 50 },
       { label: "Easy", ftp: [45, 55] as [number, number], seconds: 180 },
     ];
-    const s = rideSchedule(segs, 0, 1_000_000, false);
+    const s = rideSchedule(segs, 0, 1_000_000, false, () => 2); // every line 2 s long
     expect(s.segments).toEqual([
       { label: "Warm-up", endAt: 1_600_000 },
       { label: "Sweet spot", endAt: 2_200_000 },
       { label: "Rung", endAt: 0 }, // kcal: unknowable ahead, the schedule stops
     ]);
+    // 2 s of voice ending half a second before the 3-2-1: it starts 5.5 s out.
     expect(s.cues).toEqual([
-      { at: 1_590_000, text: "Next: Sweet spot, 10 minutes" },
+      { at: 1_594_500, text: "Next: Sweet spot, 10 minutes" },
+      { at: 1_597_000, beep: "tick" },
+      { at: 1_598_000, beep: "tick" },
+      { at: 1_599_000, beep: "tick" },
       { at: 1_600_000, beep: "work" },
-      { at: 2_190_000, text: "Next: Rung, 50 kilocalories" },
+      { at: 2_194_500, text: "Next: Rung, 50 kilocalories" },
+      { at: 2_197_000, beep: "tick" },
+      { at: 2_198_000, beep: "tick" },
+      { at: 2_199_000, beep: "tick" },
       { at: 2_200_000, beep: "work" },
     ]);
-    // The last block ends on the finish beep; paused schedules nothing.
-    expect(rideSchedule(segs.slice(3), 0, 0, false).cues).toEqual([{ at: 180_000, beep: "finish" }]);
+    // The last block counts down into the finish; paused schedules nothing.
+    expect(rideSchedule(segs.slice(3), 0, 0, false).cues).toEqual([
+      { at: 177_000, beep: "tick" },
+      { at: 178_000, beep: "tick" },
+      { at: 179_000, beep: "tick" },
+      { at: 180_000, beep: "finish" },
+    ]);
     expect(rideSchedule(segs, 0, 0, true)).toEqual({ paused: true, segments: [], cues: [] });
   });
 

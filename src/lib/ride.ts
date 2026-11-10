@@ -337,15 +337,31 @@ export class RideRun {
   }
 }
 
-/** Seconds before a timed block ends that the next one is announced. */
-export const ANNOUNCE_AHEAD = 10;
+/**
+ * Every block change is cued the same way, like the interval player: the
+ * voice names the next block, then 3-2-1 ticks, then the change beep. The
+ * line is timed to finish half a second before the first tick, so it sits
+ * right before the switch instead of a long, forgettable ten seconds out.
+ */
+export const COUNTDOWN = 3;
+const BREATH = 0.5;
+
+/** Seconds a spoken line takes: the generated clip's own length, else an estimate. */
+export function speechSeconds(text: string, clip?: number): number {
+  return clip ?? 0.6 + text.split(/\s+/).length * 0.4;
+}
+
+/** Seconds before a change that the voice must start, for a line `speech` seconds long. */
+export function announceLead(speech: number): number {
+  return COUNTDOWN + BREATH + speech;
+}
 
 export interface RideSchedule {
   paused: boolean;
   /** Remaining blocks; endAt 0 when it ends on kcal (unknowable ahead). */
   segments: { label: string; endAt: number }[];
   /** Wall-clock cues for the background service. */
-  cues: { at: number; text?: string; beep?: "work" | "finish" }[];
+  cues: { at: number; text?: string; beep?: "tick" | "work" | "finish" }[];
 }
 
 /**
@@ -359,6 +375,7 @@ export function rideSchedule(
   idx: number,
   segmentStartWall: number,
   paused: boolean,
+  speech: (text: string) => number = (text) => speechSeconds(text),
 ): RideSchedule {
   const out: RideSchedule = { paused, segments: [], cues: [] };
   if (paused) return out;
@@ -374,11 +391,11 @@ export function rideSchedule(
     out.segments.push({ label: seg.label, endAt: end });
     const next = segments[i + 1];
     if (next) {
-      out.cues.push({ at: end - ANNOUNCE_AHEAD * 1000, text: rideLine(next, false) });
-      out.cues.push({ at: end, beep: "work" });
-    } else {
-      out.cues.push({ at: end, beep: "finish" });
+      const line = rideLine(next, false);
+      out.cues.push({ at: end - Math.round(announceLead(speech(line)) * 1000), text: line });
     }
+    for (let n = COUNTDOWN; n >= 1; n--) out.cues.push({ at: end - n * 1000, beep: "tick" });
+    out.cues.push({ at: end, beep: next ? "work" : "finish" });
     start = end;
   }
   return out;

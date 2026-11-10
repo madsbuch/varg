@@ -143,7 +143,11 @@ class RideService : Service() {
     private fun tone(kind: String) {
         try {
             val g = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90)
-            g.startTone(if (kind == "finish") ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD else ToneGenerator.TONE_PROP_BEEP2, 500)
+            when (kind) {
+                "finish" -> g.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 500)
+                "tick" -> g.startTone(ToneGenerator.TONE_PROP_BEEP, 120) // 3-2-1
+                else -> g.startTone(ToneGenerator.TONE_PROP_BEEP2, 500)
+            }
             main.postDelayed({ g.release() }, 700)
         } catch (_: Exception) {}
     }

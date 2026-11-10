@@ -25,7 +25,7 @@ import {
 } from "../lib/bike";
 import type { BikeRead } from "../lib/bike";
 import {
-  ANNOUNCE_AHEAD, bestRide, fit, loadFtp, recordedRide, rideLine, RideRun, rideLeft, rideSchedule, rideSeconds, shownAmount, targetWatts, zoneOf, zoneTable,
+  announceLead, bestRide, COUNTDOWN, fit, loadFtp, recordedRide, rideLine, RideRun, rideLeft, rideSchedule, rideSeconds, shownAmount, speechSeconds, targetWatts, zoneOf, zoneTable,
 } from "../lib/ride";
 import type { RideConfig, SegmentResult } from "../lib/ride";
 import { EX } from "../lib/seed";
@@ -108,6 +108,9 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
   useEffect(() => { pausedRef.current = paused; }, [paused]);
   const spokenFor = useRef(-1); // segment index whose "Next" line was spoken
   const say = useRef<(text: string) => void>(() => undefined);
+  const tickedFor = useRef(""); // "block:n" of the last 3-2-1 tick
+  /** How long a line takes to say, so it ends right before the 3-2-1. */
+  const speechFor = useRef<(text: string) => number>((text) => speechSeconds(text));
   useEffect(() => {
     if (done) return;
     let alive = true;
@@ -144,17 +147,31 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
           if (r.done) cueFinish();
           else cueWork();
         }
-        // Name the next segment ahead of the change.
+        // Into every change: the voice names the next block, then 3-2-1,
+        // then the change beep. A timed block counts seconds; a kcal block
+        // counts its last 3 kcal, and is named a little before that.
         const cur = r.segment;
         const next = config.segments[r.idx + 1];
-        if (cur && next && spokenFor.current !== r.idx) {
-          const left = cur.seconds !== undefined
-            ? cur.seconds - r.elapsed(t)
+        if (cur) {
+          const timed = cur.seconds !== undefined;
+          const left = timed
+            ? (cur.seconds ?? 0) - r.elapsed(t)
             : (cur.kcal ?? 0) - r.kcalIn(meter.current);
-          const soon = cur.seconds !== undefined ? left <= ANNOUNCE_AHEAD : left <= Math.max(5, (cur.kcal ?? 0) * 0.05);
-          if (soon) {
-            spokenFor.current = r.idx;
-            if (visible) say.current(rideLine(next, false));
+          if (next && spokenFor.current !== r.idx) {
+            const line = rideLine(next, false);
+            const soon = timed
+              ? left <= announceLead(speechFor.current(line))
+              : left <= Math.max(COUNTDOWN + 5, (cur.kcal ?? 0) * 0.05);
+            if (soon) {
+              spokenFor.current = r.idx;
+              if (visible) say.current(line);
+            }
+          }
+          const n = Math.ceil(left);
+          const key = `${String(r.idx)}:${String(n)}`;
+          if (n >= 1 && n <= COUNTDOWN && tickedFor.current !== key) {
+            tickedFor.current = key;
+            if (visible) cueTick();
           }
         }
       }
@@ -177,7 +194,8 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
       });
     };
     void loop();
-    const id = setInterval(() => { void loop(); }, 500);
+    // Four times a second, so the 3-2-1 lands on the second.
+    const id = setInterval(() => { void loop(); }, 250);
     return () => { alive = false; clearInterval(id); };
   }, [done, config.segments]);
 
@@ -193,6 +211,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
     return () => { alive = false; };
   }, [config.segments]);
   useEffect(() => {
+    speechFor.current = (text: string) => speechSeconds(text, clips?.get(text)?.duration);
     say.current = (text: string) => {
       if (!voiceOn) return;
       const clip = clips?.get(text);
@@ -208,7 +227,10 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
   const scheduleNow = useCallback(() => {
     const r = run.current;
     const c = clockRef.current;
-    return rideSchedule(config.segments, r.idx, c.anchor + (LEAD_IN + r.segmentStart) * 1000, c.pausedAt !== null);
+    return rideSchedule(
+      config.segments, r.idx, c.anchor + (LEAD_IN + r.segmentStart) * 1000, c.pausedAt !== null,
+      (text) => speechFor.current(text),
+    );
   }, [config.segments]);
   useEffect(() => {
     // No paired bike, nothing to keep connected: the ride stays on screen.
