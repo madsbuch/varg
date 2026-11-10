@@ -70,6 +70,10 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
   useEffect(() => { clockRef.current = clock; }, [clock]);
   const [startedAt] = useState(() => new Date().toISOString());
   const meter = useRef(new RideMeter());
+  // What the screen shows: every packet, the lead-in and pauses included,
+  // so the watts confirm the bike before the ride starts. Only `meter`
+  // counts towards the ride.
+  const shown = useRef(new RideMeter());
   const run = useRef(new RideRun(config.segments, ftp));
   const [view, setView] = useState<View>({ raw: 0, t: 0, idx: 0, segElapsed: 0, segKcal: 0, segAvg: 0, segOnTarget: null, power: 0, cadence: 0, kcal: 0, kj: 0, bike: "none", bikeName: "", live: false });
   const [stopped, setStopped] = useState(false);
@@ -130,16 +134,16 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
       // Replay every packet at its own time — after a stretch in the
       // background there can be thousands — so blocks end, kcal counts and
       // time on target come out exactly as if Varg had been on screen.
-      // Paused, or still in the lead-in: drain the packets, count nothing.
-      if (read && !pausedRef.current) {
-        for (const p of read.packets) {
-          if (rawTime(c, p.t) < LEAD_IN) continue;
-          meter.current.add(p);
-          r.tick(rideTime(c, p.t), meter.current, true, p.t);
-        }
+      // Paused, or still in the lead-in: show the packets, count nothing.
+      for (const p of read?.packets ?? []) {
+        shown.current.add(p);
+        if (pausedRef.current || rawTime(c, p.t) < LEAD_IN) continue;
+        meter.current.add(p);
+        r.tick(rideTime(c, p.t), meter.current, true, p.t);
       }
       const t = rideTime(c, now);
       const live = read?.state === "connected" && now - meter.current.lastAt < 3000;
+      const showLive = read?.state === "connected" && now - shown.current.lastAt < 3000;
       if (rawTime(c, now) >= LEAD_IN && !pausedRef.current) {
         r.tick(t, meter.current, live, now);
         // Off screen, the background service beeps and speaks instead.
@@ -183,14 +187,14 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         segKcal: r.kcalIn(meter.current),
         segAvg: r.avgPowerIn(t, meter.current),
         segOnTarget: r.onTarget,
-        power: meter.current.power,
-        cadence: meter.current.cadence,
+        power: shown.current.power,
+        cadence: shown.current.cadence,
         kcal: meter.current.kcal,
         kj: meter.current.kj,
         bike: read?.state ?? "none",
         bikeName: read?.name ?? "",
         bikeError: read?.error ?? read?.serviceError,
-        live,
+        live: showLive,
       });
     };
     void loop();
@@ -490,7 +494,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
       ? `Bike: ${view.bikeError}`
       : view.bike !== "connected"
         ? `Bike ${saved.name}: ${bikeBusy || view.bike === "connecting" || view.bike === "discovering" ? "connecting…" : "not connected."}`
-        : !view.live && !ready
+        : !view.live
           ? "Bike connected, but no data. Start pedalling."
           : null;
 
