@@ -95,7 +95,7 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
 
       <CyclingSetting />
 
-      <div className="section-label">kie.ai — music &amp; voice</div>
+      <div className="section-label">kie.ai: music &amp; voice</div>
       <div className="card">
         <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
           One key from kie.ai pays for both the Suno battle tracks and the
@@ -278,7 +278,7 @@ function VoiceSetting({ hasKey, saveKey }: { hasKey: boolean; saveKey: () => voi
         >
           {voices.map((v) => (
             <option key={v.voiceId} value={v.voiceId}>
-              {v.name}{v.description ? ` — ${v.description}` : ""}
+              {v.name}{v.description ? `: ${v.description}` : ""}
             </option>
           ))}
         </select>
@@ -295,7 +295,7 @@ function VoiceSetting({ hasKey, saveKey }: { hasKey: boolean; saveKey: () => voi
       <div className="card">
         <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
           The guided workouts name what comes next: each pose in the yoga
-          flows, each station in the interval workouts. Two voices — calm for
+          flows, each station in the interval workouts. Two voices: calm for
           yoga, firm for training. Lines not generated yet are read by the
           phone's own voice.
         </div>
@@ -443,7 +443,7 @@ function GpsSetting() {
             <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
               In for-time workouts (Murph's runs), measure distance and pace,
               and complete the run stage automatically when you reach the
-              distance. Keeps measuring with the phone locked — a
+              distance. Keeps measuring with the phone locked; a
               notification shows while it does, and the phone buzzes when
               the distance is reached.
             </div>
@@ -482,10 +482,10 @@ function ComposerStatus({ status }: { status: EnsureStatus | null }) {
         <div className="muted" style={{ fontSize: 13 }}>
           Composing tracks: {status.ready}/{status.total} ready
           {status.pending ? ` · ${status.pending} composing on the server` : ""}
-          {status.current ? ` — requesting: ${status.current}` : ""}…
+          {status.current ? `, requesting: ${status.current}` : ""}…
         </div>
         <div className="faint" style={{ fontSize: 12, marginTop: 6 }}>
-          Composing happens on Suno's servers — locking your phone or leaving
+          Composing happens on Suno's servers. Locking your phone or leaving
           the app is fine. Finished tracks are picked up next time Varg is
           open.
         </div>
@@ -521,7 +521,7 @@ function ComposerStatus({ status }: { status: EnsureStatus | null }) {
         <div className="muted" style={{ fontSize: 13 }}>
           {status.pending} track{status.pending === 1 ? " is" : "s are"} still
           composing on Suno's servers. They're picked up automatically while
-          the app is open — or check right now.
+          the app is open, or check right now.
         </div>
         <button
           className="btn sm"
@@ -577,7 +577,7 @@ function ComposerLog() {
       <div className="card">
         {entries.length === 0 ? (
           <div className="muted" style={{ fontSize: 13 }}>
-            Nothing logged yet — the composer records every request, response
+            Nothing logged yet. The composer records every request, response
             and error here.
           </div>
         ) : (
@@ -650,7 +650,7 @@ function TrackFailureCard({
       className="card"
       style={{ marginTop: 6, borderColor: "var(--danger)" }}
     >
-      <ErrorText text={`Failed — ${failure.reason}`} />
+      <ErrorText text={`Failed: ${failure.reason}`} />
       <div className="faint" style={{ fontSize: 12, marginTop: 6 }}>
         {failure.attempts} attempt{failure.attempts === 1 ? "" : "s"}, last{" "}
         {new Date(failure.lastAt).toLocaleString()}.{" "}
@@ -740,7 +740,7 @@ function WorkoutMusicSheet({
     if (!p) return;
     const settings = loadMusicSettings();
     if (!settings.apiKey) {
-      setError("No API key set — add it in the Suno section first.");
+      setError("No API key set. Add it in the Suno section first.");
       return;
     }
     saveProfileOverride(workout.key, p);
@@ -819,7 +819,7 @@ function WorkoutMusicSheet({
       {busy ? (
         <div className="muted" style={{ fontSize: 13, margin: "8px 0" }}>
           {statusMsg ||
-            "Composing on Suno's servers — usually 1–3 minutes. Locking your phone is fine."}
+            "Composing on Suno's servers, usually 1–3 minutes. Locking your phone is fine."}
         </div>
       ) : (
         <div className="btn-row" style={{ marginTop: 8 }}>
@@ -877,7 +877,7 @@ function WorkoutMusicSheet({
           title="Regenerate track"
           message={
             track
-              ? `Compose a new track for "${workout.name}"? That costs one Suno generation and replaces the current track — the current one is kept if the new one fails.`
+              ? `Compose a new track for "${workout.name}"? That costs one Suno generation and replaces the current track; the current one is kept if the new one fails.`
               : `Compose a track for "${workout.name}"? That costs one Suno generation.`
           }
           confirmLabel="Regenerate"

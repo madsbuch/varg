@@ -77,7 +77,7 @@ export default function Records() {
             No records yet
           </div>
           <div style={{ marginTop: 4 }}>
-            Finish a session or log a PR — bests are detected automatically.
+            Finish a session or log a PR. Bests are detected automatically.
           </div>
         </div>
       ) : (

@@ -278,7 +278,7 @@ function StartScreen() {
       {shown.length === 0 && (
         <p className="muted" style={{ textAlign: "center", marginTop: 24 }}>
           {filter === "favorites" && favorites.size === 0
-            ? "No favorites yet — tap the star on a workout to add it."
+            ? "No favorites yet. Tap the star on a workout to add it."
             : "No workouts match."}
         </p>
       )}
@@ -580,7 +580,7 @@ function ActiveSession({ session }: { session: Session }) {
           <p className="muted" style={{ marginTop: 0 }}>
             {uncheckedWithData} set{uncheckedWithData === 1 ? " has" : "s have"}{" "}
             data but {uncheckedWithData === 1 ? "is" : "are"} not ticked.
-            Unticked sets count as failed attempts — they stay out of your
+            Unticked sets count as failed attempts: they stay out of your
             records.
           </p>
           <div className="btn-row" style={{ marginTop: 16 }}>

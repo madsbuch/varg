@@ -478,8 +478,8 @@ export default function WodPlayer({
         {voiced && voiceOn && step.kind === "ready" && clips && clips.missing.length > 0 && (
           <div className="wod-voice-note">
             {voiceConfigured()
-              ? `Phone voice for ${String(clips.missing.length)} line${clips.missing.length === 1 ? "" : "s"} — generate them in Settings → Voice.`
-              : "Phone voice — add your kie.ai key in Settings for a natural one."}
+              ? `Phone voice for ${String(clips.missing.length)} line${clips.missing.length === 1 ? "" : "s"}. Generate them in Settings → Voice.`
+              : "Phone voice. Add your kie.ai key in Settings for a natural one."}
           </div>
         )}
 
@@ -492,7 +492,7 @@ export default function WodPlayer({
         <div className="wod-queue-label">Up next</div>
         {upNext.length === 0 ? (
           <div className="wod-queue-row last">
-            <span className="wod-queue-name">Last station — empty the tank</span>
+            <span className="wod-queue-name">Last station: empty the tank</span>
           </div>
         ) : (
           upNext.map((s, i) => (

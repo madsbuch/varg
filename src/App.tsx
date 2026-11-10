@@ -64,7 +64,7 @@ function SaveFailureBanner() {
       <div className="persist-error" role="status">
         <IconFlag />
         <div style={{ flex: 1, minWidth: 0 }}>
-          Not saved — retrying
+          Not saved, retrying
           <div style={{ fontWeight: 400, wordBreak: "break-word" }}>
             {saveFailure.message}
             {saveFailure.attempts > 1 && ` · ${String(saveFailure.attempts)} attempts`}

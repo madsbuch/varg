@@ -38,7 +38,7 @@ export const VOICE_MODELS = [
   { id: GEMINI_38, label: "Google Gemini 3.8 Flash" },
   { id: GEMINI_31, label: "Google Gemini 3.1 Flash" },
   { id: "elevenlabs/text-to-speech-multilingual-v2", label: "ElevenLabs Multilingual v2" },
-  { id: "elevenlabs/text-to-speech-turbo-2-5", label: "ElevenLabs Turbo 2.5 — faster, cheaper" },
+  { id: "elevenlabs/text-to-speech-turbo-2-5", label: "ElevenLabs Turbo 2.5: faster, cheaper" },
 ];
 /**
  * v2 moved everyone to Gemini 3.8. Settings saved under v1 keep their
@@ -433,7 +433,7 @@ export function speechInput(model: string, role: VoiceRole, voice: string, text:
 
 async function synthesize(s: VoiceSettings, role: VoiceRole, text: string): Promise<Blob> {
   const apiKey = loadMusicSettings().apiKey.trim();
-  if (!apiKey) throw new Error("No kie.ai API key — add it in Settings.");
+  if (!apiKey) throw new Error("No kie.ai API key. Add it in Settings.");
   const taskId = await createTask(apiKey, s.model, speechInput(s.model, role, voiceIdFor(s, role), text));
   for (let i = 0; i < 60; i++) {
     await sleep(i === 0 ? 1500 : 2000);
@@ -446,7 +446,7 @@ async function synthesize(s: VoiceSettings, role: VoiceRole, text: string): Prom
     if (blob.size < 500) throw new Error(`kie.ai returned an empty clip for "${text}".`);
     return blob;
   }
-  throw new Error(`kie.ai took over two minutes on "${text}" — try again later.`);
+  throw new Error(`kie.ai took over two minutes on "${text}". Try again later.`);
 }
 
 let running: Promise<void> | null = null;
@@ -469,7 +469,7 @@ export function ensureVoiceClips(onProgress?: (ready: number, total: number) => 
   running = (async () => {
     // Loud, not a quiet no-op: a Generate button that does nothing is
     // indistinguishable from one that is broken. App start catches this.
-    if (!voiceConfigured()) throw new Error("No kie.ai API key saved — enter it in Settings and save.");
+    if (!voiceConfigured()) throw new Error("No kie.ai API key saved. Enter it in Settings and save.");
     const s = loadVoiceSettings();
     const lines = allVoiceLines();
     let ready = 0;

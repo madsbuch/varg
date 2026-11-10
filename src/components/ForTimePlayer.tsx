@@ -333,7 +333,7 @@ export default function ForTimePlayer({
         </div>
         <div className="wod-center fortime-result">
           <div className="wod-phase" style={{ color: "var(--gold)" }}>
-            {finished ? `${config.title} — for time` : "Stopped early"}
+            {finished ? `${config.title}, for time` : "Stopped early"}
           </div>
           <div className="wod-time">{formatSeconds(total)}</div>
           <div className="muted" style={{ textAlign: "center" }}>
@@ -359,7 +359,7 @@ export default function ForTimePlayer({
         </div>
         <div className="wod-controls">
           {marks.length === 0 ? (
-            <div className="muted">No stages completed — nothing logged.</div>
+            <div className="muted">No stages completed, nothing logged.</div>
           ) : discarded ? (
             <button className="btn primary" onClick={relog}>
               Log as session
@@ -431,7 +431,7 @@ export default function ForTimePlayer({
         <div className="wod-queue-label">Up next</div>
         {upNext.length === 0 ? (
           <div className="wod-queue-row last">
-            <span className="wod-queue-name">Last stage — empty the tank</span>
+            <span className="wod-queue-name">Last stage: empty the tank</span>
           </div>
         ) : (
           upNext.map((s, i) => {
@@ -501,9 +501,9 @@ export default function ForTimePlayer({
 }
 
 function comparison(total: number, best: number | undefined): string {
-  if (best == null) return "First recorded run — this is the time to beat.";
+  if (best == null) return "First recorded run. This is the time to beat.";
   const diff = Math.round(total - best);
-  if (diff < 0) return `New best — ${formatSeconds(-diff)} faster than ${formatSeconds(best)}.`;
+  if (diff < 0) return `New best: ${formatSeconds(-diff)} faster than ${formatSeconds(best)}.`;
   if (diff === 0) return `Equal to your best, ${formatSeconds(best)}.`;
   return `${formatSeconds(diff)} behind your best of ${formatSeconds(best)}.`;
 }

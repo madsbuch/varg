@@ -62,7 +62,7 @@ export function saveMusicSettings(s: MusicSettings): void {
 export const FREESTYLE_PROFILE: MusicProfile = {
   bpm: 150,
   style: "dark electronic rock, heavy driving drums",
-  theme: "Wolf on the hunt — raw, relentless training energy",
+  theme: "Wolf on the hunt: raw, relentless training energy",
 };
 
 /* ---------------------- Per-workout profile overrides -------------------- */
@@ -416,7 +416,7 @@ export async function ensureAllTracks(): Promise<void> {
     // would push a line into the ring buffer and bury the real diagnostics.
     if (blocked > 0) {
       musicLog(
-        `${blocked} workout${blocked === 1 ? "" : "s"} skipped — generation has failed ${String(MAX_FAILED_ATTEMPTS)}+ times; retry from Settings.`,
+        `${blocked} workout${blocked === 1 ? "" : "s"} skipped: generation has failed ${String(MAX_FAILED_ATTEMPTS)}+ times; retry from Settings.`,
       );
     }
 
@@ -465,7 +465,7 @@ export async function ensureAllTracks(): Promise<void> {
       // the key or account is almost certainly broken — stop wasting requests.
       if (submitFailed >= 2 && submitted === 0 && !anySucceededBefore) {
         musicLog(
-          "Two submissions failed and nothing has ever succeeded — stopping early (broken key or kie.ai account?).",
+          "Two submissions failed and nothing has ever succeeded. Stopping early (broken key or kie.ai account?).",
         );
         break;
       }
@@ -502,7 +502,7 @@ export async function ensureAllTracks(): Promise<void> {
             failed++;
             firstError ??= errorText(e);
             musicLog(
-              "kie.ai rejected the API key — stopping this run. Check the key in Settings.",
+              "kie.ai rejected the API key. Stopping this run. Check the key in Settings.",
             );
             break;
           }
@@ -510,7 +510,7 @@ export async function ensureAllTracks(): Promise<void> {
           if (w && !retriedKeys.has(task.key) && mayAttempt(task.key)) {
             retriedKeys.add(task.key);
             musicLog(
-              `"${task.workoutName}" failed — submitting one fresh request.`,
+              `"${task.workoutName}" failed. Submitting one fresh request.`,
             );
             try {
               await requestTrack(w.key, w.name, w.profile, settings);
@@ -536,7 +536,7 @@ export async function ensureAllTracks(): Promise<void> {
             failed++;
             firstError ??= `${task.workoutName}: gave up after 30 minutes.`;
             musicLog(
-              `"${task.workoutName}" still pending after 30 minutes — giving up on taskId ${task.taskId}.`,
+              `"${task.workoutName}" still pending after 30 minutes. Giving up on taskId ${task.taskId}.`,
             );
           }
         } else {
@@ -550,9 +550,9 @@ export async function ensureAllTracks(): Promise<void> {
         unreachableRounds >= MAX_UNREACHABLE_ROUNDS
       ) {
         firstError ??=
-          "Gateway unreachable — in-flight tracks keep composing on the server and are picked up next time the app is open.";
+          "Gateway unreachable. In-flight tracks keep composing on the server and are picked up next time the app is open.";
         musicLog(
-          "Gateway unreachable for ~2 minutes — pausing. In-flight tracks resume next time the app is in the foreground.",
+          "Gateway unreachable for ~2 minutes, pausing. In-flight tracks resume next time the app is in the foreground.",
         );
         break;
       }
@@ -572,7 +572,7 @@ export async function ensureAllTracks(): Promise<void> {
       pending: pendingLeft > 0 ? pendingLeft : undefined,
       error:
         failed > 0
-          ? `${failed} track${failed === 1 ? "" : "s"} failed — ${firstError ?? ""}`
+          ? `${failed} track${failed === 1 ? "" : "s"} failed: ${firstError ?? ""}`
           : firstError,
     });
   }
@@ -721,11 +721,11 @@ async function requestTrack(
       duration: TRACK_SECONDS,
     });
   } catch (e) {
-    musicLog(`Request for "${workoutName}" rejected — ${errorText(e)}`);
+    musicLog(`Request for "${workoutName}" rejected: ${errorText(e)}`);
     if (e instanceof KieError && e.isAuth) throw new MusicAuthError(e.message);
     throw e;
   }
-  musicLog(`"${workoutName}" accepted — taskId ${taskId}. Composing on the server.`);
+  musicLog(`"${workoutName}" accepted: taskId ${taskId}. Composing on the server.`);
   const task: PendingTask = {
     key,
     workoutName,
@@ -758,7 +758,7 @@ async function pollPendingTask(
       return "unreachable";
     }
     if (e.code === 429 || e.code >= 500) {
-      musicLog(`Poll for "${task.workoutName}" — ${e.message} (will retry)`);
+      musicLog(`Poll for "${task.workoutName}": ${e.message} (will retry)`);
       return "pending";
     }
     // A 4xx is about the request, not the composition: reading it as "still
@@ -766,7 +766,7 @@ async function pollPendingTask(
     // everything was fine. A refused key kills the whole run.
     removePendingTask(task.key);
     recordTrackFailure(task.key, e.message);
-    musicLog(`Poll for "${task.workoutName}" rejected — ${e.message}`);
+    musicLog(`Poll for "${task.workoutName}" rejected: ${e.message}`);
     if (e.isAuth) throw new MusicAuthError(e.message);
     throw e;
   }
@@ -775,7 +775,7 @@ async function pollPendingTask(
     removePendingTask(task.key);
     const why = info.failMsg.trim() ? info.failMsg : "no reason given";
     recordTrackFailure(task.key, `Generation failed on the server: ${why}`);
-    musicLog(`"${task.workoutName}" failed on the server — ${why}`);
+    musicLog(`"${task.workoutName}" failed on the server: ${why}`);
     throw new Error(`Generation failed: ${why}`);
   }
   if (info.state !== "success") return "pending";
@@ -792,10 +792,10 @@ async function pollPendingTask(
   if (!song) {
     removePendingTask(task.key);
     recordTrackFailure(task.key, "Finished with no audio URL.");
-    musicLog(`"${task.workoutName}" finished but no audio URL — result: ${truncate(JSON.stringify(info.result))}`);
+    musicLog(`"${task.workoutName}" finished but no audio URL. Result: ${truncate(JSON.stringify(info.result))}`);
     throw new Error("Track finished but kie.ai returned no audio URL.");
   }
-  musicLog(`"${task.workoutName}" is ready — downloading…`);
+  musicLog(`"${task.workoutName}" is ready, downloading…`);
   let blob: Blob;
   try {
     blob = await download(song.url);
@@ -817,7 +817,7 @@ async function pollPendingTask(
       ? `${Math.floor(song.duration / 60)}:${String(Math.round(song.duration % 60)).padStart(2, "0")}, `
       : "";
   musicLog(
-    `"${task.workoutName}" cached (${length}${Math.round(blob.size / 1024)} kB) — done.`,
+    `"${task.workoutName}" cached (${length}${Math.round(blob.size / 1024)} kB), done.`,
   );
   return track;
 }
@@ -843,7 +843,7 @@ export async function generateTrack(
   clearTrackFailure(key);
   await requestTrack(key, workoutName, profile, settings);
   onStatus(
-    "Composing on Suno's servers — usually 1–3 minutes. Locking your phone is fine; the track is picked up when you come back.",
+    "Composing on Suno's servers, usually 1–3 minutes. Locking your phone is fine; the track is picked up when you come back.",
   );
   let unreachable = 0;
   for (;;) {
@@ -858,7 +858,7 @@ export async function generateTrack(
       // Nothing in flight: either it landed in the cache or it died.
       const cached = await getCachedTrack(key);
       if (cached) return cached;
-      throw new Error("Generation failed — see the composer log in Settings.");
+      throw new Error("Generation failed. See the composer log in Settings.");
     }
     const result = await pollPendingTask(mine, settings);
     if (result === "unreachable") {
@@ -877,7 +877,7 @@ export async function generateTrack(
       if (Date.now() - Date.parse(mine.requestedAt) > PENDING_TTL_MS) {
         removePendingTask(key);
         recordTrackFailure(key, "Still pending after 30 minutes.");
-        throw new Error("Timed out waiting for the track — try again later.");
+        throw new Error("Timed out waiting for the track. Try again later.");
       }
       continue;
     }

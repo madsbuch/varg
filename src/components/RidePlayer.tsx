@@ -393,11 +393,11 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
           {config.race && finished && (
             <div className="muted" style={{ textAlign: "center" }}>
               {!asWritten
-                ? "Blocks skipped or restarted — not counted as a best time."
+                ? "Blocks skipped or restarted, so not counted as a best time."
                 : previousBest == null
-                  ? "First recorded ride — this is the time to beat."
+                  ? "First recorded ride. This is the time to beat."
                   : seconds < previousBest
-                    ? `New best — ${formatSeconds(previousBest - seconds)} faster than ${formatSeconds(previousBest)}.`
+                    ? `New best: ${formatSeconds(previousBest - seconds)} faster than ${formatSeconds(previousBest)}.`
                     : `${formatSeconds(seconds - previousBest)} behind your best of ${formatSeconds(previousBest)}.`}
             </div>
           )}
@@ -419,7 +419,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         </div>
         <div className="wod-controls">
           {results.length === 0 ? (
-            <div className="muted">Nothing ridden — nothing logged.</div>
+            <div className="muted">Nothing ridden, nothing logged.</div>
           ) : discarded ? (
             <button className="btn primary" onClick={relog}>Log as session</button>
           ) : (
@@ -469,7 +469,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
       : view.bike !== "connected"
         ? `Bike ${saved.name}: ${bikeBusy || view.bike === "connecting" || view.bike === "discovering" ? "connecting…" : "not connected."}`
         : !view.live && !ready
-          ? "Bike connected, but no data — start pedalling."
+          ? "Bike connected, but no data. Start pedalling."
           : null;
 
   return (
@@ -507,14 +507,14 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
           <div style={{ width: `${String(Math.min(1, segFrac) * 100)}%` }} />
         </div>
         <div className={`ride-power ${f ?? "none"}`}>
-          <span className="ride-watts">{view.live ? Math.round(view.power) : "—"}</span>
+          <span className="ride-watts">{view.live ? Math.round(view.power) : 0}</span>
           <span className="ride-unit">W</span>
         </div>
         <div className="ride-target">
           {target[0]}–{target[1]} W{seg.cadence ? ` · ${String(seg.cadence[0])}–${String(seg.cadence[1])} rpm` : ""}
         </div>
         <div className={`ride-fit ${f ?? "none"}`}>
-          {f === "in" ? "On target" : f === "below" ? "Push — below target" : f === "above" ? "Ease off — above target" : "No power reading"}
+          {f === "in" ? "On target" : f === "below" ? "Push: below target" : f === "above" ? "Ease off: above target" : "No power reading"}
         </div>
         {serviceError && (
           <div className="fortime-gps bad">
@@ -523,7 +523,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         )}
         {!saved && !ready && (
           <div className="ride-note">
-            No bike — ride by feel{config.segments.some((x) => x.kcal !== undefined) ? ", Done ends a kcal block" : ""}. Keep Varg on screen.
+            No bike, ride by feel{config.segments.some((x) => x.kcal !== undefined) ? ", Done ends a kcal block" : ""}. Keep Varg on screen.
           </div>
         )}
         {bikeProblem && (
@@ -542,12 +542,12 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
           title: "Ride",
           body: (
             <div className="ride-grid">
-              <Stat value={view.live ? Math.round(view.cadence) : "—"} unit="rpm" />
+              <Stat value={view.live ? Math.round(view.cadence) : 0} unit="rpm" />
               <Stat value={Math.round(view.kcal)} unit="kcal" />
               <Stat value={formatSeconds(view.t)} unit="ride time" />
-              <Stat value={ready || view.segElapsed < 1 ? "—" : Math.round(view.segAvg)} unit="block avg W" />
-              <Stat value={view.segOnTarget == null ? "—" : `${String(Math.round(view.segOnTarget * 100))}%`} unit="block on target" />
-              <Stat value={view.t >= 1 ? Math.round((view.kj * 1000) / view.t) : "—"} unit="ride avg W" />
+              <Stat value={ready || view.segElapsed < 1 ? 0 : Math.round(view.segAvg)} unit="block avg W" />
+              <Stat value={view.segOnTarget == null ? "0%" : `${String(Math.round(view.segOnTarget * 100))}%`} unit="block on target" />
+              <Stat value={view.t >= 1 ? Math.round((view.kj * 1000) / view.t) : 0} unit="ride avg W" />
             </div>
           ),
         },
@@ -601,7 +601,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
       <div className="wod-controls">
         {seg.kcal !== undefined && !ready && !view.live && (
           <button className="btn primary fortime-done" style={{ marginBottom: 10 }} onClick={completeSegment}>
-            <IconCheck /> Done — {seg.kcal} kcal reached
+            <IconCheck /> Done: {seg.kcal} kcal reached
           </button>
         )}
         {/* Labelled, with media-player icons, so they read as "the workout"

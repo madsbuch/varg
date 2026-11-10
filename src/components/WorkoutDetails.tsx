@@ -45,7 +45,7 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
         {forTime && <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
           For time: the clock runs from the start until the last stage is done.
           {forTime.stages.length > 1
-            ? ` Tap Done as you finish each of the ${String(forTime.stages.length)} stages — split the reps however you like — and your time for each one is saved.`
+            ? ` Tap Done as you finish each of the ${String(forTime.stages.length)} stages (split the reps however you like) and your time for each one is saved.`
             : " Split the reps however you like, and tap Finish when the last one is done."}
           {" "}Your best completed time is the one to beat.
         </p>}
@@ -73,7 +73,7 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
                   </span>
                 </summary>
                 <ul className="workout-cues">{guide.cues.map(cue => <li key={cue}>{cue}</li>)}</ul>
-              </details> : <span style={{ color: "var(--danger)" }}>Exercise unavailable — update the app to restore it.</span>}
+              </details> : <span style={{ color: "var(--danger)" }}>Exercise unavailable. Update the app to restore it.</span>}
             </li>
           );
         })}

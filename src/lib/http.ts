@@ -26,6 +26,6 @@ export async function httpFetch(url: string, init?: RequestInit): Promise<Respon
   } catch (e) {
     // The Tauri plugin rejects with plain strings — wrap everything so the
     // real reason survives instead of collapsing into a generic "failed".
-    throw new Error(`${init?.method ?? "GET"} ${url} — ${errorText(e)}`);
+    throw new Error(`${init?.method ?? "GET"} ${url}: ${errorText(e)}`);
   }
 }

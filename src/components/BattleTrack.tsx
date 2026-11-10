@@ -104,7 +104,7 @@ export function BattleTrack({
     if (!hasKey) {
       return (
         <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
-          No music yet — add your kie.ai API key in Settings (gear on the Den
+          No music yet. Add your kie.ai API key in Settings (gear on the Den
           tab).
         </div>
       );
@@ -113,7 +113,7 @@ export function BattleTrack({
       return (
         <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
           Composing tracks on Suno's servers
-          {ensure.current ? ` — requesting: ${ensure.current}` : ""}… Locking
+          {ensure.current ? `, requesting: ${ensure.current}` : ""}… Locking
           your phone is fine; the player appears here as soon as it's ready.
         </div>
       );
@@ -147,7 +147,7 @@ export function BattleTrack({
       return (
         <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
           {ensure.pending} track{ensure.pending === 1 ? " is" : "s are"} still
-          composing on Suno's servers — they're picked up automatically while
+          composing on Suno's servers; they're picked up automatically while
           the app is open.
         </div>
       );
@@ -181,7 +181,7 @@ export function BattleTrack({
           <audio ref={audio} controls preload="metadata" aria-label={`${workoutName} battle track`} src={url} style={{ width: "100%", marginTop: 10 }} />
           {busy ? (
             <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
-              Composing a new track on Suno's servers — locking your phone is
+              Composing a new track on Suno's servers. Locking your phone is
               fine…
             </div>
           ) : (

@@ -29,7 +29,7 @@ export function BikePicker({ onPicked }: { onPicked: (b: Paired) => void }) {
     requestBikePermission()
       .then((ok) => {
         if (!ok) throw new Error("Bluetooth permission was not granted. Allow Nearby devices for Varg in Android settings.");
-        setBusy("Looking for bikes — start pedalling to wake it…");
+        setBusy("Looking for bikes. Start pedalling to wake it…");
         return scanBikes(8);
       })
       .then((list) => {
@@ -118,15 +118,15 @@ export function RideConnectSheet({ title, onStart, onCancel }: {
     : problem ?? read?.error ?? (connected
       ? live
         ? `Connected · ${String(Math.round(live.power))} W · ${String(Math.round(live.cadence))} rpm`
-        : "Connected — pedal to see your watts."
+        : "Connected. Pedal to see your watts."
       : "Connecting…");
   const bad = !!bike && (!!problem || !!read?.error);
 
   return (
-    <Sheet title={`Ready to ride — ${title}`} onClose={onCancel}>
+    <Sheet title={`Ready to ride: ${title}`} onClose={onCancel}>
       <p className="muted" style={{ marginTop: 0 }}>
         Connect the bike so the ride can read your power, cadence and kcal.
-        Close Body Bike or Mowl first — most bikes take one app at a time.
+        Close Body Bike or Mowl first: most bikes take one app at a time.
       </p>
       {bike ? (
         <div className="card">

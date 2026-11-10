@@ -279,7 +279,7 @@ export function seedTemplates(): Template[] {
       name: "Varg 18",
       branch: "Varg",
       description:
-        "Twelve stations, strength alternating with cardio — no station " +
+        "Twelve stations, strength alternating with cardio, no station " +
         "repeats back to back. Cardio alternates run on the spot and air boxing.",
       // No total here: the card computes and shows the real clock time,
       // and two numbers that disagree by ten seconds is worse than one.
@@ -307,7 +307,7 @@ export function seedTemplates(): Template[] {
         bpm: 160,
         style: "hard electronic, punchy drums, dark synth bass, no vocals",
         theme:
-          "Eighteen minutes of short brutal intervals — wolf-pack pace, never a full breath",
+          "Eighteen minutes of short brutal intervals, wolf-pack pace, never a full breath",
       },
     },
     {
@@ -340,7 +340,7 @@ export function seedTemplates(): Template[] {
         bpm: 160,
         style: "hard electronic, punchy drums, dark synth bass, no vocals",
         theme:
-          "Thirty minutes of long grinding intervals — wolf-pack pace held past the burn",
+          "Thirty minutes of long grinding intervals, wolf-pack pace held past the burn",
       },
     },
     {
@@ -386,7 +386,7 @@ export function seedTemplates(): Template[] {
       music: {
         bpm: 70,
         style: "calm ambient, soft pads, gentle hand percussion, no vocals",
-        theme: "Ten quiet minutes on the mat — breath, balance and a slow reset",
+        theme: "Ten quiet minutes on the mat, breath, balance and a slow reset",
       },
     },
     {
@@ -394,7 +394,7 @@ export function seedTemplates(): Template[] {
       name: "Varg Yoga 20",
       branch: "Varg",
       description:
-        "Twenty minutes of holds: longer holds and more of everything — a " +
+        "Twenty minutes of holds: longer holds and more of everything. A " +
         "sun-salutation start, standing strength and balance, core, deep " +
         "hips and hamstrings, a spinal twist, and a proper rest at the end. " +
         "10 seconds to move between poses while the voice names the next one, " +
@@ -444,7 +444,7 @@ export function seedTemplates(): Template[] {
       music: {
         bpm: 72,
         style: "calm ambient, warm pads, soft piano, slow hand drums, no vocals",
-        theme: "Twenty unhurried minutes of strength, balance and release — breathe and settle",
+        theme: "Twenty unhurried minutes of strength, balance and release, breathe and settle",
       },
     },
     // --- Indoor bike rides ----------------------------------------------------
@@ -464,7 +464,7 @@ export function seedTemplates(): Template[] {
       ride: {
         segments: [{ label: "Zone 2", ftp: [56, 75], seconds: 2400, cadence: [85, 95] }],
       },
-      music: { bpm: 128, style: "steady deep house, warm bass, rolling groove, no vocals", theme: "Forty easy, even minutes — a long steady engine-building ride" },
+      music: { bpm: 128, style: "steady deep house, warm bass, rolling groove, no vocals", theme: "Forty easy, even minutes, a long steady engine-building ride" },
     },
     {
       id: "tpl-ride-200-kcal",
@@ -473,8 +473,8 @@ export function seedTemplates(): Template[] {
       description:
         "A race against the clock: 200 kcal as fast as you can make them. " +
         "Kcal come from the bike, so it ends itself at 200; the target is " +
-        "threshold and above — pace it, then empty the tank.",
-      scheme: "200 kcal @ 95–120 % FTP — for time",
+        "threshold and above. Pace it, then empty the tank.",
+      scheme: "200 kcal @ 95–120 % FTP · for time",
       level: "intermediate",
       estimateMinutes: 12,
       exerciseIds: [EX.spinBike],
@@ -482,7 +482,7 @@ export function seedTemplates(): Template[] {
         race: true,
         segments: [{ label: "All out", ftp: [95, 120], kcal: 200, cadence: [90, 110] }],
       },
-      music: { bpm: 172, style: "hard electronic, driving drums, aggressive synth", theme: "A flat-out calorie race — no pacing after halfway" },
+      music: { bpm: 172, style: "hard electronic, driving drums, aggressive synth", theme: "A flat-out calorie race, no pacing after halfway" },
     },
     {
       id: "tpl-ride-sweet-spot",
@@ -515,7 +515,7 @@ export function seedTemplates(): Template[] {
       branch: "Spin bike",
       description:
         "Five three-minute efforts above threshold with equal recovery. Hard " +
-        "from the second minute of each — that's the point.",
+        "from the second minute of each. That's the point.",
       scheme: "10 min warm-up · 5 × 3 min @ 106–120 % FTP, 3 min easy between · 5 min cool-down",
       level: "advanced",
       exerciseIds: [EX.spinBike],
@@ -562,9 +562,9 @@ export function seedTemplates(): Template[] {
       branch: "Spin bike",
       description:
         "A race up a ladder: 50, 100, then 150 kcal at threshold, with three " +
-        "easy minutes between rungs. The clock never stops — the score is " +
+        "easy minutes between rungs. The clock never stops: the score is " +
         "your total time.",
-      scheme: "50 kcal · 3 min easy · 100 kcal · 3 min easy · 150 kcal @ 95–110 % FTP — for time",
+      scheme: "50 kcal · 3 min easy · 100 kcal · 3 min easy · 150 kcal @ 95–110 % FTP · for time",
       level: "intermediate",
       estimateMinutes: 26,
       exerciseIds: [EX.spinBike],
@@ -578,7 +578,7 @@ export function seedTemplates(): Template[] {
           { label: "Rung three", ftp: [95, 110], kcal: 150, cadence: [90, 100] },
         ],
       },
-      music: { bpm: 150, style: "driving electro, big bassline, no vocals", theme: "Climb the ladder — every rung longer than the last" },
+      music: { bpm: 150, style: "driving electro, big bassline, no vocals", theme: "Climb the ladder, every rung longer than the last" },
     },
     // --- CrossFit benchmarks, for time ------------------------------------
     // The classic "Girls" at their standard prescription, and scaled
@@ -590,8 +590,8 @@ export function seedTemplates(): Template[] {
       branch: "CrossFit Benchmark",
       description:
         "The sprint benchmark: thrusters and pull-ups, 21-15-9. Short and " +
-        "savage — most finish between 3 and 10 minutes.",
-      scheme: "21-15-9 thrusters @ 43/29 kg · pull-ups — for time",
+        "savage: most finish between 3 and 10 minutes.",
+      scheme: "21-15-9 thrusters @ 43/29 kg · pull-ups · for time",
       level: "advanced",
       estimateMinutes: 8,
       exerciseIds: [EX.thruster, EX.pullUp],
@@ -601,7 +601,7 @@ export function seedTemplates(): Template[] {
           { exerciseId: EX.pullUp, label: `${String(n)} pull-ups`, reps: n },
         ]),
       },
-      music: { bpm: 178, style: "aggressive industrial metal, pounding drums", theme: "Three minutes of pure redline — no pacing, just go" },
+      music: { bpm: 178, style: "aggressive industrial metal, pounding drums", theme: "Three minutes of pure redline, no pacing, just go" },
     },
     {
       id: "tpl-fran-scaled",
@@ -610,7 +610,7 @@ export function seedTemplates(): Template[] {
       description:
         "Fran for before your first pull-up: the same 21-15-9, with a light " +
         "bar and ring rows. Set the rings so the last rows are hard but clean.",
-      scheme: "21-15-9 thrusters @ 20/15 kg · ring rows — for time",
+      scheme: "21-15-9 thrusters @ 20/15 kg · ring rows · for time",
       level: "beginner",
       estimateMinutes: 8,
       exerciseIds: [EX.thruster, EX.ringRow],
@@ -620,14 +620,14 @@ export function seedTemplates(): Template[] {
           { exerciseId: EX.ringRow, label: `${String(n)} ring rows`, reps: n },
         ]),
       },
-      music: { bpm: 172, style: "driving electronic rock, heavy kick", theme: "Short and sharp — learn to suffer for a few minutes" },
+      music: { bpm: 172, style: "driving electronic rock, heavy kick", theme: "Short and sharp, learn to suffer for a few minutes" },
     },
     {
       id: "tpl-helen",
       name: "Helen",
       branch: "CrossFit Benchmark",
       description: "Three rounds of a run, kettlebell swings and pull-ups.",
-      scheme: "3 rounds: 400 m run · 21 kettlebell swings @ 24/16 kg · 12 pull-ups — for time",
+      scheme: "3 rounds: 400 m run · 21 kettlebell swings @ 24/16 kg · 12 pull-ups · for time",
       level: "advanced",
       estimateMinutes: 12,
       exerciseIds: [EX.run, EX.kettlebellSwing, EX.pullUp],
@@ -638,14 +638,14 @@ export function seedTemplates(): Template[] {
           { exerciseId: EX.pullUp, label: `Round ${String(r)} · 12 pull-ups`, reps: 12 },
         ]),
       },
-      music: { bpm: 170, style: "hard rock, galloping drums, distorted bass", theme: "Run, swing, pull — three hard laps" },
+      music: { bpm: 170, style: "hard rock, galloping drums, distorted bass", theme: "Run, swing, pull, three hard laps" },
     },
     {
       id: "tpl-helen-scaled",
       name: "Helen (scaled)",
       branch: "CrossFit Scaled",
       description: "Helen with a lighter bell and ring rows in place of pull-ups.",
-      scheme: "3 rounds: 400 m run · 21 kettlebell swings @ 16/12 kg · 12 ring rows — for time",
+      scheme: "3 rounds: 400 m run · 21 kettlebell swings @ 16/12 kg · 12 ring rows · for time",
       level: "beginner",
       estimateMinutes: 15,
       exerciseIds: [EX.run, EX.kettlebellSwing, EX.ringRow],
@@ -656,14 +656,14 @@ export function seedTemplates(): Template[] {
           { exerciseId: EX.ringRow, label: `Round ${String(r)} · 12 ring rows`, reps: 12 },
         ]),
       },
-      music: { bpm: 164, style: "punchy rock, steady drive", theme: "Three honest rounds — keep moving" },
+      music: { bpm: 164, style: "punchy rock, steady drive", theme: "Three honest rounds, keep moving" },
     },
     {
       id: "tpl-jackie",
       name: "Jackie",
       branch: "CrossFit Benchmark",
-      description: "Row, thrusters, pull-ups — one long chipper, one lap each.",
-      scheme: "1000 m row · 50 thrusters @ 20/15 kg · 30 pull-ups — for time",
+      description: "Row, thrusters, pull-ups: one long chipper, one lap each.",
+      scheme: "1000 m row · 50 thrusters @ 20/15 kg · 30 pull-ups · for time",
       level: "advanced",
       estimateMinutes: 12,
       exerciseIds: [EX.row, EX.thruster, EX.pullUp],
@@ -681,7 +681,7 @@ export function seedTemplates(): Template[] {
       name: "Jackie (scaled)",
       branch: "CrossFit Scaled",
       description: "Jackie with a training bar and ring rows.",
-      scheme: "1000 m row · 50 thrusters @ 15/10 kg · 30 ring rows — for time",
+      scheme: "1000 m row · 50 thrusters @ 15/10 kg · 30 ring rows · for time",
       level: "beginner",
       estimateMinutes: 15,
       exerciseIds: [EX.row, EX.thruster, EX.ringRow],
@@ -692,7 +692,7 @@ export function seedTemplates(): Template[] {
           { exerciseId: EX.ringRow, label: "30 ring rows", reps: 30 },
         ],
       },
-      music: { bpm: 160, style: "dark electronic, steady groove", theme: "A long steady chipper — find a rhythm and hold it" },
+      music: { bpm: 160, style: "dark electronic, steady groove", theme: "A long steady chipper, find a rhythm and hold it" },
     },
     {
       id: "tpl-karen",
@@ -700,20 +700,20 @@ export function seedTemplates(): Template[] {
       branch: "CrossFit Benchmark",
       description:
         "One movement, one number: 150 wall balls. Break them into sets " +
-        "before you have to — 10s or 15s with short rests.",
-      scheme: "150 wall balls @ 9/6 kg to a 3 m target — for time",
+        "before you have to: 10s or 15s with short rests.",
+      scheme: "150 wall balls @ 9/6 kg to a 3 m target · for time",
       level: "intermediate",
       estimateMinutes: 12,
       exerciseIds: [EX.wallBall],
       forTime: { stages: [{ exerciseId: EX.wallBall, label: "150 wall balls", reps: 150 }] },
-      music: { bpm: 166, style: "relentless techno, four-on-the-floor", theme: "Squat, throw, catch — one hundred and fifty times" },
+      music: { bpm: 166, style: "relentless techno, four-on-the-floor", theme: "Squat, throw, catch, one hundred and fifty times" },
     },
     {
       id: "tpl-kelly",
       name: "Kelly",
       branch: "CrossFit Benchmark",
-      description: "Five long rounds of running, jumping and throwing — a lung burner.",
-      scheme: "5 rounds: 400 m run · 30 box jumps @ 60/50 cm · 30 wall balls @ 9/6 kg — for time",
+      description: "Five long rounds of running, jumping and throwing: a lung burner.",
+      scheme: "5 rounds: 400 m run · 30 box jumps @ 60/50 cm · 30 wall balls @ 9/6 kg · for time",
       level: "advanced",
       estimateMinutes: 35,
       exerciseIds: [EX.run, EX.boxJump, EX.wallBall],
@@ -724,14 +724,14 @@ export function seedTemplates(): Template[] {
           { exerciseId: EX.wallBall, label: `Round ${String(r)} · 30 wall balls`, reps: 30 },
         ]),
       },
-      music: { bpm: 168, style: "hard electronic rock, big drums", theme: "Five rounds of lungs and legs — keep the engine running" },
+      music: { bpm: 168, style: "hard electronic rock, big drums", theme: "Five rounds of lungs and legs, keep the engine running" },
     },
     {
       id: "tpl-annie",
       name: "Annie",
       branch: "CrossFit Benchmark",
       description: "Double-unders and sit-ups in a descending ladder.",
-      scheme: "50-40-30-20-10 double-unders · sit-ups — for time",
+      scheme: "50-40-30-20-10 double-unders · sit-ups · for time",
       level: "advanced",
       estimateMinutes: 10,
       exerciseIds: [EX.doubleUnder, EX.sitUp],
@@ -748,7 +748,7 @@ export function seedTemplates(): Template[] {
       name: "Annie (scaled)",
       branch: "CrossFit Scaled",
       description: "Annie with single-unders while the double-unders come.",
-      scheme: "50-40-30-20-10 single-unders · sit-ups — for time",
+      scheme: "50-40-30-20-10 single-unders · sit-ups · for time",
       level: "beginner",
       estimateMinutes: 12,
       exerciseIds: [EX.singleUnder, EX.sitUp],
@@ -758,7 +758,7 @@ export function seedTemplates(): Template[] {
           { exerciseId: EX.sitUp, label: `${String(n)} sit-ups`, reps: n },
         ]),
       },
-      music: { bpm: 164, style: "upbeat drum and bass", theme: "Light on the feet — skip, crunch, repeat" },
+      music: { bpm: 164, style: "upbeat drum and bass", theme: "Light on the feet, skip, crunch, repeat" },
     },
     {
       id: "tpl-half-murph-scaled",
@@ -767,8 +767,8 @@ export function seedTemplates(): Template[] {
       description:
         "Half of Murph, scaled for before your first pull-up: ring rows in " +
         "place of pull-ups, no vest. Push-ups from the knees or with hands " +
-        "on a box are fine — partition the middle however you like.",
-      scheme: "800 m run · 50 ring rows · 100 push-ups · 150 air squats · 800 m run — for time",
+        "on a box are fine. Partition the middle however you like.",
+      scheme: "800 m run · 50 ring rows · 100 push-ups · 150 air squats · 800 m run · for time",
       level: "intermediate",
       estimateMinutes: 35,
       exerciseIds: [EX.run, EX.ringRow, EX.pushUp, EX.airSquat],
@@ -781,7 +781,7 @@ export function seedTemplates(): Template[] {
           { exerciseId: EX.run, label: "800 m run", meters: 800 },
         ],
       },
-      music: { bpm: 170, style: "aggressive electronic rock, pounding drums", theme: "Half the hero, all the honour — earn the full one" },
+      music: { bpm: 170, style: "aggressive electronic rock, pounding drums", theme: "Half the hero, all the honour, earn the full one" },
     },
     // --- The road to a first pull-up ------------------------------------------
     {
@@ -797,7 +797,7 @@ export function seedTemplates(): Template[] {
       level: "beginner",
       exerciseIds: [EX.deadHang, EX.scapPull, EX.ringRow, EX.pullupNegative],
       interval: { work: 30, rest: 30, rounds: 4 },
-      music: { bpm: 150, style: "steady hip-hop beat, heavy bass, no vocals", theme: "Patient strength — one more second on the bar each week" },
+      music: { bpm: 150, style: "steady hip-hop beat, heavy bass, no vocals", theme: "Patient strength, one more second on the bar each week" },
     },
     {
       id: "tpl-pullup-path-2",
@@ -812,7 +812,7 @@ export function seedTemplates(): Template[] {
       level: "intermediate",
       exerciseIds: [EX.deadHang, EX.pullupNegative, EX.bandPullup, EX.ringRow],
       interval: { work: 40, rest: 30, rounds: 4 },
-      music: { bpm: 154, style: "boom-bap hip-hop beat, deep bass, no vocals", theme: "Closing in on the first pull-up — grind and believe" },
+      music: { bpm: 154, style: "boom-bap hip-hop beat, deep bass, no vocals", theme: "Closing in on the first pull-up, grind and believe" },
     },
     {
       id: "tpl-rasteplads",
@@ -820,10 +820,10 @@ export function seedTemplates(): Template[] {
       branch: "Varg",
       description:
         "Rest-stop reset after one to two hours behind the wheel. Standing " +
-        "only — nothing goes on the tarmac. Opens the hips the seat closed " +
+        "only: nothing goes on the tarmac. Opens the hips the seat closed " +
         "down, unlocks the shoulders, moves blood without soaking your shirt " +
         "for the next leg.",
-      scheme: "3 rounds · 6 stations · 15 s work, no rest — 90 s a round",
+      scheme: "3 rounds · 6 stations · 15 s work, no rest · 90 s a round",
       level: "beginner",
       // Legs first: the seat closed the hips down, so the heavy lower-body
       // work goes in while there is still patience for it, then the hip
@@ -845,7 +845,7 @@ export function seedTemplates(): Template[] {
         style:
           "motorik krautrock, hypnotic driving rhythm, analog synth, no vocals",
         theme:
-          "Four and a half minutes at a roadside stop, no pauses — shake the highway out of the legs and get back on the road",
+          "Four and a half minutes at a roadside stop, no pauses, shake the highway out of the legs and get back on the road",
       },
     },
     {
@@ -867,7 +867,7 @@ export function seedTemplates(): Template[] {
       music: {
         bpm: 155,
         style: "nordic electronic rock, driving drums, cold synths",
-        theme: "Danish soldier basic training — disciplined, no-nonsense grind",
+        theme: "Danish soldier basic training, disciplined, no-nonsense grind",
       },
     },
     {
@@ -882,7 +882,7 @@ export function seedTemplates(): Template[] {
       music: {
         bpm: 120,
         style: "marching drums, nordic folk undertones, hypnotic low drone",
-        theme: "Field march across Danish terrain — endless steady kilometres",
+        theme: "Field march across Danish terrain, endless steady kilometres",
       },
     },
     {
@@ -901,7 +901,7 @@ export function seedTemplates(): Template[] {
       music: {
         bpm: 165,
         style: "high-energy drum and bass, relentless breakbeats",
-        theme: "Circuit intervals — heart pounding, quick transitions",
+        theme: "Circuit intervals, heart pounding, quick transitions",
       },
     },
     {
@@ -911,7 +911,7 @@ export function seedTemplates(): Template[] {
       description:
         "In memory of Lt. Michael Murphy. Traditionally done wearing a 9 kg vest.",
       scheme:
-        "1.6 km run · 100 pull-ups · 200 push-ups · 300 air squats · 1.6 km run — for time",
+        "1.6 km run · 100 pull-ups · 200 push-ups · 300 air squats · 1.6 km run · for time",
       level: "advanced",
       estimateMinutes: 60,
       exerciseIds: [EX.run, EX.pullUp, EX.pushUp, EX.airSquat, EX.run],
@@ -930,7 +930,7 @@ export function seedTemplates(): Template[] {
       music: {
         bpm: 175,
         style: "aggressive electronic rock, pounding drums, distorted guitar",
-        theme: "Relentless hero tribute — pain, honor, pushing past the limit",
+        theme: "Relentless hero tribute, pain, honor, pushing past the limit",
       },
     },
     {
@@ -960,14 +960,14 @@ export function seedTemplates(): Template[] {
       music: {
         bpm: 160,
         style: "hard military trap, heavy 808s, snare cadence",
-        theme: "Combat readiness test — focused aggression under pressure",
+        theme: "Combat readiness test, focused aggression under pressure",
       },
     },
     {
       id: "tpl-usmc-pft",
       name: "USMC PFT",
       branch: "U.S. Marine Corps",
-      description: "Physical Fitness Test — max effort on each event.",
+      description: "Physical Fitness Test: max effort on each event.",
       scheme: "Pull-ups (max) · plank (max hold) · 4.8 km run (for time)",
       level: "intermediate",
       estimateMinutes: 35,
@@ -975,7 +975,7 @@ export function seedTemplates(): Template[] {
       music: {
         bpm: 165,
         style: "hard rock, driving double-time drums",
-        theme: "Max effort test day — no slack, all out",
+        theme: "Max effort test day, no slack, all out",
       },
     },
     {
@@ -990,7 +990,7 @@ export function seedTemplates(): Template[] {
       music: {
         bpm: 150,
         style: "electronic rock, steady pulse",
-        theme: "Disciplined readiness — steady grind to the finish",
+        theme: "Disciplined readiness, steady grind to the finish",
       },
     },
     {
@@ -998,7 +998,7 @@ export function seedTemplates(): Template[] {
       name: "Cindy",
       branch: "CrossFit Benchmark",
       description:
-        "Cindy is a 20-minute AMRAP — 5 pull-ups, 10 push-ups, 15 air " +
+        "Cindy is a 20-minute AMRAP: 5 pull-ups, 10 push-ups, 15 air " +
         "squats, as many rounds as possible. The guided player counts the " +
         "clock, not rounds, so this is the timed adaptation.",
       // Twenty minutes of continuous work at a fixed station pace. Rest is
@@ -1013,7 +1013,7 @@ export function seedTemplates(): Template[] {
       music: {
         bpm: 170,
         style: "fast punk rock, upbeat and raw",
-        theme: "Twenty minutes of relentless rounds — keep moving",
+        theme: "Twenty minutes of relentless rounds, keep moving",
       },
     },
     {
@@ -1021,7 +1021,7 @@ export function seedTemplates(): Template[] {
       name: "Standard Ruck",
       branch: "Army Ranger / SF",
       description: "Foot-march standard: 19.3 km with a 16 kg dry pack.",
-      scheme: "19.3 km ruck · 16 kg load · target sub-3:00 — for time",
+      scheme: "19.3 km ruck · 16 kg load · target sub-3:00 · for time",
       level: "advanced",
       estimateMinutes: 180,
       exerciseIds: [EX.ruck],
@@ -1033,7 +1033,7 @@ export function seedTemplates(): Template[] {
       music: {
         bpm: 130,
         style: "dark folk percussion, marching cadence, low drone",
-        theme: "Long ruck under load — one step after another for hours",
+        theme: "Long ruck under load, one step after another for hours",
       },
     },
     {
@@ -1042,7 +1042,7 @@ export function seedTemplates(): Template[] {
       branch: "CrossFit Hero WOD",
       description: "In memory of USAF SSgt Timothy Davis.",
       scheme:
-        "5 rounds: 12 deadlifts · 9 hang power cleans · 6 push press @ 70/48 kg — for time",
+        "5 rounds: 12 deadlifts · 9 hang power cleans · 6 push press @ 70/48 kg · for time",
       level: "advanced",
       estimateMinutes: 15,
       exerciseIds: [EX.deadlift, EX.hangPowerClean, EX.pushPress],
@@ -1058,7 +1058,7 @@ export function seedTemplates(): Template[] {
       music: {
         bpm: 172,
         style: "heavy metal, barbell-slamming riffs",
-        theme: "Five brutal barbell rounds in tribute — heavy and fast",
+        theme: "Five brutal barbell rounds in tribute, heavy and fast",
       },
     },
     {
@@ -1067,10 +1067,10 @@ export function seedTemplates(): Template[] {
       branch: "Varg",
       description:
         "Daily mobility, short form. Six stations through ankles, hips, " +
-        "spine and shoulders, straight through with no rest — the station " +
+        "spine and shoulders, straight through with no rest; the station " +
         "change is the breather. Floor work included; do it every day, not " +
         "just leg day.",
-      scheme: "1 round · 6 stations · 50 s work, no rest — 5 min flow",
+      scheme: "1 round · 6 stations · 50 s work, no rest · 5 min flow",
       level: "beginner",
       // Ankles, then shoulders, then onto the floor for spine, hip and a
       // combined hip-and-spine rotation, closing on a flow that opens
@@ -1090,7 +1090,7 @@ export function seedTemplates(): Template[] {
         bpm: 90,
         style: "calm ambient, soft pads, minimal percussion, no vocals",
         theme:
-          "Five minutes to unlock stiff joints before the day starts — unhurried, deliberate breath",
+          "Five minutes to unlock stiff joints before the day starts, unhurried, deliberate breath",
       },
     },
     {
@@ -1100,9 +1100,9 @@ export function seedTemplates(): Template[] {
       description:
         "Daily mobility, full form. Eight stations through ankles, hips, " +
         "spine and shoulders across three rounds, straight through with no " +
-        "rest. Floor work included — the long version for a rest day or a " +
+        "rest. Floor work included: the long version for a rest day or a " +
         "stiff morning.",
-      scheme: "3 rounds · 8 stations · 50 s work, no rest — 20 min flow",
+      scheme: "3 rounds · 8 stations · 50 s work, no rest · 20 min flow",
       level: "beginner",
       exerciseIds: [
         EX.ankleRock,
@@ -1120,7 +1120,7 @@ export function seedTemplates(): Template[] {
         style:
           "spacious ambient drone, slow evolving textures, gentle rhythmic pulse, no vocals",
         theme:
-          "Twenty minutes moving through hips, spine, shoulders and ankles — patient, full range, a wolf stretching out before the hunt",
+          "Twenty minutes moving through hips, spine, shoulders and ankles, patient, full range, a wolf stretching out before the hunt",
       },
     },
     {
@@ -1129,7 +1129,7 @@ export function seedTemplates(): Template[] {
       branch: "Navy SEAL",
       description:
         "1,000 box step-ups with a rucksack. Honors LT Chad Wilkinson.",
-      scheme: "1000 step-ups @ 50 cm box · 20/16 kg ruck — for time",
+      scheme: "1000 step-ups @ 50 cm box · 20/16 kg ruck · for time",
       level: "advanced",
       estimateMinutes: 75,
       // Step-ups, not box jumps. The station used to map to Box Jump,
@@ -1147,7 +1147,7 @@ export function seedTemplates(): Template[] {
       music: {
         bpm: 135,
         style: "somber cinematic percussion, steady stomping beat",
-        theme: "A thousand step-ups in remembrance — solemn, unbroken rhythm",
+        theme: "A thousand step-ups in remembrance, solemn, unbroken rhythm",
       },
     },
   ];
