@@ -119,7 +119,7 @@ class HrPlugin(private val activity: Activity) : Plugin(activity) {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
                 val o = JSObject()
                 o.put("address", result.device.address)
-                o.put("name", result.scanRecord?.deviceName ?: result.device.name ?: "Unnamed strap")
+                o.put("name", result.scanRecord?.deviceName ?: result.device.name ?: "Heart rate")
                 o.put("rssi", result.rssi)
                 synchronized(found) { found[result.device.address] = o }
             }
@@ -151,7 +151,7 @@ class HrPlugin(private val activity: Activity) : Plugin(activity) {
         val device = try {
             adapter()!!.getRemoteDevice(args.address)
         } catch (e: Exception) {
-            invoke.reject("Unknown strap address ${args.address}.")
+            invoke.reject("Unknown device ${args.address}")
             return
         }
         HrLink.connect(activity, device)
@@ -200,7 +200,7 @@ class HrPlugin(private val activity: Activity) : Plugin(activity) {
         if (Build.VERSION.SDK_INT >= 31 &&
             ContextCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
         ) {
-            invoke.reject("Bluetooth permission is not granted — pair your strap in Settings → Heart rate.")
+            invoke.reject("No Bluetooth permission")
             return
         }
         HrService.title = args.title

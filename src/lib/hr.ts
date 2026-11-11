@@ -1,6 +1,7 @@
 /**
- * Heart rate from a chest strap over Bluetooth LE (Garmin HRM 600 and any
- * other strap that speaks the standard Heart Rate Service).
+ * Heart rate over Bluetooth LE from any source that speaks the standard
+ * Heart Rate Service: a band, or a watch broadcasting heart rate. Code
+ * calls it "the strap" for short; the app never names a device type.
  *
  * The native side (src-tauri/plugins/varg-hr) only scans, connects,
  * reconnects and queues raw packets. Everything that knows a byte layout
@@ -292,7 +293,7 @@ class Simulator {
       packets.push({ hex: `06${bpm.toString(16).padStart(2, "0")}`, t });
       this.lastT = t;
     }
-    return { state: "connected", name: "Simulated strap", packets };
+    return { state: "connected", name: "Simulated heart rate", packets };
   }
 }
 const simulator = new Simulator();
@@ -303,7 +304,7 @@ export async function requestHrPermission(): Promise<boolean> {
 }
 
 export async function scanStraps(seconds = 6): Promise<FoundStrap[]> {
-  if (!hrAvailable()) return [{ address: SIMULATED_STRAP, name: "Simulated strap (browser only)", rssi: -40 }];
+  if (!hrAvailable()) return [{ address: SIMULATED_STRAP, name: "Simulated heart rate (browser only)", rssi: -40 }];
   const r = await call<{ devices: FoundStrap[]; error?: string }>("scan", { seconds });
   if (r.error && r.devices.length === 0) throw new Error(r.error);
   return r.devices;
@@ -311,7 +312,7 @@ export async function scanStraps(seconds = 6): Promise<FoundStrap[]> {
 
 export async function connectStrap(address: string): Promise<void> {
   if (address === SIMULATED_STRAP) {
-    if (hrAvailable()) throw new Error("The simulated strap only exists in the browser build.");
+    if (hrAvailable()) throw new Error("Simulated heart rate is browser only.");
     simulator.connect();
     return;
   }

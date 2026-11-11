@@ -557,10 +557,10 @@ function HeartRateSetting() {
     <>
       <div className="section-label">Heart rate</div>
       <div className="card">
-        <Field label="Strap">
+        <Field label="Source">
           <div className="btn-row">
             <div style={{ flex: 1, alignSelf: "center" }}>
-              {strap ? <strong>{strap.name}</strong> : <span className="muted">No strap paired</span>}
+              {strap ? <strong>{strap.name}</strong> : <span className="muted">None paired</span>}
             </div>
             {strap && !changing && (
               <button className="btn sm" style={{ width: "auto" }} onClick={() => { setChanging(true); }}>Change</button>
@@ -582,7 +582,7 @@ function HeartRateSetting() {
         {(!strap || changing) && (
           <StrapPicker onPicked={(s) => { setStrap(s); setChanging(false); }} />
         )}
-        <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>Bluetooth straps only · not ANT+ (HRM-Tri)</div>
+        <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>Any Bluetooth heart rate: band or watch broadcast</div>
       </div>
       <HrZonesCard />
     </>

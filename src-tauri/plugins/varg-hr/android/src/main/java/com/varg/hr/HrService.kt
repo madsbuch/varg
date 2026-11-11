@@ -118,11 +118,11 @@ class HrService : Service() {
     private fun statusLine(): String {
         val now = System.currentTimeMillis()
         return when {
-            HrLink.state == "reconnecting" -> "Heart rate lost — reconnecting to ${HrLink.deviceName}"
-            HrLink.state != "connected" -> "Heart-rate strap not connected"
-            now - HrLink.lastPacketAt > 5000 -> "No heart rate from ${HrLink.deviceName} — check the strap"
-            !workoutActive -> "${HrLink.deviceName} connected"
-            else -> "Recording heart rate from ${HrLink.deviceName}"
+            HrLink.state == "reconnecting" -> "HR lost · reconnecting"
+            HrLink.state != "connected" -> "HR not connected"
+            now - HrLink.lastPacketAt > 5000 -> "No HR data"
+            !workoutActive -> "HR connected"
+            else -> "Recording HR"
         }
     }
 

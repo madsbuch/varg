@@ -73,7 +73,7 @@ object HrLink {
                     if (gatt != g) return
                     gatt = null
                     if (state == "disconnected") return // we asked for it
-                    error = "The strap disconnected (status $status). Reconnecting…"
+                    error = "HR lost · reconnecting (status $status)"
                     reconnect()
                 }
             }
@@ -91,7 +91,7 @@ object HrLink {
             g.setCharacteristicNotification(ch, true)
             val d = ch.getDescriptor(CCCD)
             if (d == null) {
-                error = "The strap does not allow notifications."
+                error = "No HR notifications from this device"
                 return
             }
             if (Build.VERSION.SDK_INT >= 33) {

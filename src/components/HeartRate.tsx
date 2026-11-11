@@ -55,10 +55,10 @@ function problemOf(r: HrRead, rec: HrRecorder, now: number, connectedSince: numb
   if (r.state === "reconnecting") return "HR lost · reconnecting";
   if (r.state === "disconnected") return "HR not connected";
   if (r.state !== "connected") return null;
-  if (rec.noContact) return "No skin contact · wet pads";
+  if (rec.noContact) return "No contact";
   if (rec.lastAt > 0 && now - rec.lastAt > STALE_MS) return "No HR data";
   if (rec.lastAt === 0 && connectedSince !== null && now - connectedSince > SILENT_MS) {
-    return "No HR data · wet pads";
+    return "No HR data";
   }
   return null;
 }
@@ -198,12 +198,12 @@ export function StrapPicker({ onPicked }: { onPicked: (s: Paired) => void }) {
     requestHrPermission()
       .then((ok) => {
         if (!ok) throw new Error(NO_PERMISSION);
-        setBusy("Searching · wear it");
+        setBusy("Searching…");
         return scanStraps(8);
       })
       .then((list) => {
         setFound(list);
-        if (list.length === 0) setProblem("No strap found");
+        if (list.length === 0) setProblem("Nothing found");
       })
       .catch((e: unknown) => { setProblem(errText(e)); })
       .finally(() => { setBusy(null); });
@@ -212,7 +212,7 @@ export function StrapPicker({ onPicked }: { onPicked: (s: Paired) => void }) {
   return (
     <div>
       <button className="btn sm" style={{ width: "auto" }} disabled={busy !== null} onClick={find}>
-        Find strap
+        Find heart rate
       </button>
       {found && found.length > 0 && (
         <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
@@ -264,7 +264,7 @@ export function HeartRateCard({ hr }: { hr: HeartRate }) {
   return (
     <div className="card" style={{ marginTop: 12 }}>
       <div className="row" style={{ alignItems: "baseline" }}>
-        <strong>Heart rate · strap</strong>
+        <strong>Heart rate</strong>
         <span className="muted" style={{ fontSize: 14 }}>
           avg <strong style={{ color: "var(--text)" }}>{hr.avg}</strong> · max <strong style={{ color: "var(--text)" }}>{hr.max}</strong> bpm
         </span>
@@ -334,7 +334,7 @@ export function StrapCard({ onLive }: { onLive?: (live: boolean) => void }) {
     ? bpm !== null
       ? `${String(bpm)} bpm`
       : noContact
-        ? "No skin contact · wet pads"
+        ? "No contact"
         : "Waiting"
     : "Connecting");
   const bad = !!problem || read?.state === "reconnecting" || (connected && noContact);
@@ -361,7 +361,7 @@ export function StrapCard({ onLive }: { onLive?: (live: boolean) => void }) {
     </div>
   ) : (
     <div className="card">
-      <div className="muted" style={{ marginBottom: 8 }}>No strap</div>
+      <div className="muted" style={{ marginBottom: 8 }}>No heart rate</div>
       <StrapPicker onPicked={(s) => { setStrap(s); }} />
     </div>
   );
