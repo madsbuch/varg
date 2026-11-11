@@ -545,7 +545,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
             <span className="ride-unit">W</span>
           </div>
           <div className={`ride-fit ${zone ? "in" : "none"}`}>
-            {zone ? `Zone ${String(zone.zone)} · ${zone.name}` : "No power reading"}
+            {zone ? `Zone ${String(zone.zone)} · ${zone.name}` : "No power"}
           </div>
           <div className="ride-target">
             {view.live ? Math.round(view.cadence) : 0} rpm · {Math.round(view.kcal)} kcal{hrText(hr)}
@@ -556,7 +556,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
             </div>
           )}
           {!saved && (
-            <div className="fortime-gps bad">No bike connected: only the clock runs. Stop and connect the bike to see your numbers.</div>
+            <div className="fortime-gps bad">No bike · clock only</div>
           )}
           {bikeProblem && (
             <div className="fortime-gps bad">
@@ -676,13 +676,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
               {hrTarget[0]}–{hrTarget[1]} bpm{seg.cadence ? ` · ${String(seg.cadence[0])}–${String(seg.cadence[1])} rpm` : ""}
             </div>
             <div className={`ride-fit ${f ?? "none"}`}>
-              {f === "in"
-                ? `In zone ${String(seg.hrZone)}`
-                : f === "below"
-                  ? "Push a little: below the zone"
-                  : f === "above"
-                    ? "Ease off: above the zone"
-                    : "Waiting for the strap"}
+              {f === "in" ? `In zone ${String(seg.hrZone)}` : f === "below" ? "Push" : f === "above" ? "Ease off" : "No HR"}
             </div>
           </>
         ) : (
@@ -696,7 +690,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
               {hrText(hr)}
             </div>
             <div className={`ride-fit ${f ?? "none"}`}>
-              {f === "in" ? "On target" : f === "below" ? "Push: below target" : f === "above" ? "Ease off: above target" : "No power reading"}
+              {f === "in" ? "On target" : f === "below" ? "Push" : f === "above" ? "Ease off" : "No power"}
             </div>
           </>
         )}
@@ -707,7 +701,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         )}
         {!saved && !ready && (
           <div className="ride-note">
-            No bike, ride by feel{config.segments.some((x) => x.kcal !== undefined) ? ", Done ends a kcal block" : ""}. Keep Varg on screen.
+            No bike · keep on screen{config.segments.some((x) => x.kcal !== undefined) ? " · Done ends kcal" : ""}
           </div>
         )}
         {bikeProblem && (

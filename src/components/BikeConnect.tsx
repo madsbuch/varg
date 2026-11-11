@@ -31,12 +31,12 @@ export function BikePicker({ onPicked }: { onPicked: (b: Paired) => void }) {
     requestBikePermission()
       .then((ok) => {
         if (!ok) throw new Error("Bluetooth permission was not granted. Allow Nearby devices for Varg in Android settings.");
-        setBusy("Looking for bikes. Start pedalling to wake it…");
+        setBusy("Searching · pedal to wake it");
         return scanBikes(8);
       })
       .then((list) => {
         setFound(list);
-        if (list.length === 0) setProblem("No bike found. Wake it by pedalling, and make sure no other app (Body Bike, Mowl) is connected to it.");
+        if (list.length === 0) setProblem("No bike found · pedal, close other apps");
       })
       .catch((e: unknown) => { setProblem(e instanceof Error ? e.message : String(e)); })
       .finally(() => { setBusy(null); });
@@ -130,11 +130,8 @@ export function RideConnectSheet({ title, needsHr, onStart, onCancel }: {
   const bad = !!bike && (!!problem || !!read?.error);
 
   return (
-    <Sheet title={`Ready to ride: ${title}`} onClose={onCancel}>
-      <p className="muted" style={{ marginTop: 0 }}>
-        Connect the bike so the ride can read your power, cadence and kcal.
-        Close Body Bike or Mowl first: most bikes take one app at a time.
-      </p>
+    <Sheet title={title} onClose={onCancel}>
+      <div className="section-label" style={{ marginTop: 0 }}>Bike · close Body Bike / Mowl</div>
       {bike ? (
         <div className="card">
           <strong>{bike.name}</strong>
@@ -151,33 +148,23 @@ export function RideConnectSheet({ title, needsHr, onStart, onCancel }: {
             </button>
           )}
           <div style={{ marginTop: 10 }}>
-            <div className="muted" style={{ fontSize: 13, marginBottom: 6 }}>Not your bike?</div>
             <BikePicker onPicked={(b) => { setProblem(null); setRead(null); setLive(null); setBike(b); }} />
           </div>
         </div>
       ) : (
         <div className="card">
-          <div style={{ marginBottom: 8 }}>No bike paired yet.</div>
+          <div className="muted" style={{ marginBottom: 8 }}>No bike</div>
           <BikePicker onPicked={(b) => { setBike(b); }} />
         </div>
       )}
-      <div className="section-label" style={{ marginTop: 14 }}>Heart rate{needsHr ? " · steers this ride" : ""}</div>
+      <div className="section-label" style={{ marginTop: 14 }}>Heart rate{needsHr ? " · required" : ""}</div>
       <StrapCard onLive={(live) => { setHrLive(live); setStrapPaired(loadStrap() !== null); }} />
-      {hrBlocked && (
-        <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>
-          This ride is steered by heart rate: it starts once the strap reads.
-        </div>
-      )}
       <button className="btn primary" style={{ marginTop: 12 }} disabled={!connected || hrBlocked} onClick={() => { onStart(true, strapPaired); }}>
         Start ride
       </button>
       <button className="btn ghost" style={{ marginTop: 8 }} disabled={hrBlocked} onClick={() => { onStart(false, strapPaired); }}>
         Ride without the bike
       </button>
-      <p className="muted" style={{ fontSize: 13 }}>
-        Without the bike the ride runs on time and feel: no live watts, kcal
-        blocks finish with Done, and Varg has to stay on screen.
-      </p>
     </Sheet>
   );
 }

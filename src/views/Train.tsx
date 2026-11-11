@@ -223,7 +223,7 @@ function StartScreen() {
       // fix, never ride an unmeasurable block.
       if (tpl.ride.segments.some((x) => x.hrZone !== undefined)) {
         if (!loadHrZones()) {
-          setStartError(`${tpl.name} is steered by heart rate. Enter your heart-rate zones in Skipan → Heart rate, copied from Garmin Connect, so Varg's zones match your watch.`);
+          setStartError("Needs HR zones · Skipan → Heart rate");
           return;
         }
       }

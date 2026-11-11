@@ -575,13 +575,7 @@ function HeartRateSetting() {
         {(!strap || changing) && (
           <StrapPicker onPicked={(s) => { setStrap(s); setChanging(false); }} />
         )}
-        <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
-          Any Bluetooth chest strap: Garmin HRM 600, HRM-Pro or HRM-Dual,
-          Polar H10. ANT+-only straps such as the HRM-Tri cannot reach a
-          phone. Your watch keeps reading the strap over ANT+ at the same
-          time. Guided workouts and rides record heart rate while the phone
-          is locked.
-        </div>
+        <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>Bluetooth straps only · not ANT+ (HRM-Tri)</div>
       </div>
       <HrZonesCard />
     </>
@@ -624,11 +618,7 @@ function HrZonesCard() {
   return (
     <div className="card" style={{ marginTop: 10 }}>
       <strong>Heart-rate zones</strong>
-      <div className="muted" style={{ fontSize: 13, margin: "4px 0 10px" }}>
-        Copy them from Garmin Connect: User Settings → Heart Rate Zones. Each
-        zone starts at the number shown; heart-rate rides (Zone 2 · 40) steer
-        by them.
-      </div>
+      <div className="muted" style={{ fontSize: 13, margin: "4px 0 10px" }}>From Garmin Connect → Heart Rate Zones</div>
       <div className="hr-zones-grid">
         {HR_ZONE_NAMES.map((name, i) => (
           <label key={name}>
@@ -641,10 +631,10 @@ function HrZonesCard() {
           <input inputMode="numeric" placeholder="bpm" value={text[5]} onChange={(e) => { set(5, e.target.value); }} />
         </label>
       </div>
-      {problem && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>{problem} Rides use the last saved zones until then.</div>}
-      {empty && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>No zones yet: heart-rate rides will not start.</div>}
+      {problem && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>{problem}</div>}
+      {empty && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>No zones · HR rides won't start</div>}
       <button className="btn sm ghost" style={{ width: "auto", marginTop: 8 }} disabled={!(Number(text[5]) >= 100 && Number(text[5]) <= 230)} onClick={fromMax}>
-        Fill from max HR (Garmin's default %)
+        Fill from max HR
       </button>
     </div>
   );

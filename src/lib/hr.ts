@@ -163,9 +163,9 @@ const ZONES_KEY = "varg.hr.zones.v1";
 /** Why these zones cannot be used, or null when they can. */
 export function hrZonesProblem(z: HrZones): string | null {
   const all = [...z.floors, z.max];
-  if (!all.every((v) => Number.isInteger(v) && v >= 40 && v <= 230)) return "Every value must be a whole number of bpm between 40 and 230.";
+  if (!all.every((v) => Number.isInteger(v) && v >= 40 && v <= 230)) return "Whole bpm, 40–230";
   for (let i = 1; i < all.length; i++) {
-    if ((all[i] ?? 0) <= (all[i - 1] ?? 0)) return i < 5 ? `Zone ${String(i + 1)} must start above zone ${String(i)}.` : "Max heart rate must be above where zone 5 starts.";
+    if ((all[i] ?? 0) <= (all[i - 1] ?? 0)) return i < 5 ? `Z${String(i + 1)} must be above Z${String(i)}` : "Max must be above Z5";
   }
   return null;
 }

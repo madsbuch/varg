@@ -106,9 +106,9 @@ describe("heart-rate zones", () => {
 
   test("zones that do not climb are refused", () => {
     expect(hrZonesProblem(z)).toBeNull();
-    expect(hrZonesProblem({ ...z, floors: [98, 118, 118, 157, 177] })).toMatch(/zone 3/i);
+    expect(hrZonesProblem({ ...z, floors: [98, 118, 118, 157, 177] })).toMatch(/Z3/);
     expect(hrZonesProblem({ ...z, max: 170 })).toMatch(/max/i);
-    expect(hrZonesProblem({ ...z, floors: [98, 118, 138.5, 157, 177] })).toMatch(/whole/);
+    expect(hrZonesProblem({ ...z, floors: [98, 118, 138.5, 157, 177] })).toMatch(/Whole/);
   });
 
   test("heart rate at a moment: the last reading, if fresh", () => {

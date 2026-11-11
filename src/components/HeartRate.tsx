@@ -24,7 +24,7 @@ import { formatSeconds } from "../lib/units";
 import { Sheet } from "./ui";
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
-const NO_PERMISSION = "Bluetooth permission was not granted. Allow Nearby devices for Varg in Android settings.";
+const NO_PERMISSION = "No Bluetooth permission";
 
 export interface HrLive {
   paired: boolean;
@@ -51,14 +51,14 @@ export interface HrLive {
 const SILENT_MS = 8000;
 
 function problemOf(r: HrRead, rec: HrRecorder, now: number, connectedSince: number | null): string | null {
-  if (r.serviceError) return `Heart rate stops when the phone locks: ${r.serviceError}`;
-  if (r.state === "reconnecting") return "Heart rate lost. Reconnecting to the strap…";
-  if (r.state === "disconnected") return r.error ?? "The heart-rate strap is not connected.";
+  if (r.serviceError) return "HR stops when locked";
+  if (r.state === "reconnecting") return "HR lost · reconnecting";
+  if (r.state === "disconnected") return "HR not connected";
   if (r.state !== "connected") return null;
-  if (rec.noContact) return "The strap has no skin contact. Wet the pads and tighten it.";
-  if (rec.lastAt > 0 && now - rec.lastAt > STALE_MS) return "No heart rate from the strap.";
+  if (rec.noContact) return "No skin contact · wet pads";
+  if (rec.lastAt > 0 && now - rec.lastAt > STALE_MS) return "No HR data";
   if (rec.lastAt === 0 && connectedSince !== null && now - connectedSince > SILENT_MS) {
-    return "Connected, but no heart rate is coming in. Wet the pads; a watch needs Broadcast Heart Rate on.";
+    return "No HR data · wet pads";
   }
   return null;
 }
@@ -77,7 +77,7 @@ export function useHeartRate(title: string, done: boolean, enabled: boolean): Hr
   const [bpm, setBpm] = useState<number | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [setupError, setSetupError] = useState<string | null>(null);
-  const [status, setStatus] = useState("Connecting to the strap…");
+  const [status, setStatus] = useState("Connecting");
   const [zones] = useState(loadHrZones);
   const [attempt, setAttempt] = useState(0);
   // Reads are chained, never concurrent: two drains in flight could feed
@@ -118,7 +118,7 @@ export function useHeartRate(title: string, done: boolean, enabled: boolean): Hr
           else connectedSince = null;
           setBpm(rec.current.current(now));
           setProblem(problemOf(r, rec.current, now, connectedSince));
-          setStatus(r.state === "connected" ? "Waiting for the first heartbeat…" : "Connecting to the strap…");
+          setStatus(r.state === "connected" ? "Waiting" : "Connecting");
         })
         .catch((e: unknown) => { if (alive) setProblem(errText(e)); });
     }, 1000);
@@ -191,16 +191,16 @@ export function StrapPicker({ onPicked }: { onPicked: (s: Paired) => void }) {
   const find = () => {
     setProblem(null);
     setFound(null);
-    setBusy("Asking for Bluetooth permission…");
+    setBusy("Permission…");
     requestHrPermission()
       .then((ok) => {
         if (!ok) throw new Error(NO_PERMISSION);
-        setBusy("Looking for straps. Put it on — it wakes on skin contact…");
+        setBusy("Searching · wear it");
         return scanStraps(8);
       })
       .then((list) => {
         setFound(list);
-        if (list.length === 0) setProblem("No strap found. Wear it with the pads damp, and check it is not paired to the phone in Android's Bluetooth settings or another app.");
+        if (list.length === 0) setProblem("No strap found");
       })
       .catch((e: unknown) => { setProblem(errText(e)); })
       .finally(() => { setBusy(null); });
@@ -242,7 +242,7 @@ export function StrapPicker({ onPicked }: { onPicked: (s: Paired) => void }) {
  * A saved session's heart rate: average and maximum, and the trace over
  * the session. Gaps (strap off, out of range) break the line.
  */
-export function HeartRateCard({ hr, watchMissing }: { hr: HeartRate; watchMissing?: boolean }) {
+export function HeartRateCard({ hr }: { hr: HeartRate }) {
   const W = 300;
   const H = 70;
   const values = hr.trace.filter((v) => v > 0);
@@ -272,14 +272,9 @@ export function HeartRateCard({ hr, watchMissing }: { hr: HeartRate; watchMissin
           <path d={d} />
         </svg>
       )}
-      <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
-        {watchMissing
-          ? "Read by Varg during the workout. No Garmin activity overlaps this session, so this is the only record."
-          : "Read by Varg during the workout. The Garmin activity for this session has no heart rate."}
-      </div>
       {missing >= 30 && (
         <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 6 }}>
-          No reading for {formatSeconds(missing)} of the session.
+          {formatSeconds(missing)} without HR
         </div>
       )}
     </div>
@@ -299,6 +294,7 @@ export function StrapCard({ onLive }: { onLive?: (live: boolean) => void }) {
   const [noContact, setNoContact] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [changing, setChanging] = useState(false);
 
   useEffect(() => {
     if (!strap) return;
@@ -329,34 +325,38 @@ export function StrapCard({ onLive }: { onLive?: (live: boolean) => void }) {
 
   const reset = () => { setProblem(null); setRead(null); setBpm(null); };
   const connected = read?.state === "connected";
-  const status = problem ?? (read?.state === "reconnecting" ? read.error ?? "Lost the strap. Reconnecting…" : null) ?? (connected
+  const status = problem ?? (read?.state === "reconnecting" ? "Lost · reconnecting" : null) ?? (connected
     ? bpm !== null
-      ? `Connected · ${String(bpm)} bpm`
+      ? `${String(bpm)} bpm`
       : noContact
-        ? "Connected, but no skin contact. Wet the pads and tighten the strap."
-        : "Connected. Waiting for a heartbeat…"
-    : "Connecting…");
+        ? "No skin contact · wet pads"
+        : "Waiting"
+    : "Connecting");
   const bad = !!problem || read?.state === "reconnecting" || (connected && noContact);
 
   return strap ? (
     <div className="card">
-      <strong>{strap.name}</strong>
-      <div style={{ fontSize: 14, marginTop: 6, color: bad ? "var(--danger)" : live ? "var(--accent)" : "var(--muted)" }}>
-        {status}
+      <div className="row" style={{ alignItems: "center" }}>
+        <strong>{strap.name}</strong>
+        <span style={{ fontSize: live ? 20 : 14, fontWeight: 800, color: bad ? "var(--danger)" : live ? "var(--accent)" : "var(--muted)" }}>
+          {status}
+        </span>
       </div>
-      {problem && (
-        <button className="btn sm" style={{ width: "auto", marginTop: 8 }} onClick={() => { reset(); setAttempt((a) => a + 1); }}>
-          Try again
-        </button>
-      )}
-      <div style={{ marginTop: 10 }}>
-        <div className="muted" style={{ fontSize: 13, marginBottom: 6 }}>Not your strap?</div>
-        <StrapPicker onPicked={(s) => { reset(); setStrap(s); }} />
+      <div className="btn-row" style={{ marginTop: 8 }}>
+        {problem && (
+          <button className="btn sm" style={{ width: "auto" }} onClick={() => { reset(); setAttempt((a) => a + 1); }}>
+            Retry
+          </button>
+        )}
+        {!changing && (
+          <button className="btn sm ghost" style={{ width: "auto" }} onClick={() => { setChanging(true); }}>Change</button>
+        )}
       </div>
+      {changing && <div style={{ marginTop: 8 }}><StrapPicker onPicked={(s) => { reset(); setChanging(false); setStrap(s); }} /></div>}
     </div>
   ) : (
     <div className="card">
-      <div style={{ marginBottom: 8 }}>No heart-rate strap paired yet.</div>
+      <div className="muted" style={{ marginBottom: 8 }}>No strap</div>
       <StrapPicker onPicked={(s) => { setStrap(s); }} />
     </div>
   );
@@ -374,17 +374,13 @@ export function HrConnectSheet({ title, onStart, onCancel }: {
 }) {
   const [live, setLive] = useState(false);
   return (
-    <Sheet title={`Ready: ${title}`} onClose={onCancel}>
-      <p className="muted" style={{ marginTop: 0 }}>
-        Put the strap on with the pads damp. Varg shows your heart rate during
-        the workout and keeps recording it with the phone locked.
-      </p>
+    <Sheet title={title} onClose={onCancel}>
       <StrapCard onLive={setLive} />
       <button className="btn primary" style={{ marginTop: 12 }} disabled={!live} onClick={() => { onStart(true); }}>
-        Start with heart rate
+        Start
       </button>
       <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => { onStart(false); }}>
-        Start without heart rate
+        Start without HR
       </button>
     </Sheet>
   );
