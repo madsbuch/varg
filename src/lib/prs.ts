@@ -6,7 +6,7 @@ import type {
   WorkoutSet,
 } from "../types";
 import { PR_DIRECTION } from "../types";
-import { estimate1RM } from "./units";
+import { estimate1RM, formatSeconds, kmFromMeters, roundW } from "./units";
 
 /**
  * Which records an exercise can hold, given how it is measured.
@@ -26,6 +26,21 @@ export function prKindsFor(ex: Exercise): PRKind[] {
       return ["time"];
     case "distance_time":
       return ["distance"];
+  }
+}
+
+/** A record's value in its own units: "102.5 kg × 3", "40 reps", "1:30". */
+export function formatPR(pr: PersonalRecord): string {
+  switch (pr.kind) {
+    case "1rm":
+    case "weight":
+      return `${roundW(pr.value)} kg${pr.reps ? ` × ${pr.reps}` : ""}`;
+    case "reps":
+      return `${pr.value} reps`;
+    case "time":
+      return formatSeconds(pr.value);
+    case "distance":
+      return `${kmFromMeters(pr.value)} km`;
   }
 }
 

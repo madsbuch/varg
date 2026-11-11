@@ -9,17 +9,21 @@ import Train from "./views/Train";
 import Records from "./views/Records";
 import Library from "./views/Library";
 import Settings from "./views/Settings";
+import History from "./views/History";
 import {
   IconBook,
   IconDumbbell,
   IconFlag,
+  IconGear,
   IconHome,
+  IconScroll,
   IconTrophy,
 } from "./components/icons";
 
 export type Tab =
   | "home"
   | "train"
+  | "history"
   | "records"
   | "library"
   | "settings";
@@ -27,8 +31,10 @@ export type Tab =
 const TABS: { id: Tab; label: string; Icon: typeof IconHome }[] = [
   { id: "home", label: "Den", Icon: IconHome },
   { id: "train", label: "Hunt", Icon: IconDumbbell },
-  { id: "records", label: "Records", Icon: IconTrophy },
-  { id: "library", label: "Manual", Icon: IconBook },
+  { id: "history", label: "Saga", Icon: IconScroll },
+  { id: "records", label: "Afrek", Icon: IconTrophy },
+  { id: "library", label: "Fræði", Icon: IconBook },
+  { id: "settings", label: "Skipan", Icon: IconGear },
 ];
 
 /**
@@ -152,7 +158,8 @@ export default function App() {
         {tab === "train" && <Train />}
         {tab === "records" && <Records />}
         {tab === "library" && <Library />}
-        {tab === "settings" && <Settings goto={setTab} />}
+        {tab === "history" && <History />}
+        {tab === "settings" && <Settings />}
       </main>
 
       <nav className="tabbar">

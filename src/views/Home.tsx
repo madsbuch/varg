@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Tab } from "../App";
 import { useApp } from "../lib/app-context";
-import { Mark, IconFlame, IconClock, IconGear } from "../components/icons";
+import { Mark, IconFlame } from "../components/icons";
 import { Stat } from "../components/ui";
 import { collapsePRs } from "../lib/prs";
-import { formatRelative } from "../lib/units";
+import { SessionDetails } from "../components/SessionDetails";
+import { SessionRow } from "./History";
 
 function startOfWeek(): number {
   const d = new Date();
@@ -16,9 +17,13 @@ function startOfWeek(): number {
 
 export default function Home({ goto }: { goto: (t: Tab) => void }) {
   const { data } = useApp();
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const finished = useMemo(
-    () => data.sessions.filter((s) => s.finishedAt),
+    () =>
+      data.sessions
+        .filter((s) => s.finishedAt)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     [data.sessions],
   );
 
@@ -48,6 +53,7 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
   }, [finished]);
 
   const recent = finished.slice(0, 4);
+  const open = openId ? data.sessions.find((s) => s.id === openId) : undefined;
 
   return (
     <div className="screen">
@@ -56,15 +62,6 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
           <Mark className="mark" />
           <h1>Varg</h1>
         </div>
-        <button
-          className="check"
-          aria-label="Settings"
-          onClick={() => {
-            goto("settings");
-          }}
-        >
-          <IconGear />
-        </button>
       </div>
 
       <div className="eyebrow">Varg · Old Norse for wolf</div>
@@ -100,27 +97,26 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
           <div className="muted">
             No sessions logged yet. Head to{" "}
             <span className="link" onClick={() => { goto("train"); }}>
-              Train
+              Hunt
             </span>{" "}
             to begin.
           </div>
         </div>
       ) : (
-        recent.map((s) => (
-          <div key={s.id} className="list-item">
-            <div>
-              <div className="title">{s.name}</div>
-              <div className="sub">
-                {s.entries.length} exercises ·{" "}
-                {s.entries.reduce((a, e) => a + e.sets.length, 0)} sets
-              </div>
-            </div>
-            <span className="chip">
-              <IconClock style={{ width: 14, height: 14 }} />
-              {formatRelative(s.date)}
-            </span>
-          </div>
-        ))
+        <>
+          {recent.map((s) => (
+            <SessionRow key={s.id} session={s} onOpen={() => { setOpenId(s.id); }} />
+          ))}
+          {finished.length > recent.length && (
+            <button
+              className="btn ghost"
+              style={{ marginTop: 8 }}
+              onClick={() => { goto("history"); }}
+            >
+              All {finished.length} sessions in the Saga
+            </button>
+          )}
+        </>
       )}
 
       <div className="section-label">Records</div>
@@ -131,6 +127,8 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
         </div>
         <span className="chip accent">View</span>
       </button>
+
+      {open && <SessionDetails session={open} onClose={() => { setOpenId(null); }} />}
     </div>
   );
 }

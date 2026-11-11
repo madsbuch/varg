@@ -3,32 +3,15 @@ import type { Exercise, PersonalRecord, PRKind } from "../types";
 import { useApp } from "../lib/app-context";
 import { addManualPR, deletePR, uid } from "../lib/store";
 import type { PRRow } from "../lib/prs";
-import { collapsePRs, prKindLabel, prKindsFor } from "../lib/prs";
+import { collapsePRs, formatPR, prKindLabel, prKindsFor } from "../lib/prs";
 import { ConfirmSheet, Field, Sheet } from "../components/ui";
 import { IconPlus, IconTrash, IconTrophy } from "../components/icons";
 import {
   formatDate,
-  formatSeconds,
-  kmFromMeters,
   metersFromKm,
   parseDecimal,
   parseTime,
-  roundW,
 } from "../lib/units";
-
-function formatPR(pr: PersonalRecord): string {
-  switch (pr.kind) {
-    case "1rm":
-    case "weight":
-      return `${roundW(pr.value)} kg${pr.reps ? ` × ${pr.reps}` : ""}`;
-    case "reps":
-      return `${pr.value} reps`;
-    case "time":
-      return formatSeconds(pr.value);
-    case "distance":
-      return `${kmFromMeters(pr.value)} km`;
-  }
-}
 
 export default function Records() {
   const { data } = useApp();
@@ -59,7 +42,7 @@ export default function Records() {
 
   return (
     <div className="screen">
-      <div className="eyebrow">Records</div>
+      <div className="eyebrow">Afrek · Old Norse for great deeds</div>
       <h2 className="screen-title">Personal records</h2>
 
       <button className="btn primary" onClick={() => { setAdding(true); }}>

@@ -47,7 +47,7 @@ export default function Library() {
 
   return (
     <div className="screen">
-      <div className="eyebrow">Field manual</div>
+      <div className="eyebrow">Fræði · Old Norse for lore</div>
       <h2 className="screen-title">Exercise library</h2>
 
       <input

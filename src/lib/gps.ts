@@ -9,6 +9,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "../db/persistence";
+import { formatSeconds } from "./units";
 
 const SETTING_KEY = "varg.gps.v1";
 
@@ -90,7 +91,5 @@ export function runStatus(): Promise<GpsStatus> {
 export function formatPace(seconds: number, meters: number): string {
   if (meters < 50 || seconds <= 0) return "";
   const perKm = seconds / (meters / 1000);
-  const m = Math.floor(perKm / 60);
-  const s = Math.round(perKm % 60);
-  return `${String(m)}:${String(s).padStart(2, "0")} /km`;
+  return `${formatSeconds(perKm)} /km`;
 }

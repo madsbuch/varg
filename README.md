@@ -8,7 +8,10 @@ stored locally on device, no account, no network required.
 
 The wolf doesn't count calories; it hunts. Open the app, feed the wolf, log
 the work. The angular wolf-head mark and olive-drab palette carry the
-identity throughout: home is the **Den**, training is the **Hunt**.
+identity throughout: home is the **Den**, training is the **Hunt**, and the
+rest of the tab bar speaks Old Norse: **Saga** (history: every finished
+session, tap one for its sets and records), **Afrek** (personal records),
+**Fræði** (the exercise manual) and **Skipan** (settings).
 
 Built with **Tauri 2 · Bun · TypeScript · React**, targeting **Android**.
 

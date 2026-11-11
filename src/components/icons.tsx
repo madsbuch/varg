@@ -65,6 +65,16 @@ export const IconChevron = (p: P) => (
   </svg>
 );
 
+/** A rolled scroll: the saga, every hunt written down. */
+export const IconScroll = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M7 4h11a2 2 0 0 1 2 2v1h-4" />
+    <path d="M16 7v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1h10" />
+    <path d="M7 4a2 2 0 0 0-2 2v11" />
+    <path d="M9 9h4M9 13h4" />
+  </svg>
+);
+
 export const IconFlag = (p: P) => (
   <svg {...base} {...p}>
     <path d="M4 21V4M4 4h13l-2 4 2 4H4" />

@@ -13,6 +13,7 @@
 
 import type { IntervalPlan, MusicProfile } from "../types";
 import { seedTemplates } from "./seed";
+import { formatSeconds } from "./units";
 import { errorText, httpFetch } from "./http";
 import { KieError, audioResults, createTask, download, getTask } from "./kie";
 
@@ -814,7 +815,7 @@ async function pollPendingTask(
   clearTrackFailure(task.key);
   const length =
     song.duration != null
-      ? `${Math.floor(song.duration / 60)}:${String(Math.round(song.duration % 60)).padStart(2, "0")}, `
+      ? `${formatSeconds(song.duration)}, `
       : "";
   musicLog(
     `"${task.workoutName}" cached (${length}${Math.round(blob.size / 1024)} kB), done.`,

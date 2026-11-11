@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Tab } from "../App";
 import type { MusicProfile } from "../types";
 import {
   MAX_FAILED_ATTEMPTS,
@@ -47,9 +46,9 @@ import {
   saveVoiceSettings,
 } from "../lib/voice-clips";
 import { ConfirmSheet, Field, Sheet } from "../components/ui";
-import { IconCheck, IconChevron, IconMusic } from "../components/icons";
+import { IconCheck, IconMusic } from "../components/icons";
 
-export default function Settings({ goto }: { goto: (t: Tab) => void }) {
+export default function Settings() {
   const [settings, setSettings] = useState(loadMusicSettings);
   const [status, setStatus] = useState<EnsureStatus | null>(null);
   const [workouts, setWorkouts] = useState<WorkoutMusic[]>(workoutMusicList);
@@ -88,7 +87,7 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
 
   return (
     <div className="screen">
-      <div className="eyebrow">Settings</div>
+      <div className="eyebrow">Skipan · Old Norse for order</div>
       <h2 className="screen-title">Settings</h2>
 
       <GpsSetting />
@@ -186,12 +185,6 @@ export default function Settings({ goto }: { goto: (t: Tab) => void }) {
       })}
 
       <ComposerLog />
-
-      <div className="section-label">Navigation</div>
-      <button className="list-item" onClick={() => { goto("home"); }}>
-        <div className="title">Back to Den</div>
-        <IconChevron />
-      </button>
 
       {editing && (
         <WorkoutMusicSheet

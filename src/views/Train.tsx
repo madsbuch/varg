@@ -848,9 +848,7 @@ const timeCol: Col = {
   isTime: true,
   get: (s) => {
     if (s.seconds == null) return "";
-    const m = Math.floor(s.seconds / 60);
-    const sec = Math.round(s.seconds % 60);
-    return `${m}:${String(sec).padStart(2, "0")}`;
+    return formatSeconds(s.seconds);
   },
   set: (v) => ({ seconds: v }), // NumInput parses mm:ss into seconds
 };
