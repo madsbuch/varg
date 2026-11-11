@@ -184,6 +184,14 @@ joints and makes limbs shrink in the intermediate frames.
   the cues on a schedule the player sends (`rideSchedule`). On return the
   player replays the packets one by one through `RideRun`. Cues sound once:
   the service only while Varg is off screen, the app only while on it.
+- **Garmin.** [`src/lib/garmin.ts`](src/lib/garmin.ts) talks to the Garmin
+  Connect Personal API with the owner's key: read-only, no server. FTP is
+  not in the profile; it comes from the newest ride's `functionalThresholdPower`.
+  Watch activities are matched to Varg sessions by **overlapping time**,
+  never start time: the watch and Varg are started by hand, independently
+  (`matchSessions`, tested in `scripts/garmin.test.ts`). Everything fetched
+  is a re-fetchable cache in localStorage, not the training database. Sync
+  failures stay on screen in red (Skipan, the Den's "Last night" card).
 - **Spoken cues.** Guided workouts name what comes next — the first
   exercise in the lead-in, the next one as each rest or move begins — in a
   calm yoga voice or a firm workout voice. The lines are generated through

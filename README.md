@@ -80,6 +80,10 @@ documented in [CLAUDE.md](CLAUDE.md).
   on the Den tab, leaving Hunt focused on choosing a workout. Timing is
   anchored to the wall clock, so a re-render or a spell in standby can never
   desync the workout.
+- **Garmin** (optional): with a Garmin Connect personal API key in Skipan,
+  FTP follows your newest ride, watch activities fill the Saga, a Varg
+  session shows the heart rate of the watch activity it overlaps, and the
+  Den shows last night's sleep, HRV and Body Battery. Read-only.
 - **Offline-first** — all data lives in an on-device SQLite database.
 - **Day and night themes**: woad blue on weathered stone by day, on cold iron
   by night, with carved Norse styling. Skipan picks one or follows the phone.

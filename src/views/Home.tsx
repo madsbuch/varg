@@ -7,6 +7,8 @@ import { Stat } from "../components/ui";
 import { collapsePRs } from "../lib/prs";
 import { SessionDetails } from "../components/SessionDetails";
 import { SessionRow } from "./History";
+import { ReadinessCard } from "../components/Watch";
+import { loadGarminKey, localDate, matchSessions, useGarmin } from "../lib/garmin";
 
 function startOfWeek(): number {
   const d = new Date();
@@ -19,6 +21,10 @@ function startOfWeek(): number {
 export default function Home({ goto }: { goto: (t: Tab, view?: SagaView) => void }) {
   const { data } = useApp();
   const [openId, setOpenId] = useState<string | null>(null);
+  const garmin = useGarmin();
+  // Read once per mount: the Den remounts on every visit.
+  const [today] = useState(() => localDate(Date.now()));
+  const hasGarmin = loadGarminKey() !== "";
 
   const finished = useMemo(
     () =>
@@ -54,6 +60,7 @@ export default function Home({ goto }: { goto: (t: Tab, view?: SagaView) => void
   }, [finished]);
 
   const recent = finished.slice(0, 4);
+  const matches = useMemo(() => matchSessions(finished, garmin.activities), [finished, garmin.activities]);
   const open = openId ? data.sessions.find((s) => s.id === openId) : undefined;
 
   return (
@@ -93,6 +100,14 @@ export default function Home({ goto }: { goto: (t: Tab, view?: SagaView) => void
         Start a session
       </button>
 
+      {hasGarmin && (garmin.readiness ?? garmin.error) && (
+        <ReadinessCard
+          readiness={garmin.readiness}
+          stale={!!garmin.readiness && garmin.readiness.date !== today}
+          error={garmin.error}
+        />
+      )}
+
       <div className="section-label">Recent sessions</div>
       {recent.length === 0 ? (
         <div className="card">
@@ -107,7 +122,7 @@ export default function Home({ goto }: { goto: (t: Tab, view?: SagaView) => void
       ) : (
         <>
           {recent.map((s) => (
-            <SessionRow key={s.id} session={s} onOpen={() => { setOpenId(s.id); }} />
+            <SessionRow key={s.id} session={s} watch={matches.get(s.id)} onOpen={() => { setOpenId(s.id); }} />
           ))}
           {finished.length > recent.length && (
             <button

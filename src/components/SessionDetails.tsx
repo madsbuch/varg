@@ -7,6 +7,8 @@ import { formatPR, prKindLabel } from "../lib/prs";
 import { formatDate, formatSeconds, kmFromMeters, roundW } from "../lib/units";
 import { ConfirmSheet, Sheet } from "./ui";
 import { IconTrash, IconTrophy } from "./icons";
+import { WatchCard } from "./Watch";
+import { matchSessions, useGarmin } from "../lib/garmin";
 
 /** Wall-clock length of a finished session, or undefined if it never finished. */
 export function sessionSeconds(s: Session): number | undefined {
@@ -44,7 +46,14 @@ export function formatSet(set: WorkoutSet, ex: Exercise | undefined): string {
  */
 export function SessionDetails({ session, onClose }: { session: Session; onClose: () => void }) {
   const { data, update } = useApp();
+  const garmin = useGarmin();
   const [deleting, setDeleting] = useState(false);
+  // Matched across all sessions, so this agrees with the Saga about which
+  // session an activity belongs to.
+  const watch = useMemo(
+    () => matchSessions(data.sessions, garmin.activities).get(session.id),
+    [data.sessions, garmin.activities, session.id],
+  );
 
   const exById = useMemo(() => new Map(data.exercises.map((e) => [e.id, e])), [data.exercises]);
   const template = useMemo(
@@ -83,6 +92,8 @@ export function SessionDetails({ session, onClose }: { session: Session; onClose
             )}
           </div>
         )}
+
+        {watch && <WatchCard activity={watch} />}
 
         {prs.length > 0 && (
           <>

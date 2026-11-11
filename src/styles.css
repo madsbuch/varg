@@ -1692,3 +1692,63 @@ textarea {
 .persist-error {
   border-radius: var(--radius);
 }
+
+/* --- Garmin --- */
+.chip.watch {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+
+.watch-facts,
+.readiness {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 10px 12px;
+}
+
+.watch-facts .l,
+.readiness .l {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.watch-facts .v,
+.readiness .v {
+  font-weight: 800;
+  font-size: 17px;
+}
+
+.readiness .v {
+  color: var(--accent);
+  font-size: 20px;
+}
+
+.readiness .s {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Heart-rate zones, cool to hot: slate, woad, bronze, rust, madder. */
+.zone-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+.zone-bar .z1 { background: var(--faint); }
+.zone-bar .z2 { background: var(--accent); }
+.zone-bar .z3 { background: var(--gold); }
+.zone-bar .z4 { background: #c0632f; }
+.zone-bar .z5 { background: var(--danger); }
+
+.zone-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}

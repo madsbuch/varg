@@ -3,6 +3,7 @@ import { useApp } from "./lib/app-context";
 import { installBackButton, useBackHandler } from "./lib/back";
 import { ensureAllTracks } from "./lib/music";
 import { ensureVoiceClips } from "./lib/voice-clips";
+import { syncGarmin } from "./lib/garmin";
 import { scrollContentTop } from "./lib/scroll";
 import Home from "./views/Home";
 import Train from "./views/Train";
@@ -137,8 +138,13 @@ export default function App() {
 
   useEffect(() => {
     void ensureAllTracks();
+    // Garmin too (no-op without a key, throttled to every 15 minutes):
+    // readiness is about this morning, so it refreshes on every return.
+    void syncGarmin();
     const resume = () => {
-      if (document.visibilityState === "visible") void ensureAllTracks();
+      if (document.visibilityState !== "visible") return;
+      void ensureAllTracks();
+      void syncGarmin();
     };
     document.addEventListener("visibilitychange", resume);
     return () => {

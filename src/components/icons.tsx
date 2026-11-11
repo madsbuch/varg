@@ -92,6 +92,14 @@ export const IconScroll = (p: P) => (
   </svg>
 );
 
+/** A wristwatch: data from the Garmin. */
+export const IconWatch = (p: P) => (
+  <svg {...base} {...p}>
+    <rect x="6" y="6" width="12" height="12" rx="3" />
+    <path d="M9 6 10 2h4l1 4M9 18l1 4h4l1-4M12 9.5V12l1.5 1.5" />
+  </svg>
+);
+
 export const IconFlag = (p: P) => (
   <svg {...base} {...p}>
     <path d="M4 21V4M4 4h13l-2 4 2 4H4" />

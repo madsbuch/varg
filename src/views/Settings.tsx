@@ -47,6 +47,8 @@ import {
 } from "../lib/voice-clips";
 import { ConfirmSheet, Field, Segmented, Sheet } from "../components/ui";
 import { loadTheme, saveTheme, type ThemeChoice } from "../lib/theme";
+import { loadGarminKey, saveGarminKey, setFollowFtp, syncGarmin, useGarmin } from "../lib/garmin";
+import { formatDate, formatRelative } from "../lib/units";
 import { IconCheck, IconMusic } from "../components/icons";
 
 export default function Settings() {
@@ -94,6 +96,8 @@ export default function Settings() {
       <ThemeSetting />
 
       <GpsSetting />
+
+      <GarminSetting />
 
       <CyclingSetting />
 
@@ -200,6 +204,73 @@ export default function Settings() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Garmin Connect through the Personal API key. Everything it pulls is
+ * read-only and cached; failures stay on screen in red until a sync works.
+ */
+function GarminSetting() {
+  const garmin = useGarmin();
+  const [key, setKey] = useState(loadGarminKey);
+  const saved = loadGarminKey();
+  const dirty = key.trim() !== saved;
+
+  return (
+    <>
+      <div className="section-label">Garmin</div>
+      <div className="card">
+        <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
+          Create a personal API key in Garmin Connect (Settings, Personal API
+          Key) and paste it here. Varg reads your FTP, watch activities, heart
+          rate and last night's sleep, HRV and Body Battery. It never writes to
+          Garmin. Keys expire after the period you chose there.
+        </div>
+        <Field label="Personal API key">
+          <input
+            spellCheck={false}
+            autoComplete="off"
+            value={key}
+            placeholder="Garmin personal API key"
+            onChange={(e) => { setKey(e.target.value); }}
+          />
+        </Field>
+        <div className="btn-row">
+          <button
+            className="btn primary"
+            disabled={!dirty && (!saved || garmin.syncing)}
+            onClick={() => {
+              if (dirty) saveGarminKey(key);
+              void syncGarmin(true);
+            }}
+          >
+            {dirty ? (key.trim() ? "Save & sync" : "Disconnect") : garmin.syncing ? "Syncing…" : "Sync now"}
+          </button>
+        </div>
+        {saved && (
+          <div style={{ fontSize: 13, marginTop: 10 }}>
+            {garmin.error ? (
+              <div style={{ color: "var(--danger)" }}>
+                Sync failed: {garmin.error}
+                {garmin.lastSync && ` Showing data from ${formatRelative(garmin.lastSync)}.`}
+              </div>
+            ) : garmin.lastSync ? (
+              <div className="muted">
+                Synced {formatRelative(garmin.lastSync)} · {garmin.activities.length} watch activities
+              </div>
+            ) : (
+              <div className="muted">{garmin.syncing ? "First sync, fetching a year of activities…" : "Not synced yet."}</div>
+            )}
+            {garmin.readiness && garmin.readiness.errors.length > 0 && (
+              <div style={{ color: "var(--danger)", marginTop: 4 }}>
+                {garmin.readiness.errors.join(" · ")}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -361,6 +432,9 @@ function VoiceSetting({ hasKey, saveKey }: { hasKey: boolean; saveKey: () => voi
  * the chosen one connects automatically when a ride starts.
  */
 function CyclingSetting() {
+  const garmin = useGarmin();
+  const hasGarmin = loadGarminKey() !== "";
+  const fromGarmin = hasGarmin && garmin.followFtp && garmin.ftp;
   const [ftpText, setFtpText] = useState(() => String(loadFtp()));
   const [bike, setBike] = useState(loadBike);
   const [changing, setChanging] = useState(false);
@@ -371,6 +445,28 @@ function CyclingSetting() {
     <>
       <div className="section-label">Cycling</div>
       <div className="card">
+        {fromGarmin ? (
+          <Field label="FTP (watts)">
+            <div className="btn-row">
+              <div style={{ flex: 1, alignSelf: "center" }}>
+                <strong style={{ fontSize: 20 }}>{garmin.ftp?.watts} W</strong>
+                <div className="muted" style={{ fontSize: 13 }}>
+                  From Garmin: {garmin.ftp?.activityName}, {formatDate(new Date(garmin.ftp?.rideStart ?? 0).toISOString())}
+                </div>
+              </div>
+              <button
+                className="btn sm ghost"
+                style={{ width: "auto" }}
+                onClick={() => {
+                  setFollowFtp(false);
+                  setFtpText(String(loadFtp()));
+                }}
+              >
+                Set by hand
+              </button>
+            </div>
+          </Field>
+        ) : (
         <Field label="FTP (watts)">
           <input
             inputMode="numeric"
@@ -381,16 +477,41 @@ function CyclingSetting() {
               if (Number.isInteger(v) && v >= 50 && v <= 600) saveFtp(v);
             }}
           />
+          {hasGarmin && !garmin.followFtp && (
+            <button
+              className="btn sm ghost"
+              style={{ marginTop: 8 }}
+              onClick={() => {
+                setFollowFtp(true);
+                setFtpText(String(loadFtp()));
+              }}
+            >
+              Take FTP from Garmin
+            </button>
+          )}
         </Field>
-        {!ftpValid && (
+        )}
+        {fromGarmin === false && hasGarmin && garmin.followFtp && garmin.ftpError && (
+          <div style={{ color: "var(--danger)", fontSize: 13, marginBottom: 8 }}>
+            No FTP from Garmin: {garmin.ftpError}. Rides use {loadFtp()} W.
+          </div>
+        )}
+        {!fromGarmin && !ftpValid && (
           <div style={{ color: "var(--danger)", fontSize: 13, marginBottom: 8 }}>
             FTP must be a whole number of watts between 50 and 600; rides use {loadFtp()} W until then.
           </div>
         )}
         <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
-          Every ride target is a share of this, so when your Garmin's FTP
-          estimate changes, change it here. Zone 2 is
-          {ftpValid ? ` ${targetWatts({ label: "Zone 2", ftp: [56, 75], seconds: 1 }, ftp).join("–")} W.` : " 56–75 %."}
+          Every ride target is a share of this.
+          {!hasGarmin
+            ? " Connect Garmin above to have it follow your watch, or change it here when your FTP changes."
+            : garmin.followFtp
+              ? " It follows the FTP on your newest ride on Garmin."
+              : " Set by hand: Garmin's FTP is not used."}
+          {" "}Zone 2 is
+          {fromGarmin || ftpValid
+            ? ` ${targetWatts({ label: "Zone 2", ftp: [56, 75], seconds: 1 }, fromGarmin ? (garmin.ftp?.watts ?? ftp) : ftp).join("–")} W.`
+            : " 56–75 %."}
         </div>
         <Field label="Bike">
           <div className="btn-row">
