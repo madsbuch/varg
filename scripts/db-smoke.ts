@@ -566,6 +566,14 @@ for (const probe of METRIC_PROBES) {
       const [lo, hi] = sg.ftp;
       assert(lo >= 20 && hi <= 300 && lo < hi, `${at}: FTP target ${lo}-${hi} % is not a sane range`);
       if (sg.cadence) assert(sg.cadence[0] >= 40 && sg.cadence[1] <= 160 && sg.cadence[0] < sg.cadence[1], `${at}: cadence target is not a sane range`);
+      // Heart rate lags effort by a minute or more: a heart-rate block must
+      // be long enough to settle into its zone, and ends on time — the
+      // strap measures the target, not the work.
+      if (sg.hrZone !== undefined) {
+        assert(Number.isInteger(sg.hrZone) && sg.hrZone >= 1 && sg.hrZone <= 5, `${at}: hrZone must be a Garmin zone 1-5`);
+        assert(sg.seconds !== undefined && sg.seconds >= 180, `${at}: a heart-rate block is timed and at least 3 minutes`);
+        assert(tpl.scheme.includes(`heart-rate zone ${String(sg.hrZone)}`), `${at}: the scheme must say it rides in heart-rate zone ${String(sg.hrZone)}`);
+      }
     });
     assert(anyKcal === (r.race === true), `${where}: a ride with kcal segments is a race (race: true), and only then`);
     assert(tpl.exerciseIds.length === 1 && tpl.exerciseIds[0] === EX.spinBike, `${where}: exerciseIds must be [EX.spinBike]`);

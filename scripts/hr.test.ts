@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { HrRecorder, parseHeartRate, STALE_MS, TRACE_EVERY, withHeartRate } from "../src/lib/hr";
-import type { Session } from "../src/types";
+import { HrRecorder, hrZoneOf, hrZoneRange, hrZonesProblem, parseHeartRate, STALE_MS, TRACE_EVERY, withHeartRate, zonesFromMax } from "../src/lib/hr";
+import type { HrZones } from "../src/lib/hr";
+import { RideRun } from "../src/lib/ride";
+import type { RideSegment, Session } from "../src/types";
 
 const hex = (bpm: number, flags = 0x06) => flags.toString(16).padStart(2, "0") + bpm.toString(16).padStart(2, "0");
 
@@ -80,5 +82,53 @@ describe("heart rate recording", () => {
     expect(out.heartRate?.avg).toBe(140);
     expect(withHeartRate(session, null).heartRate).toBeUndefined();
     expect(withHeartRate({ ...session, finishedAt: undefined }, r).heartRate).toBeUndefined();
+  });
+});
+
+describe("heart-rate zones", () => {
+  const z: HrZones = { floors: [98, 118, 138, 157, 177], max: 196 };
+
+  test("zone ranges are inclusive, like Garmin shows them", () => {
+    expect(hrZoneRange(z, 2)).toEqual([118, 137]);
+    expect(hrZoneRange(z, 5)).toEqual([177, 196]);
+  });
+
+  test("zone of a heart rate", () => {
+    expect(hrZoneOf(90, z)).toBe(0);
+    expect(hrZoneOf(118, z)).toBe(2);
+    expect(hrZoneOf(137, z)).toBe(2);
+    expect(hrZoneOf(200, z)).toBe(5);
+  });
+
+  test("Garmin's default zones from max heart rate", () => {
+    expect(zonesFromMax(190)).toEqual({ floors: [95, 114, 133, 152, 171], max: 190 });
+  });
+
+  test("zones that do not climb are refused", () => {
+    expect(hrZonesProblem(z)).toBeNull();
+    expect(hrZonesProblem({ ...z, floors: [98, 118, 118, 157, 177] })).toMatch(/zone 3/i);
+    expect(hrZonesProblem({ ...z, max: 170 })).toMatch(/max/i);
+    expect(hrZonesProblem({ ...z, floors: [98, 118, 138.5, 157, 177] })).toMatch(/whole/);
+  });
+
+  test("heart rate at a moment: the last reading, if fresh", () => {
+    const r = new HrRecorder();
+    r.add({ hex: hex(100), t: 1000 });
+    r.add({ hex: hex(110), t: 2000 });
+    expect(r.at(500)).toBeNull();
+    expect(r.at(1500)).toBe(100);
+    expect(r.at(2000)).toBe(110);
+    expect(r.at(2000 + STALE_MS + 1)).toBeNull();
+  });
+
+  test("a heart-rate block counts time in zone from the strap, not the watts", () => {
+    const seg: RideSegment = { label: "Zone 2", ftp: [56, 75], hrZone: 2, seconds: 600 };
+    const run = new RideRun([seg], 283, z);
+    const meter = { power: 400, kcal: 0, kj: 0, lastAt: 0 }; // watts way over 75 % FTP
+    run.tick(0, meter, true, 0, 125);
+    run.tick(60, meter, true, 60_000, 125); // 60 s in zone 2
+    run.tick(90, meter, true, 90_000, 150); // 30 s above
+    run.tick(120, meter, true, 120_000, null); // 30 s without a reading: not measured
+    expect(run.onTarget).toBeCloseTo(60 / 90, 5);
   });
 });

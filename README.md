@@ -91,7 +91,9 @@ documented in [CLAUDE.md](CLAUDE.md).
   the phone locked through a foreground service, and save each session's
   average, maximum and trace. A dropped strap reconnects by itself and is
   shown in red until it does. A watch can keep reading the strap over ANT+
-  at the same time.
+  at the same time. Rides can be steered by heart rate instead of watts:
+  Zone 2 · 40 holds you in heart-rate zone 2, using the zones copied from
+  Garmin Connect into Skipan, so Varg's zone 2 is the watch's.
 - **Offline-first** — all data lives in an on-device SQLite database.
 - **Day and night themes**: woad blue on weathered stone by day, on cold iron
   by night, with carved Norse styling. Skipan picks one or follows the phone.

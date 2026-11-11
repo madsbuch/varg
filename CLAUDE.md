@@ -72,7 +72,11 @@ should shape what you build:
    length filter and cards use. An indoor-bike session gets `ride`
    segments instead: each targets a % of FTP (the rider's FTP lives in
    Settings, so watts follow it) and ends on `seconds` or on `kcal` —
-   exactly one. Any kcal segment makes it a race (`race: true`), scored by
+   exactly one. A segment with `hrZone` (1-5) is steered by the chest strap
+   against the rider's Garmin heart-rate zones (Skipan) instead; its `ftp`
+   is only where to start. It is timed, at least 3 minutes (heart rate
+   lags), and its scheme says "heart-rate zone N". Such a ride refuses to
+   start without zones or a paired strap. Any kcal segment makes it a race (`race: true`), scored by
    total time.
 4. Run `bun run build && bun run db:smoke`. The smoke test is the only
    reviewer this content gets. It asserts that every built-in exercise has its

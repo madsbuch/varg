@@ -31,7 +31,8 @@ import { loadFtp, saveFtp, targetWatts } from "../lib/ride";
 import { loadBike, saveBike } from "../lib/bike";
 import { BikePicker } from "../components/BikeConnect";
 import { StrapPicker } from "../components/HeartRate";
-import { loadStrap, saveStrap } from "../lib/hr";
+import { HR_ZONE_NAMES, hrZonesProblem, loadHrZones, loadStrap, saveHrZones, saveStrap, zonesFromMax } from "../lib/hr";
+import type { HrZones } from "../lib/hr";
 import { gpsAvailable, loadGpsEnabled, requestGpsPermission, saveGpsEnabled } from "../lib/gps";
 import {
   VOICE_MODELS,
@@ -582,7 +583,70 @@ function HeartRateSetting() {
           is locked.
         </div>
       </div>
+      <HrZonesCard />
     </>
+  );
+}
+
+/**
+ * The heart-rate zones rides are steered by. Typed in from Garmin Connect
+ * (User Settings → Heart Rate Zones), so Varg's zone 2 is the watch's zone 2
+ * and time in zone agrees with Connect afterwards.
+ */
+function HrZonesCard() {
+  const saved = loadHrZones();
+  const [text, setText] = useState<string[]>(() =>
+    saved ? [...saved.floors, saved.max].map(String) : ["", "", "", "", "", ""],
+  );
+  const zones: HrZones = {
+    floors: [Number(text[0]), Number(text[1]), Number(text[2]), Number(text[3]), Number(text[4])],
+    max: Number(text[5]),
+  };
+  const empty = text.every((t) => t.trim() === "");
+  const problem = empty ? null : hrZonesProblem(zones);
+  const set = (i: number, v: string) => {
+    const next = text.map((t, k) => (k === i ? v.replace(/[^0-9]/g, "") : t));
+    setText(next);
+    const z: HrZones = {
+      floors: [Number(next[0]), Number(next[1]), Number(next[2]), Number(next[3]), Number(next[4])],
+      max: Number(next[5]),
+    };
+    if (hrZonesProblem(z) === null) saveHrZones(z);
+  };
+  const fromMax = () => {
+    const max = Number(text[5]);
+    if (!Number.isInteger(max) || max < 100 || max > 230) return;
+    const z = zonesFromMax(max);
+    setText([...z.floors, z.max].map(String));
+    saveHrZones(z);
+  };
+
+  return (
+    <div className="card" style={{ marginTop: 10 }}>
+      <strong>Heart-rate zones</strong>
+      <div className="muted" style={{ fontSize: 13, margin: "4px 0 10px" }}>
+        Copy them from Garmin Connect: User Settings → Heart Rate Zones. Each
+        zone starts at the number shown; heart-rate rides (Zone 2 · 40) steer
+        by them.
+      </div>
+      <div className="hr-zones-grid">
+        {HR_ZONE_NAMES.map((name, i) => (
+          <label key={name}>
+            <span>Z{i + 1} {name}</span>
+            <input inputMode="numeric" placeholder="from bpm" value={text[i]} onChange={(e) => { set(i, e.target.value); }} />
+          </label>
+        ))}
+        <label>
+          <span>Max HR</span>
+          <input inputMode="numeric" placeholder="bpm" value={text[5]} onChange={(e) => { set(5, e.target.value); }} />
+        </label>
+      </div>
+      {problem && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>{problem} Rides use the last saved zones until then.</div>}
+      {empty && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>No zones yet: heart-rate rides will not start.</div>}
+      <button className="btn sm ghost" style={{ width: "auto", marginTop: 8 }} disabled={!(Number(text[5]) >= 100 && Number(text[5]) <= 230)} onClick={fromMax}>
+        Fill from max HR (Garmin's default %)
+      </button>
+    </div>
   );
 }
 

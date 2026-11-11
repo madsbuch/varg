@@ -37,6 +37,7 @@ import { clipBlob, playClip, prepareClips } from "../lib/voice-clips";
 import { IconCheck, IconClose, IconSkipBack, IconSkipNext, IconVoice } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
 import { HrChip, HrProblem, useHeartRate } from "./HeartRate";
+import { HR_ZONE_NAMES, hrZoneOf, hrZoneRange, loadHrZones } from "../lib/hr";
 
 const LEAD_IN = 10;
 
@@ -72,6 +73,7 @@ interface View {
 export default function RidePlayer({ config, onClose }: { config: RideConfig; onClose: () => void }) {
   const { data, update } = useApp();
   const [ftp] = useState(loadFtp);
+  const [zones] = useState(loadHrZones);
   const [clock, setClock] = useState<Clock>(() => ({ anchor: Date.now(), pausedAt: null, lead: config.free ? 0 : LEAD_IN }));
   const clockRef = useRef(clock);
   useEffect(() => { clockRef.current = clock; }, [clock]);
@@ -81,7 +83,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
   // so the watts confirm the bike before the ride starts. Only `meter`
   // counts towards the ride.
   const shown = useRef(new RideMeter());
-  const run = useRef(new RideRun(config.segments, ftp));
+  const run = useRef(new RideRun(config.segments, ftp, zones));
   const [view, setView] = useState<View>({ raw: 0, t: 0, idx: 0, segElapsed: 0, segKcal: 0, segAvg: 0, segOnTarget: null, power: 0, cadence: 0, kcal: 0, kj: 0, maxPower: 0, bike: "none", bikeName: "", live: false });
   const [stopped, setStopped] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
@@ -97,6 +99,9 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
   const finished = view.idx >= config.segments.length;
   const done = finished || stopped;
   const ready = view.raw < clock.lead;
+  // The strap: shown in every ride, and the target of heart-rate blocks.
+  const hr = useHeartRate(config.title, done);
+  const { pull: hrPull, at: hrAt } = hr;
   const seg = config.segments[Math.min(view.idx, config.segments.length - 1)];
 
   // --- Bike ----------------------------------------------------------------
@@ -128,6 +133,9 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
     let alive = true;
     const loop = async () => {
       let read: BikeRead | null = null;
+      // Heart rate first, so every bike packet replayed below finds the
+      // beat that went with it.
+      await hrPull();
       try {
         read = await readBike();
       } catch (e) {
@@ -147,13 +155,13 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         shown.current.add(p);
         if (pausedRef.current || rawTime(c, p.t) < c.lead) continue;
         meter.current.add(p);
-        r.tick(rideTime(c, p.t), meter.current, true, p.t);
+        r.tick(rideTime(c, p.t), meter.current, true, p.t, hrAt(p.t));
       }
       const t = rideTime(c, now);
       const live = read?.state === "connected" && now - meter.current.lastAt < 3000;
       const showLive = read?.state === "connected" && now - shown.current.lastAt < 3000;
       if (rawTime(c, now) >= c.lead && !pausedRef.current) {
-        r.tick(t, meter.current, live, now);
+        r.tick(t, meter.current, live, now, hrAt(now));
         // Off screen, the background service beeps and speaks instead.
         if (r.idx !== before && visible) {
           if (r.done) cueFinish();
@@ -210,7 +218,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
     // Four times a second, so the 3-2-1 lands on the second.
     const id = setInterval(() => { void loop(); }, 250);
     return () => { alive = false; clearInterval(id); };
-  }, [done, config.segments]);
+  }, [done, config.segments, hrPull, hrAt]);
 
   // --- Voice: the workout voice names each segment ahead of it ---------------
   const [clips, setClips] = useState<Map<string, AudioBuffer> | null>(null);
@@ -380,7 +388,6 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
 
   const track = useBattleTrack(config.templateId, paused, done);
   useWorkoutWakeLock(done);
-  const hr = useHeartRate(config.title, done);
   const attachHr = hr.attach;
 
   // --- Logging ---------------------------------------------------------------
@@ -479,7 +486,11 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
 
   if (!seg) return null;
   const target = targetWatts(seg, ftp);
-  const f = view.live ? fit(view.power, target) : null;
+  // A heart-rate block is steered by the strap; its watts are where to start.
+  const hrTarget = seg.hrZone !== undefined && zones ? hrZoneRange(zones, seg.hrZone) : null;
+  const f = hrTarget
+    ? hr.bpm !== null ? fit(hr.bpm, hrTarget) : null
+    : view.live ? fit(view.power, target) : null;
   const remaining = seg.seconds !== undefined
     ? formatSeconds(Math.max(0, seg.seconds - view.segElapsed))
     : `${String(Math.max(0, Math.ceil((seg.kcal ?? 0) - view.segKcal)))} kcal`;
@@ -653,16 +664,41 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         <div className="wod-stepbar" aria-hidden>
           <div style={{ width: `${String(Math.min(1, segFrac) * 100)}%` }} />
         </div>
-        <div className={`ride-power ${f ?? "none"}`}>
-          <span className="ride-watts">{view.live ? Math.round(view.power) : 0}</span>
-          <span className="ride-unit">W</span>
-        </div>
-        <div className="ride-target">
-          {target[0]}–{target[1]} W{seg.cadence ? ` · ${String(seg.cadence[0])}–${String(seg.cadence[1])} rpm` : ""}
-        </div>
-        <div className={`ride-fit ${f ?? "none"}`}>
-          {f === "in" ? "On target" : f === "below" ? "Push: below target" : f === "above" ? "Ease off: above target" : "No power reading"}
-        </div>
+        {hrTarget ? (
+          <>
+            <div className={`ride-power ${f ?? "none"}`}>
+              <span className="ride-watts">{hr.bpm ?? "—"}</span>
+              <span className="ride-unit">bpm</span>
+            </div>
+            <div className="ride-target">
+              Zone {seg.hrZone} · {hrTarget[0]}–{hrTarget[1]} bpm
+              {" · "}{view.live ? `${String(Math.round(view.power))} W now` : `start ${String(target[0])}–${String(target[1])} W`}
+              {seg.cadence ? ` · ${String(seg.cadence[0])}–${String(seg.cadence[1])} rpm` : ""}
+            </div>
+            <div className={`ride-fit ${f ?? "none"}`}>
+              {f === "in"
+                ? `In zone ${String(seg.hrZone)}`
+                : f === "below"
+                  ? "Push a little: heart rate below the zone"
+                  : f === "above"
+                    ? "Ease off: heart rate above the zone"
+                    : "No heart rate: the strap steers this block"}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className={`ride-power ${f ?? "none"}`}>
+              <span className="ride-watts">{view.live ? Math.round(view.power) : 0}</span>
+              <span className="ride-unit">W</span>
+            </div>
+            <div className="ride-target">
+              {target[0]}–{target[1]} W{seg.cadence ? ` · ${String(seg.cadence[0])}–${String(seg.cadence[1])} rpm` : ""}
+            </div>
+            <div className={`ride-fit ${f ?? "none"}`}>
+              {f === "in" ? "On target" : f === "below" ? "Push: below target" : f === "above" ? "Ease off: above target" : "No power reading"}
+            </div>
+          </>
+        )}
         {serviceError && (
           <div className="fortime-gps bad">
             Can't keep riding in the background: {serviceError} Keep Varg on screen.
@@ -693,7 +729,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
               <Stat value={Math.round(view.kcal)} unit="kcal" />
               <Stat value={formatSeconds(view.t)} unit="ride time" />
               <Stat value={ready || view.segElapsed < 1 ? 0 : Math.round(view.segAvg)} unit="block avg W" />
-              <Stat value={view.segOnTarget == null ? "0%" : `${String(Math.round(view.segOnTarget * 100))}%`} unit="block on target" />
+              <Stat value={view.segOnTarget == null ? "0%" : `${String(Math.round(view.segOnTarget * 100))}%`} unit={hrTarget ? "block in zone" : "block on target"} />
               <Stat value={view.t >= 1 ? Math.round((view.kj * 1000) / view.t) : 0} unit="ride avg W" />
             </div>
           ),
@@ -714,7 +750,9 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
                         ? r.skipped ? `skipped · ${formatSeconds(r.seconds)}` : `${formatSeconds(r.seconds)} · ${String(Math.round(r.avgPower))} W`
                         : state === "now" && !ready
                           ? `${remaining} left`
-                          : `${shownAmount(s)} · ${targetWatts(s, ftp).join("–")} W`}
+                          : s.hrZone !== undefined && zones
+                            ? `${shownAmount(s)} · HR Z${String(s.hrZone)} ${hrZoneRange(zones, s.hrZone).join("–")}`
+                            : `${shownAmount(s)} · ${targetWatts(s, ftp).join("–")} W`}
                     </span>
                   </li>
                 );
@@ -722,6 +760,25 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
             </ol>
           ),
         },
+        ...(hrTarget && zones ? [{
+          title: "HR",
+          body: (
+            <ol className="ride-zones">
+              {HR_ZONE_NAMES.map((name, i) => {
+                const z = i + 1;
+                const [lo, hi] = hrZoneRange(zones, z);
+                return (
+                  <li key={z} className={`${hr.bpm !== null && hrZoneOf(hr.bpm, zones) === z ? "live" : ""} ${seg.hrZone === z ? "target" : ""}`}>
+                    <span className="ride-plan-mark">Z{z}</span>
+                    <span className="ride-plan-name">{name}</span>
+                    <span className="ride-plan-amt">{lo}–{hi} bpm</span>
+                  </li>
+                );
+              })}
+              <li className="ride-zones-ftp muted">Your Garmin zones, from Skipan</li>
+            </ol>
+          ),
+        }] : []),
         {
           title: "Zones",
           body: (

@@ -473,14 +473,16 @@ export function seedTemplates(): Template[] {
       name: "Zone 2 · 40",
       branch: "Spin bike",
       description:
-        "Forty minutes in zone 2: easy enough to talk, steady enough to " +
-        "build the engine. The screen shows your watts against the zone, " +
-        "and the ride logs how much of it you spent on target.",
-      scheme: "40 min @ zone 2 (56–75 % FTP) · 85–95 rpm",
+        "Forty minutes in heart-rate zone 2: easy enough to talk, steady " +
+        "enough to build the engine. Steered by your chest strap against " +
+        "your Garmin zones, not by watts: start around 56–75 % FTP and let " +
+        "the heart rate set the effort as the ride drifts. The ride logs how " +
+        "much of it you spent in the zone.",
+      scheme: "40 min in heart-rate zone 2 · 85–95 rpm · needs the strap",
       level: "beginner",
       exerciseIds: [EX.spinBike],
       ride: {
-        segments: [{ label: "Zone 2", ftp: [56, 75], seconds: 2400, cadence: [85, 95] }],
+        segments: [{ label: "Zone 2", ftp: [56, 75], hrZone: 2, seconds: 2400, cadence: [85, 95] }],
       },
       music: { bpm: 128, style: "steady deep house, warm bass, rolling groove, no vocals", theme: "Forty easy, even minutes, a long steady engine-building ride" },
     },

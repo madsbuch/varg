@@ -187,6 +187,13 @@ export interface RideSegment {
   kcal?: number | undefined;
   /** Target cadence in rpm, low to high. */
   cadence?: [number, number] | undefined;
+  /**
+   * Ride by heart rate: the target is this zone (1-5) of the rider's
+   * heart-rate zones (Skipan, copied from Garmin Connect), and `ftp` is
+   * only the watts to start at. The ride will not start without zones
+   * and a paired strap.
+   */
+  hrZone?: number | undefined;
 }
 
 /** A ride on the indoor bike, run by the ride player against live bike data. */

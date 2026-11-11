@@ -32,6 +32,13 @@ export interface HrLive {
   retry: () => void;
   /** Add the recorded heart rate to a session about to be logged. */
   attach: (s: Session) => Session;
+  /**
+   * Drain the strap's queue into the recording now. The ride calls it
+   * before replaying the bike's packets, so `at` knows every beat first.
+   */
+  pull: () => Promise<void>;
+  /** Heart rate at wall-clock ms `t`, or null without a fresh reading. */
+  at: (t: number) => number | null;
 }
 
 function problemOf(r: HrRead, rec: HrRecorder, now: number): string | null {
@@ -56,10 +63,27 @@ export function useHeartRate(title: string, done: boolean): HrLive {
   const [setupError, setSetupError] = useState<string | null>(null);
   const [status, setStatus] = useState("HR…");
   const [attempt, setAttempt] = useState(0);
+  // Reads are chained, never concurrent: two drains in flight could feed
+  // the recorder out of order.
+  const chain = useRef<Promise<HrRead | null>>(Promise.resolve(null));
+  const live = useRef(false);
+  const read = useCallback((): Promise<HrRead | null> => {
+    const next = chain.current.then(async () => {
+      if (!live.current) return null;
+      const r = await readHr();
+      for (const p of r.packets) rec.current.add(p);
+      return r;
+    });
+    chain.current = next.catch(() => null);
+    return next;
+  }, []);
+  const pull = useCallback(() => read().then(() => undefined, () => undefined), [read]);
+  const at = useCallback((t: number) => rec.current.at(t), []);
 
   useEffect(() => {
     if (!strap || done) return;
     let alive = true;
+    live.current = true;
     requestHrPermission()
       .then((ok) => {
         if (!ok) throw new Error(NO_PERMISSION);
@@ -68,10 +92,9 @@ export function useHeartRate(title: string, done: boolean): HrLive {
       .then(() => startHrService(title))
       .catch((e: unknown) => { if (alive) setSetupError(errText(e)); });
     const id = setInterval(() => {
-      readHr()
+      read()
         .then((r) => {
-          if (!alive) return;
-          for (const p of r.packets) rec.current.add(p);
+          if (!alive || !r) return;
           const now = Date.now();
           setBpm(rec.current.current(now));
           setProblem(problemOf(r, rec.current, now));
@@ -81,11 +104,12 @@ export function useHeartRate(title: string, done: boolean): HrLive {
     }, 1000);
     return () => {
       alive = false;
+      live.current = false;
       clearInterval(id);
       void stopHrService().catch(() => undefined);
       void disconnectStrap().catch(() => undefined);
     };
-  }, [strap, done, title, attempt]);
+  }, [strap, done, title, attempt, read]);
 
   const retry = useCallback(() => {
     setSetupError(null);
@@ -94,7 +118,7 @@ export function useHeartRate(title: string, done: boolean): HrLive {
   }, []);
   const attach = useCallback((s: Session) => withHeartRate(s, strap ? rec.current : null), [strap]);
 
-  return { paired: strap !== null, bpm, problem: setupError ?? problem, status, retry, attach };
+  return { paired: strap !== null, bpm, problem: setupError ?? problem, status, retry, attach, pull, at };
 }
 
 const Heart = () => (

@@ -82,6 +82,20 @@ export class HrRecorder {
     this.samples.push({ t: p.t, bpm: s.bpm });
   }
 
+  /**
+   * The heart rate at wall-clock `t`: the last reading at or before it, if
+   * no older than STALE_MS. For replaying a ride's packets at their own time.
+   */
+  at(t: number): number | null {
+    let lo = 0, hi = this.samples.length - 1, found = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if ((this.samples[mid]?.t ?? 0) <= t) { found = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    const s = this.samples[found];
+    return s && t - s.t <= STALE_MS ? s.bpm : null;
+  }
+
   /** The current heart rate, or null when the last reading is too old. */
   current(now: number): number | null {
     const last = this.samples[this.samples.length - 1];
@@ -125,6 +139,78 @@ export class HrRecorder {
       trace: sum.map((v, k) => ((n[k] ?? 0) > 0 ? Math.round(v / (n[k] ?? 1)) : 0)),
     };
   }
+}
+
+/* ------------------------------ Zones ------------------------------------ */
+
+/**
+ * The rider's heart-rate zones, copied from Garmin Connect (Settings →
+ * User Settings → Heart Rate Zones) so Varg's zone 2 is the watch's zone 2:
+ * the lowest bpm of zones 1-5, and the maximum heart rate that tops zone 5.
+ */
+export interface HrZones {
+  floors: [number, number, number, number, number];
+  max: number;
+}
+
+/** Garmin's names for its five zones. */
+export const HR_ZONE_NAMES = ["Warm up", "Easy", "Aerobic", "Threshold", "Maximum"] as const;
+/** Garmin's default zones as % of max heart rate: each zone's floor. */
+export const GARMIN_DEFAULT_PCT = [50, 60, 70, 80, 90] as const;
+
+const ZONES_KEY = "varg.hr.zones.v1";
+
+/** Why these zones cannot be used, or null when they can. */
+export function hrZonesProblem(z: HrZones): string | null {
+  const all = [...z.floors, z.max];
+  if (!all.every((v) => Number.isInteger(v) && v >= 40 && v <= 230)) return "Every value must be a whole number of bpm between 40 and 230.";
+  for (let i = 1; i < all.length; i++) {
+    if ((all[i] ?? 0) <= (all[i - 1] ?? 0)) return i < 5 ? `Zone ${String(i + 1)} must start above zone ${String(i)}.` : "Max heart rate must be above where zone 5 starts.";
+  }
+  return null;
+}
+
+export function loadHrZones(): HrZones | null {
+  try {
+    const raw = localStorage.getItem(ZONES_KEY);
+    if (!raw) return null;
+    // Parsed as unknown: a stored value from an older shape must not pass.
+    const z = JSON.parse(raw) as { floors?: unknown; max?: unknown };
+    if (!Array.isArray(z.floors) || z.floors.length !== 5 || typeof z.max !== "number") return null;
+    const zones = { floors: z.floors as HrZones["floors"], max: z.max };
+    return hrZonesProblem(zones) === null ? zones : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveHrZones(z: HrZones | null): void {
+  try {
+    if (z) localStorage.setItem(ZONES_KEY, JSON.stringify(z));
+    else localStorage.removeItem(ZONES_KEY);
+  } catch {
+    // remembered for this session only
+  }
+}
+
+/** Garmin's default %-of-max zones for a max heart rate. */
+export function zonesFromMax(max: number): HrZones {
+  const f = GARMIN_DEFAULT_PCT.map((p) => Math.round((max * p) / 100));
+  return { floors: [f[0] ?? 0, f[1] ?? 0, f[2] ?? 0, f[3] ?? 0, f[4] ?? 0], max };
+}
+
+/** Zone `n` (1-5) in bpm, both ends inclusive, like Garmin shows it. */
+export function hrZoneRange(z: HrZones, n: number): [number, number] {
+  const lo = z.floors[n - 1] ?? 0;
+  const next = z.floors[n];
+  return [lo, next !== undefined ? next - 1 : z.max];
+}
+
+/** Which zone a heart rate is in: 0 below zone 1, 1-5, 5 above max too. */
+export function hrZoneOf(bpm: number, z: HrZones): number {
+  let zone = 0;
+  z.floors.forEach((f, i) => { if (bpm >= f) zone = i + 1; });
+  return zone;
 }
 
 /** The session with its heart rate over its own start → finish window. */

@@ -24,6 +24,7 @@ import { WorkoutDetails } from "../components/WorkoutDetails";
 import WodPlayer from "../components/WodPlayer";
 import ForTimePlayer from "../components/ForTimePlayer";
 import RidePlayer from "../components/RidePlayer";
+import { loadHrZones, loadStrap } from "../lib/hr";
 import { RideConnectSheet } from "../components/BikeConnect";
 import { disconnectBike } from "../lib/bike";
 import type { RideConfig } from "../lib/ride";
@@ -199,6 +200,19 @@ function StartScreen() {
       return;
     }
     if (tpl.ride) {
+      // A ride steered by heart rate cannot run without the zones that
+      // define its target or the strap that measures it: refuse with the
+      // fix, never ride an unmeasurable block.
+      if (tpl.ride.segments.some((x) => x.hrZone !== undefined)) {
+        if (!loadHrZones()) {
+          setStartError(`${tpl.name} is steered by heart rate. Enter your heart-rate zones in Skipan → Heart rate, copied from Garmin Connect, so Varg's zones match your watch.`);
+          return;
+        }
+        if (!loadStrap()) {
+          setStartError(`${tpl.name} is steered by heart rate. Pair your chest strap in Skipan → Heart rate first.`);
+          return;
+        }
+      }
       // Indoor bike: connect the bike first (or skip), then ride.
       setSelectedTemplate(null);
       setPendingRide({

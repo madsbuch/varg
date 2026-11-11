@@ -1789,3 +1789,16 @@ textarea {
   stroke-dasharray: 4 4;
   vector-effect: non-scaling-stroke;
 }
+
+.hr-zones-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 10px;
+}
+.hr-zones-grid label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.hr-zones-grid input { width: 100%; }

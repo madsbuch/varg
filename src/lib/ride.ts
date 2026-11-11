@@ -4,6 +4,8 @@
  * bike's meter.
  */
 import type { RideSegment, Session } from "../types";
+import { hrZoneRange } from "./hr";
+import type { HrZones } from "./hr";
 import { newSession, uid } from "./store";
 import { formatSeconds } from "./units";
 
@@ -243,7 +245,7 @@ export class RideRun {
   private inTarget = 0;
   private lastT = 0;
 
-  constructor(readonly segments: RideSegment[], readonly ftp: number) {}
+  constructor(readonly segments: RideSegment[], readonly ftp: number, readonly zones: HrZones | null = null) {}
 
   get done(): boolean {
     return this.idx >= this.segments.length;
@@ -275,15 +277,22 @@ export class RideRun {
 
   /**
    * Advance to `t`. `live` says whether the bike is sending data now; only
-   * then does time count towards "on target". Returns the segments that
-   * ended during this tick (usually none, at most a few on a long gap).
+   * then does time count towards "on target". A heart-rate block counts on
+   * `bpm` instead — the heart rate at `now`, null without a reading.
+   * Returns the segments that ended during this tick (usually none, at
+   * most a few on a long gap).
    */
-  tick(t: number, meter: Meter, live: boolean, now: number): number {
+  tick(t: number, meter: Meter, live: boolean, now: number, bpm: number | null = null): number {
     let ended = 0;
     const dt = Math.max(0, t - this.lastT);
     this.lastT = t;
     const seg = this.segment;
-    if (seg && live && dt > 0 && now - meter.lastAt < 3000) {
+    if (seg?.hrZone !== undefined) {
+      if (bpm !== null && dt > 0 && this.zones) {
+        this.measured += dt;
+        if (fit(bpm, hrZoneRange(this.zones, seg.hrZone)) === "in") this.inTarget += dt;
+      }
+    } else if (seg && live && dt > 0 && now - meter.lastAt < 3000) {
       this.measured += dt;
       if (fit(meter.power, targetWatts(seg, this.ftp)) === "in") this.inTarget += dt;
     }
