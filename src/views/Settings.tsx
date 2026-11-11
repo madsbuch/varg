@@ -30,6 +30,8 @@ import type { VoiceRole } from "../lib/wod";
 import { loadFtp, saveFtp, targetWatts } from "../lib/ride";
 import { loadBike, saveBike } from "../lib/bike";
 import { BikePicker } from "../components/BikeConnect";
+import { StrapPicker } from "../components/HeartRate";
+import { loadStrap, saveStrap } from "../lib/hr";
 import { gpsAvailable, loadGpsEnabled, requestGpsPermission, saveGpsEnabled } from "../lib/gps";
 import {
   VOICE_MODELS,
@@ -100,6 +102,8 @@ export default function Settings() {
       <GarminSetting />
 
       <CyclingSetting />
+
+      <HeartRateSetting />
 
       <div className="section-label">kie.ai: music &amp; voice</div>
       <div className="card">
@@ -534,6 +538,48 @@ function CyclingSetting() {
         <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
           Varg reads power, cadence and kcal straight from the bike. Most
           bikes accept one app at a time, so close Body Bike or Mowl first.
+        </div>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Heart rate: the paired chest strap. Pairing scans for the standard Heart
+ * Rate Service; the chosen strap connects whenever a guided workout or a
+ * ride starts, and the session is saved with its heart rate.
+ */
+function HeartRateSetting() {
+  const [strap, setStrap] = useState(loadStrap);
+  const [changing, setChanging] = useState(false);
+  return (
+    <>
+      <div className="section-label">Heart rate</div>
+      <div className="card">
+        <Field label="Strap">
+          <div className="btn-row">
+            <div style={{ flex: 1, alignSelf: "center" }}>
+              {strap ? <strong>{strap.name}</strong> : <span className="muted">No strap paired</span>}
+            </div>
+            {strap && !changing && (
+              <button className="btn sm" style={{ width: "auto" }} onClick={() => { setChanging(true); }}>Change</button>
+            )}
+            {strap && (
+              <button className="btn sm ghost" style={{ width: "auto" }} onClick={() => { saveStrap(null); setStrap(null); setChanging(false); }}>
+                Forget
+              </button>
+            )}
+          </div>
+        </Field>
+        {(!strap || changing) && (
+          <StrapPicker onPicked={(s) => { setStrap(s); setChanging(false); }} />
+        )}
+        <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+          Any Bluetooth chest strap: Garmin HRM 600, HRM-Pro or HRM-Dual,
+          Polar H10. ANT+-only straps such as the HRM-Tri cannot reach a
+          phone. Your watch keeps reading the strap over ANT+ at the same
+          time. Guided workouts and rides record heart rate while the phone
+          is locked.
         </div>
       </div>
     </>

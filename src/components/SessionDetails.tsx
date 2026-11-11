@@ -6,6 +6,7 @@ import { deleteSession } from "../lib/store";
 import { formatPR, prKindLabel } from "../lib/prs";
 import { formatDate, formatSeconds, kmFromMeters, roundW } from "../lib/units";
 import { ConfirmSheet, Sheet } from "./ui";
+import { HeartRateCard } from "./HeartRate";
 import { IconTrash, IconTrophy } from "./icons";
 import { WatchCard } from "./Watch";
 import { matchSessions, useGarmin } from "../lib/garmin";
@@ -94,6 +95,7 @@ export function SessionDetails({ session, onClose }: { session: Session; onClose
         )}
 
         {watch && <WatchCard activity={watch} />}
+        {session.heartRate && <HeartRateCard hr={session.heartRate} />}
 
         {prs.length > 0 && (
           <>

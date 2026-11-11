@@ -192,6 +192,18 @@ joints and makes limbs shrink in the intermediate frames.
   (`matchSessions`, tested in `scripts/garmin.test.ts`). Everything fetched
   is a re-fetchable cache in localStorage, not the training database. Sync
   failures stay on screen in red (Skipan, the Den's "Last night" card).
+- **Heart rate.** The chest strap is its own plugin
+  ([`src-tauri/plugins/varg-hr`](src-tauri/plugins/varg-hr)), built like the
+  bike: native code scans, connects, reconnects and queues raw 0x2A37
+  packets; parsing and the recording (`HrRecorder`) are in
+  [`src/lib/hr.ts`](src/lib/hr.ts), unit-tested. `useHeartRate` in
+  [`src/components/HeartRate.tsx`](src/components/HeartRate.tsx) is the
+  whole player integration: it connects the paired strap, runs a foreground
+  service (`HrService`) so beats are recorded with the phone locked, and
+  `attach` adds the summary to the session being logged. No skin contact,
+  no data, a dropout or a failed service is shown on the stage in red —
+  never a held last number. The session stores the summary as JSON in
+  `sessions.heart_rate`.
 - **Spoken cues.** Guided workouts name what comes next — the first
   exercise in the lead-in, the next one as each rest or move begins — in a
   calm yoga voice or a firm workout voice. The lines are generated through

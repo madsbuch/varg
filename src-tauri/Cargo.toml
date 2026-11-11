@@ -29,6 +29,8 @@ tauri-plugin-varg-gps = { path = "plugins/varg-gps" }
 tauri-plugin-varg-voice = { path = "plugins/varg-voice" }
 # In-repo plugin: Bluetooth LE link to an indoor bike (FTMS / Cycling Power). See plugins/varg-bike.
 tauri-plugin-varg-bike = { path = "plugins/varg-bike" }
+# In-repo plugin: Bluetooth LE link to a heart-rate chest strap. See plugins/varg-hr.
+tauri-plugin-varg-hr = { path = "plugins/varg-hr" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

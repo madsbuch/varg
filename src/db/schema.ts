@@ -36,6 +36,8 @@ export const sessions = sqliteTable("sessions", {
   finishedAt: text("finished_at"),
   templateId: text("template_id"),
   note: text("note"),
+  /** JSON-encoded HeartRate, when a strap recorded the session. */
+  heartRate: text("heart_rate"),
 });
 
 export const sessionEntries = sqliteTable("session_entries", {

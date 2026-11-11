@@ -1,0 +1,6 @@
+[default]
+description = "Heart-rate strap link: Bluetooth permission, scan, connect, disconnect, read measurements, and the workout's background service."
+permissions = [
+  "allow-ensure-permissions", "allow-scan", "allow-connect", "allow-disconnect", "allow-read",
+  "allow-start-service", "allow-stop-service",
+]

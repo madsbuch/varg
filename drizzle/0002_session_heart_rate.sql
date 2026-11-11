@@ -1,0 +1,1 @@
+ALTER TABLE `sessions` ADD `heart_rate` text;

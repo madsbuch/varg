@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-ensure-permissions"
+description = "Enables the ensure_permissions command without any pre-configured scope."
+commands.allow = ["ensure_permissions"]
+
+[[permission]]
+identifier = "deny-ensure-permissions"
+description = "Denies the ensure_permissions command without any pre-configured scope."
+commands.deny = ["ensure_permissions"]

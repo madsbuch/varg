@@ -1,0 +1,5 @@
+# Build output and files the tauri-plugin build script copies in.
+/target/
+/Cargo.lock
+/android/.tauri/
+/android/build/

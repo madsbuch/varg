@@ -15,6 +15,13 @@
       "when": 1794125220379,
       "tag": "0001_drop_splits",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794383485173,
+      "tag": "0002_session_heart_rate",
+      "breakpoints": true
     }
   ]
 }

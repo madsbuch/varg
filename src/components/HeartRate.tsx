@@ -1,0 +1,228 @@
+/**
+ * Heart rate in the players: the paired strap connects when a workout
+ * starts, a foreground service keeps it recording with the phone locked,
+ * and the session is saved with its average, maximum and trace.
+ *
+ * `useHeartRate` does all of that for one player. `HrChip` sits in the
+ * player's top bar; `HrProblem` sits under it and says, in red, whatever
+ * is wrong — strap lost, no skin contact, no permission — never a quiet
+ * dash. `StrapPicker` pairs a strap (Settings). `HeartRateCard` shows a
+ * saved session's heart rate.
+ */
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { HeartRate, Session } from "../types";
+import {
+  connectStrap, disconnectStrap, HrRecorder, loadStrap, readHr, requestHrPermission, saveStrap, scanStraps,
+  STALE_MS, startHrService, stopHrService, withHeartRate,
+} from "../lib/hr";
+import type { FoundStrap, HrRead } from "../lib/hr";
+import { formatSeconds } from "../lib/units";
+
+const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const NO_PERMISSION = "Bluetooth permission was not granted. Allow Nearby devices for Varg in Android settings.";
+
+export interface HrLive {
+  paired: boolean;
+  bpm: number | null;
+  /** Red, on the stage. Null when the strap is fine or still starting. */
+  problem: string | null;
+  /** Shown muted in the chip while there is nothing to show yet. */
+  status: string;
+  retry: () => void;
+  /** Add the recorded heart rate to a session about to be logged. */
+  attach: (s: Session) => Session;
+}
+
+function problemOf(r: HrRead, rec: HrRecorder, now: number): string | null {
+  if (r.serviceError) return `Heart rate stops when the phone locks: ${r.serviceError}`;
+  if (r.state === "reconnecting") return "Heart rate lost. Reconnecting to the strap…";
+  if (r.state === "disconnected") return r.error ?? "The heart-rate strap is not connected.";
+  if (r.state !== "connected") return null;
+  if (rec.noContact) return "The strap has no skin contact. Wet the pads and tighten it.";
+  if (rec.lastAt > 0 && now - rec.lastAt > STALE_MS) return "No heart rate from the strap.";
+  return null;
+}
+
+/**
+ * Connect the paired strap and record it for as long as the player runs.
+ * Without a paired strap it does nothing and the chip is not shown.
+ */
+export function useHeartRate(title: string, done: boolean): HrLive {
+  const [strap] = useState(loadStrap);
+  const rec = useRef(new HrRecorder());
+  const [bpm, setBpm] = useState<number | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [setupError, setSetupError] = useState<string | null>(null);
+  const [status, setStatus] = useState("HR…");
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!strap || done) return;
+    let alive = true;
+    requestHrPermission()
+      .then((ok) => {
+        if (!ok) throw new Error(NO_PERMISSION);
+        return connectStrap(strap.address);
+      })
+      .then(() => startHrService(title))
+      .catch((e: unknown) => { if (alive) setSetupError(errText(e)); });
+    const id = setInterval(() => {
+      readHr()
+        .then((r) => {
+          if (!alive) return;
+          for (const p of r.packets) rec.current.add(p);
+          const now = Date.now();
+          setBpm(rec.current.current(now));
+          setProblem(problemOf(r, rec.current, now));
+          setStatus(r.state === "connected" ? "HR…" : "HR connecting");
+        })
+        .catch((e: unknown) => { if (alive) setProblem(errText(e)); });
+    }, 1000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+      void stopHrService().catch(() => undefined);
+      void disconnectStrap().catch(() => undefined);
+    };
+  }, [strap, done, title, attempt]);
+
+  const retry = useCallback(() => {
+    setSetupError(null);
+    setProblem(null);
+    setAttempt((a) => a + 1);
+  }, []);
+  const attach = useCallback((s: Session) => withHeartRate(s, strap ? rec.current : null), [strap]);
+
+  return { paired: strap !== null, bpm, problem: setupError ?? problem, status, retry, attach };
+}
+
+const Heart = () => (
+  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden>
+    <path d="M12 21s-7.5-4.6-9.5-9.6C1.2 8 3.3 4.5 6.8 4.5c2.1 0 3.6 1.1 5.2 3 1.6-1.9 3.1-3 5.2-3 3.5 0 5.6 3.5 4.3 6.9C19.5 16.4 12 21 12 21z" />
+  </svg>
+);
+
+/** The live heart rate, for the player's top bar. Nothing without a strap. */
+export function HrChip({ hr }: { hr: HrLive }) {
+  if (!hr.paired) return null;
+  if (hr.problem) {
+    return <span className="chip danger" aria-label="Heart rate unavailable"><Heart /> —</span>;
+  }
+  return (
+    <span className={`chip ${hr.bpm !== null ? "accent" : ""}`} aria-label="Heart rate">
+      <Heart /> {hr.bpm !== null ? String(hr.bpm) : hr.status}
+    </span>
+  );
+}
+
+/** What is wrong with the heart rate, in red under the top bar. */
+export function HrProblem({ hr }: { hr: HrLive }) {
+  if (!hr.paired || !hr.problem) return null;
+  return (
+    <div className="hr-problem" role="alert">
+      <span>{hr.problem}</span>
+      <button className="btn sm ghost" onClick={hr.retry}>Retry</button>
+    </div>
+  );
+}
+
+interface Paired { address: string; name: string }
+
+/** Find straps (asking for Bluetooth permission first) and remember the chosen one. */
+export function StrapPicker({ onPicked }: { onPicked: (s: Paired) => void }) {
+  const [found, setFound] = useState<FoundStrap[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  const find = () => {
+    setProblem(null);
+    setFound(null);
+    setBusy("Asking for Bluetooth permission…");
+    requestHrPermission()
+      .then((ok) => {
+        if (!ok) throw new Error(NO_PERMISSION);
+        setBusy("Looking for straps. Put it on — it wakes on skin contact…");
+        return scanStraps(8);
+      })
+      .then((list) => {
+        setFound(list);
+        if (list.length === 0) setProblem("No strap found. Wear it with the pads damp, and check it is not paired to the phone in Android's Bluetooth settings or another app.");
+      })
+      .catch((e: unknown) => { setProblem(errText(e)); })
+      .finally(() => { setBusy(null); });
+  };
+
+  return (
+    <div>
+      <button className="btn sm" style={{ width: "auto" }} disabled={busy !== null} onClick={find}>
+        Find strap
+      </button>
+      {found && found.length > 0 && (
+        <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+          {found.map((s) => (
+            <button
+              key={s.address}
+              className="list-item"
+              onClick={() => {
+                const chosen = { address: s.address, name: s.name };
+                saveStrap(chosen);
+                setFound(null);
+                onPicked(chosen);
+              }}
+            >
+              <div>
+                <div className="title">{s.name}</div>
+                <div className="sub">Heart rate · signal {s.rssi} dBm</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+      {busy && <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>{busy}</div>}
+      {problem && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>{problem}</div>}
+    </div>
+  );
+}
+
+/**
+ * A saved session's heart rate: average and maximum, and the trace over
+ * the session. Gaps (strap off, out of range) break the line.
+ */
+export function HeartRateCard({ hr }: { hr: HeartRate }) {
+  const W = 300;
+  const H = 70;
+  const values = hr.trace.filter((v) => v > 0);
+  const lo = Math.min(...values) - 5;
+  const hi = Math.max(...values) + 5;
+  const x = (k: number) => (hr.trace.length > 1 ? (k / (hr.trace.length - 1)) * W : W / 2);
+  const y = (v: number) => H - ((v - lo) / Math.max(1, hi - lo)) * H;
+  let d = "";
+  hr.trace.forEach((v, k) => {
+    if (v <= 0) return;
+    const prev = hr.trace[k - 1] ?? 0;
+    d += `${prev > 0 ? "L" : "M"}${x(k).toFixed(1)},${y(v).toFixed(1)}`;
+  });
+  const missing = hr.trace.filter((v) => v <= 0).length * hr.every;
+
+  return (
+    <div className="card" style={{ marginTop: 12 }}>
+      <div className="row" style={{ alignItems: "baseline" }}>
+        <strong>Heart rate</strong>
+        <span className="muted" style={{ fontSize: 14 }}>
+          avg <strong style={{ color: "var(--text)" }}>{hr.avg}</strong> · max <strong style={{ color: "var(--text)" }}>{hr.max}</strong> bpm
+        </span>
+      </div>
+      {values.length > 1 && (
+        <svg viewBox={`0 0 ${String(W)} ${String(H)}`} preserveAspectRatio="none" className="hr-trace" role="img" aria-label={`Heart rate from ${String(Math.min(...values))} to ${String(hr.max)} bpm`}>
+          <line x1="0" x2={W} y1={y(hr.avg)} y2={y(hr.avg)} className="hr-avg" />
+          <path d={d} />
+        </svg>
+      )}
+      {missing >= 30 && (
+        <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 6 }}>
+          No reading for {formatSeconds(missing)} of the session.
+        </div>
+      )}
+    </div>
+  );
+}

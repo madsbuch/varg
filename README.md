@@ -84,6 +84,14 @@ documented in [CLAUDE.md](CLAUDE.md).
   FTP follows your newest ride, watch activities fill the Saga, a Varg
   session shows the heart rate of the watch activity it overlaps, and the
   Den shows last night's sleep, HRV and Body Battery. Read-only.
+- **Heart rate** — pair a Bluetooth chest strap in Skipan (Garmin HRM 600,
+  HRM-Pro, HRM-Dual, Polar H10: anything with the standard Heart Rate
+  Service; ANT+-only straps like the HRM-Tri cannot reach a phone). Guided
+  workouts, for-time runs and rides show the live rate, keep recording with
+  the phone locked through a foreground service, and save each session's
+  average, maximum and trace. A dropped strap reconnects by itself and is
+  shown in red until it does. A watch can keep reading the strap over ANT+
+  at the same time.
 - **Offline-first** — all data lives in an on-device SQLite database.
 - **Day and night themes**: woad blue on weathered stone by day, on cold iron
   by night, with carved Norse styling. Skipan picks one or follows the phone.
