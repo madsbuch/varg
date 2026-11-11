@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Tab } from "../App";
+import type { SagaView } from "./History";
 import { useApp } from "../lib/app-context";
 import { Mark, IconFlame } from "../components/icons";
 import { Stat } from "../components/ui";
@@ -15,7 +16,7 @@ function startOfWeek(): number {
   return d.getTime();
 }
 
-export default function Home({ goto }: { goto: (t: Tab) => void }) {
+export default function Home({ goto }: { goto: (t: Tab, view?: SagaView) => void }) {
   const { data } = useApp();
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -111,7 +112,7 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
             <button
               className="btn ghost"
               style={{ marginTop: 8 }}
-              onClick={() => { goto("history"); }}
+              onClick={() => { goto("history", "sessions"); }}
             >
               All {finished.length} sessions in the Saga
             </button>
@@ -120,7 +121,7 @@ export default function Home({ goto }: { goto: (t: Tab) => void }) {
       )}
 
       <div className="section-label">Records</div>
-      <button className="list-item" onClick={() => { goto("records"); }}>
+      <button className="list-item" onClick={() => { goto("history", "records"); }}>
         <div>
           <div className="title">Personal records</div>
           <div className="sub">{prCount} tracked</div>

@@ -13,6 +13,7 @@ import {
   parseTime,
 } from "../lib/units";
 
+/** Afrek: personal records, shown as the second half of the Saga. */
 export default function Records() {
   const { data } = useApp();
   const [adding, setAdding] = useState(false);
@@ -40,10 +41,9 @@ export default function Records() {
 
   const recordCount = grouped.reduce((n, g) => n + g.rows.length, 0);
 
+  // Rendered inside the Saga, under its Afrek switch.
   return (
-    <div className="screen">
-      <div className="eyebrow">Afrek · Old Norse for great deeds</div>
-      <h2 className="screen-title">Personal records</h2>
+    <>
 
       <button className="btn primary" onClick={() => { setAdding(true); }}>
         <IconPlus /> Log a PR manually
@@ -70,7 +70,7 @@ export default function Records() {
       )}
 
       {adding && <AddPRSheet onClose={() => { setAdding(false); }} />}
-    </div>
+    </>
   );
 }
 

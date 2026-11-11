@@ -6,10 +6,9 @@ import { ensureVoiceClips } from "./lib/voice-clips";
 import { scrollContentTop } from "./lib/scroll";
 import Home from "./views/Home";
 import Train from "./views/Train";
-import Records from "./views/Records";
 import Library from "./views/Library";
 import Settings from "./views/Settings";
-import History from "./views/History";
+import History, { type SagaView } from "./views/History";
 import {
   IconBook,
   IconDumbbell,
@@ -17,14 +16,12 @@ import {
   IconGear,
   IconHome,
   IconScroll,
-  IconTrophy,
 } from "./components/icons";
 
 export type Tab =
   | "home"
   | "train"
   | "history"
-  | "records"
   | "library"
   | "settings";
 
@@ -32,7 +29,6 @@ const TABS: { id: Tab; label: string; Icon: typeof IconHome }[] = [
   { id: "home", label: "Den", Icon: IconHome },
   { id: "train", label: "Hunt", Icon: IconDumbbell },
   { id: "history", label: "Saga", Icon: IconScroll },
-  { id: "records", label: "Afrek", Icon: IconTrophy },
   { id: "library", label: "Fræði", Icon: IconBook },
   { id: "settings", label: "Skipan", Icon: IconGear },
 ];
@@ -86,6 +82,13 @@ function SaveFailureBanner() {
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("home");
+  // Which half of the Saga is showing. Lives here so the Den can open the
+  // records directly, and so the choice survives a trip to another tab.
+  const [sagaView, setSagaView] = useState<SagaView>("sessions");
+  const goto = useCallback((t: Tab, view?: SagaView) => {
+    if (view) setSagaView(view);
+    setTab(t);
+  }, []);
 
   // Android Back. The root owns the exit policy because a registered
   // handler suppresses the native one; sheets and the WOD player mount
@@ -154,11 +157,10 @@ export default function App() {
       <SaveFailureBanner />
 
       <main id="content" className="content">
-        {tab === "home" && <Home goto={setTab} />}
+        {tab === "home" && <Home goto={goto} />}
         {tab === "train" && <Train />}
-        {tab === "records" && <Records />}
         {tab === "library" && <Library />}
-        {tab === "history" && <History />}
+        {tab === "history" && <History view={sagaView} setView={setSagaView} />}
         {tab === "settings" && <Settings />}
       </main>
 

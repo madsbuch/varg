@@ -3,7 +3,8 @@ import type { Session } from "../types";
 import { useApp } from "../lib/app-context";
 import { formatSeconds } from "../lib/units";
 import { SessionDetails, sessionSeconds } from "../components/SessionDetails";
-import { Stat } from "../components/ui";
+import { Segmented, Stat } from "../components/ui";
+import Records from "./Records";
 import { IconScroll } from "../components/icons";
 
 /** A list row for one finished session; tapping it opens the details. */
@@ -27,8 +28,16 @@ export function SessionRow({ session, onOpen }: { session: Session; onOpen: () =
   );
 }
 
-/** Saga: every finished session, newest first, grouped by month. */
-export default function History() {
+export type SagaView = "sessions" | "records";
+
+/**
+ * Saga: the athlete's story. Every finished session, newest first and
+ * grouped by month, and (under Afrek) the personal records they set.
+ */
+export default function History({ view, setView }: {
+  view: SagaView;
+  setView: (v: SagaView) => void;
+}) {
   const { data } = useApp();
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -62,7 +71,20 @@ export default function History() {
   return (
     <div className="screen">
       <div className="eyebrow">Saga · Old Norse for story</div>
-      <h2 className="screen-title">Every hunt</h2>
+      <h2 className="screen-title">{view === "records" ? "Great deeds" : "Every hunt"}</h2>
+
+      <div style={{ marginBottom: 16 }}>
+        <Segmented
+          value={view}
+          options={[
+            { value: "sessions", label: "Sessions" },
+            { value: "records", label: "Afrek · Records" },
+          ]}
+          onChange={setView}
+        />
+      </div>
+
+      {view === "records" ? <Records /> : <>
 
       <div className="stat-grid">
         <Stat n={finished.length} l="Sessions" />
@@ -88,6 +110,7 @@ export default function History() {
           </div>
         ))
       )}
+      </>}
 
       {open && <SessionDetails session={open} onClose={() => { setOpenId(null); }} />}
     </div>
