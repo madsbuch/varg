@@ -23,7 +23,7 @@
   --gold: #8a6a1c; /* bronze */
   --gold-line: #c0a95e;
   /* The resting phase of the interval player: the whole screen shifts. */
-  --rest-bg: #ebe5cf;
+  --rest-bg: #ebeae6;
   --scrim: rgba(18, 23, 28, 0.5);
   /* Painted behind the system status bar in both themes: Android draws its
      clock and icons in white there, which vanished on a light background. */
@@ -57,7 +57,7 @@
   --danger-bg: #351c18;
   --gold: #d1a64f;
   --gold-line: #7a6230;
-  --rest-bg: #1f1b10;
+  --rest-bg: #1a1916;
   --scrim: rgba(0, 0, 0, 0.62);
   --iron: #080a0d;
   color-scheme: dark;
