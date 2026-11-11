@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { Tab } from "../App";
 import type { SagaView } from "./History";
 import { useApp } from "../lib/app-context";
-import { Mark, IconFlame } from "../components/icons";
+import { Mark, IconFlame, Runes } from "../components/icons";
 import { Stat } from "../components/ui";
 import { collapsePRs } from "../lib/prs";
 import { SessionDetails } from "../components/SessionDetails";
@@ -63,6 +63,7 @@ export default function Home({ goto }: { goto: (t: Tab, view?: SagaView) => void
           <Mark className="mark" />
           <h1>Varg</h1>
         </div>
+        <Runes className="brand-runes" aria-hidden="true" />
       </div>
 
       <div className="eyebrow">Varg · Old Norse for wolf</div>

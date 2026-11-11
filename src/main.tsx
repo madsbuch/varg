@@ -2,7 +2,12 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { AppProvider } from "./lib/app-context";
 import App from "./App";
+import "@fontsource/cinzel/latin-700.css";
+import "@fontsource/cinzel/latin-900.css";
 import "./styles.css";
+import { initTheme } from "./lib/theme";
+
+initTheme();
 
 /**
  * Android webviews draw edge-to-edge under the system status bar but

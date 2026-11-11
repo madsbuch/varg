@@ -479,7 +479,7 @@ export default function WodPlayer({
           <div className="wod-voice-note">
             {voiceConfigured()
               ? `Phone voice for ${String(clips.missing.length)} line${clips.missing.length === 1 ? "" : "s"}. Generate them in Settings → Voice.`
-              : "Phone voice. Add your kie.ai key in Settings for a natural one."}
+              : "Phone voice. Add your kie.ai key in Skipan for a natural one."}
           </div>
         )}
 

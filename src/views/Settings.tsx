@@ -45,7 +45,8 @@ import {
   previewUrl,
   saveVoiceSettings,
 } from "../lib/voice-clips";
-import { ConfirmSheet, Field, Sheet } from "../components/ui";
+import { ConfirmSheet, Field, Segmented, Sheet } from "../components/ui";
+import { loadTheme, saveTheme, type ThemeChoice } from "../lib/theme";
 import { IconCheck, IconMusic } from "../components/icons";
 
 export default function Settings() {
@@ -89,6 +90,8 @@ export default function Settings() {
     <div className="screen">
       <div className="eyebrow">Skipan · Old Norse for order</div>
       <h2 className="screen-title">Settings</h2>
+
+      <ThemeSetting />
 
       <GpsSetting />
 
@@ -197,6 +200,33 @@ export default function Settings() {
         />
       )}
     </div>
+  );
+}
+
+/** Light, dark, or follow the phone. Applies at once. */
+function ThemeSetting() {
+  const [theme, setTheme] = useState<ThemeChoice>(loadTheme);
+  return (
+    <>
+      <div className="section-label" style={{ marginTop: 0 }}>Appearance</div>
+      <div className="card">
+        <Segmented
+          value={theme}
+          options={[
+            { value: "system", label: "Phone" },
+            { value: "light", label: "Day" },
+            { value: "dark", label: "Night" },
+          ]}
+          onChange={(v) => {
+            setTheme(v);
+            saveTheme(v);
+          }}
+        />
+        <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
+          Phone follows the system setting: light by day, dark when the phone is.
+        </div>
+      </div>
+    </>
   );
 }
 

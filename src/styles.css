@@ -1,27 +1,65 @@
+/* Fonts are bundled (fontsource), never fetched: the app is offline-first. */
 :root {
-  /* Light "desert field" theme: sand, canvas, olive drab, brass. */
-  --bg: #e8e0c9;
-  --panel: #f2ecd9;
-  --panel-2: #e4dabd;
-  --panel-3: #d8cca8;
-  --line: #c6b98f;
-  --text: #2b2a1c;
-  --muted: #6f6849;
+  /* Light theme, "birch and bone": bleached hide, birch bark, moss, bronze. */
+  --bg: #e7e0cd;
+  --panel: #f3eddb;
+  --panel-2: #e5dcc1;
+  --panel-3: #d9ceac;
+  --line: #bfb187;
+  --text: #25231a;
+  --muted: #6a6347;
   /* Darkened from #948b69, which was 2.89:1 on --panel — a WCAG AA fail at
      every size it is used (10.5-13 px) and at the 3:1 graphic threshold for
      the tab icons, which inherit it. `user-scalable=no` in index.html means
-     zoom is not a workaround. Now 5.13:1 on --panel, 4.60:1 on --bg,
-     4.35:1 on --panel-2 (icons and gear strokes only, so 3:1 applies). */
+     zoom is not a workaround. Keep it at or above 4.5:1 on --panel. */
   --faint: #6b6247;
-  --accent: #5c6b33; /* olive drab */
-  --accent-dim: #77883f;
-  --on-accent: #f5f1e0;
-  --danger: #a4392c;
-  --gold: #8a6d1f; /* brass */
-  --radius: 14px;
+  --accent: #53652f; /* moss */
+  --accent-dim: #73853d;
+  --on-accent: #f6f2e2;
+  --danger: #a4392c; /* madder */
+  --danger-line: #cf9a8b;
+  --danger-bg: #f6e3df;
+  --gold: #8a6a1c; /* bronze */
+  --gold-line: #c0a95e;
+  /* The resting phase of the interval player: the whole screen shifts. */
+  --rest-bg: #ece3c8;
+  --scrim: rgba(40, 35, 20, 0.5);
+  /* Painted behind the system status bar in both themes: Android draws its
+     clock and icons in white there, which vanished on the sand background. */
+  --iron: #1b1a15;
+  --radius: 7px;
+  --radius-sm: 4px;
+  --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   color-scheme: light;
+}
+
+/* Dark theme, "the longhouse at night": peat, soot, bone, ember-lit bronze.
+   lib/theme.ts always resolves the choice (system, light or dark) to an
+   explicit data-theme, so there is one selector and no media query to keep
+   in step with it. Every text token is 4.5:1 or better on --panel. */
+:root[data-theme="dark"] {
+  --bg: #12110d;
+  --panel: #1c1a14;
+  --panel-2: #27241b;
+  --panel-3: #343024;
+  --line: #4a4330;
+  --text: #ebe3ce; /* bone */
+  --muted: #aba286;
+  --faint: #9d9479;
+  --accent: #a1b660; /* lichen */
+  --accent-dim: #6f8040;
+  --on-accent: #14150c;
+  --danger: #e57a68;
+  --danger-line: #7d3b30;
+  --danger-bg: #351c18;
+  --gold: #d6ab4c;
+  --gold-line: #7b6430;
+  --rest-bg: #231d0e;
+  --scrim: rgba(0, 0, 0, 0.62);
+  --iron: #0b0a08;
+  color-scheme: dark;
 }
 
 * {
@@ -90,7 +128,7 @@ textarea:focus {
 input.invalid,
 .input-invalid {
   border-color: var(--danger);
-  background: #f6e3df;
+  background: var(--danger-bg);
 }
 
 /* --- App shell ---
@@ -121,7 +159,7 @@ input.invalid,
 
 .topbar {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   margin-bottom: 18px;
 }
@@ -298,8 +336,8 @@ input.invalid,
 }
 /* Level reads at a glance: olive, brass, rust — easy to hard. */
 .chip.level-beginner { color: var(--accent); border-color: var(--accent-dim); }
-.chip.level-intermediate { color: var(--gold); border-color: #c0a95e; }
-.chip.level-advanced { color: var(--danger); border-color: #cf9a8b; }
+.chip.level-intermediate { color: var(--gold); border-color: var(--gold-line); }
+.chip.level-advanced { color: var(--danger); border-color: var(--danger-line); }
 .filter-chip.on {
   background: var(--accent);
   border-color: var(--accent);
@@ -397,7 +435,7 @@ input.invalid,
 
 .btn.danger {
   color: var(--danger);
-  border-color: #cf9a8b;
+  border-color: var(--danger-line);
 }
 
 .btn.sm {
@@ -435,7 +473,7 @@ input.invalid,
 
 .chip.gold {
   color: var(--gold);
-  border-color: #c0a95e;
+  border-color: var(--gold-line);
 }
 
 /* Terminal failure — a track whose generation will not be retried on its
@@ -443,7 +481,7 @@ input.invalid,
 .chip.danger,
 .track-failed {
   color: var(--danger);
-  border-color: #cf9a8b;
+  border-color: var(--danger-line);
 }
 
 /* --- Lists --- */
@@ -498,9 +536,9 @@ input.invalid,
   gap: 8px;
   margin: 10px 0;
   padding: 10px 12px;
-  border: 1px solid #cf9a8b;
+  border: 1px solid var(--danger-line);
   border-radius: 12px;
-  background: #f6e3df;
+  background: var(--danger-bg);
   color: var(--danger);
   font-size: 13px;
   font-weight: 700;
@@ -530,7 +568,7 @@ input.invalid,
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(59, 53, 33, 0.45);
+  background: var(--scrim);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -817,7 +855,7 @@ input.invalid,
 
 .wod.resting {
   --phase: var(--gold);
-  background: #ece3c8;
+  background-color: var(--rest-bg);
 }
 
 .wod-top {
@@ -869,7 +907,7 @@ input.invalid,
 
 .wod-top .check.music.blocked {
   color: var(--gold);
-  border-color: #c0a95e;
+  border-color: var(--gold-line);
   animation: musicNudge 1.8s ease-in-out infinite;
 }
 
@@ -953,7 +991,7 @@ input.invalid,
 /* The rest block is visibly not a station: brass frame, dashed edge. */
 .wod.resting .wod-anim {
   border-style: dashed;
-  border-color: #c0a95e;
+  border-color: var(--gold-line);
 }
 
 .wod.resting .wod-anim .ex-anim {
@@ -1474,7 +1512,7 @@ input.invalid,
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(59, 53, 33, 0.5);
+  background: var(--scrim);
 }
 
 .wod-confirm .card {
@@ -1492,4 +1530,162 @@ input.invalid,
   .wod-stepbar > div {
     transition: none;
   }
+}
+
+/* ==========================================================================
+   The Norse skin
+   Carved, not rounded: tight corners, a chiselled display face for names
+   and headings, and a rune-band rule under each screen title. Timers and
+   numbers the athlete reads mid-effort keep the plain face; legibility
+   across the room outranks ornament.
+   ========================================================================== */
+
+/* The status-bar band. See --iron. */
+body {
+  background:
+    linear-gradient(var(--iron), var(--iron)) top / 100% var(--safe-top) no-repeat,
+    var(--bg);
+}
+.wod {
+  background-image: linear-gradient(var(--iron), var(--iron));
+  background-size: 100% var(--safe-top);
+  background-repeat: no-repeat;
+}
+
+h1,
+h2,
+h3,
+.screen-title,
+.brand h1,
+.section-label,
+.eyebrow,
+.tab,
+.btn,
+.stat .n,
+.stat .l,
+.segmented button {
+  font-family: var(--font-display);
+}
+
+.brand h1 {
+  font-weight: 900;
+  letter-spacing: 0.2em;
+}
+
+/* ᚹᚨᚱᚷ beside the name. Drawn as paths: Android does not reliably ship a
+   runic font, and a row of tofu boxes is not an ornament. */
+.brand-runes {
+  height: 18px;
+  width: auto;
+  color: var(--gold);
+  opacity: 0.85;
+}
+
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+}
+
+.screen-title {
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+/* A band of lozenges, as cut along the edge of a rune stone. A mask, so it
+   takes its colour from the theme. */
+.screen-title::after {
+  content: "";
+  display: block;
+  height: 8px;
+  margin-top: 8px;
+  background: var(--line);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='8'%3E%3Cpath d='M1 4 5 .8 9 4 5 7.2Z M9 4H21' fill='none' stroke='%23000' stroke-width='1.2'/%3E%3C/svg%3E") left center / 20px 8px repeat-x;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='8'%3E%3Cpath d='M1 4 5 .8 9 4 5 7.2Z M9 4H21' fill='none' stroke='%23000' stroke-width='1.2'/%3E%3C/svg%3E") left center / 20px 8px repeat-x;
+}
+
+/* The in-progress session's title is an input, not a heading. */
+input.screen-title::after {
+  content: none;
+}
+
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  letter-spacing: 0.18em;
+}
+
+.section-label::before {
+  content: "";
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  transform: rotate(45deg);
+  background: var(--gold);
+}
+
+/* Carved panels: a hairline cut just inside the edge. */
+.card,
+.stat,
+.list-item {
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 3px var(--panel), inset 0 0 0 4px color-mix(in srgb, var(--line) 45%, transparent);
+}
+
+.chip {
+  border-radius: var(--radius-sm);
+}
+
+.filter-chip {
+  border-radius: var(--radius-sm);
+}
+
+.btn {
+  border-radius: var(--radius);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+/* Hammered metal: lit from above, shaded at the foot. */
+.btn.primary {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -2px 0 rgba(0, 0, 0, 0.22);
+}
+
+.stat .n {
+  font-weight: 900;
+}
+
+.tabbar .inner {
+  border-radius: var(--radius);
+}
+
+.tab {
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.segmented {
+  border-radius: var(--radius);
+}
+
+.segmented button {
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.06em;
+}
+
+.sheet {
+  border-radius: 10px 10px 0 0;
+  border-top: 2px solid var(--gold-line);
+}
+
+input,
+select,
+textarea {
+  border-radius: var(--radius-sm);
+}
+
+.persist-error {
+  border-radius: var(--radius);
 }

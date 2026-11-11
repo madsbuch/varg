@@ -11,19 +11,36 @@ const base = {
   viewBox: "0 0 24 24",
 };
 
+/** The Den: a longhouse, its gable beams crossed above the ridge. */
 export const IconHome = (p: P) => (
   <svg {...base} {...p}>
-    <path d="M3 10.5 12 3l9 7.5" />
-    <path d="M5 9.5V21h14V9.5" />
+    <path d="M9.5 2.5 21 11.5" />
+    <path d="M14.5 2.5 3 11.5" />
+    <path d="M5 10v11h14V10" />
+    <path d="M10 21v-6h4v6" />
   </svg>
 );
 
+/** The Hunt: two bearded axes, crossed. */
 export const IconDumbbell = (p: P) => (
   <svg {...base} {...p}>
-    <path d="M6.5 6.5 17.5 17.5" />
-    <path d="M4 8 8 4l3 3-4 4z" />
-    <path d="M20 16l-4 4-3-3 4-4z" />
-    <path d="M2 10l2-2M14 22l2-2" />
+    <path d="M5 21 17 5" />
+    <path d="M19 21 7 5" />
+    <path d="M17 5l3-1.5c1.2 2.4.9 5-.8 7.2l-4-3z" />
+    <path d="M7 5 4 3.5c-1.2 2.4-.9 5 .8 7.2l4-3z" />
+  </svg>
+);
+
+/**
+ * "Varg" in Elder Futhark: wunjo, ansuz, raido, gebo. Paths, not text,
+ * because a phone without a runic font would show four empty boxes.
+ */
+export const Runes = (p: P) => (
+  <svg {...base} viewBox="0 0 58 22" strokeWidth={1.8} {...p}>
+    <path d="M3 1v20M3 1l6 5-6 5" />
+    <path d="M18 1v20M18 1l6 5M18 7l6 5" />
+    <path d="M33 1v20M33 1l6 5-6 5 6 10" />
+    <path d="M47 3l9 16M56 3l-9 16" />
   </svg>
 );
 
