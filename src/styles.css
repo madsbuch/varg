@@ -995,8 +995,11 @@ input.invalid,
   border-color: var(--gold-line);
 }
 
+/* The resting figure is slate, not bronze: a walking man in bronze read as
+   a leftover of the old sand palette. The label, bar and dashed frame still
+   carry the phase colour. */
 .wod.resting .wod-anim .ex-anim {
-  color: var(--gold);
+  color: var(--muted);
 }
 
 .wod-exname {
@@ -1089,7 +1092,7 @@ input.invalid,
 }
 
 .wod-queue-row.is-rest .ex-anim {
-  color: var(--gold);
+  color: var(--muted);
 }
 
 .wod-queue-row.last {
