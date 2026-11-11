@@ -228,6 +228,10 @@ joints and makes limbs shrink in the intermediate frames.
 - **Migrations.** Schema changes are `bun run db:generate`, then commit the
   generated SQL in `/drizzle`. Never hand-edit an applied migration.
 - **Metric only.** Kilograms and metres, always. No unit toggle.
+- **Labels, not prose.** It is a training app, not a reading app. Players
+  and pre-workout sheets say what to do in a word or two ("Push", "Ease
+  off", "HR lost · reconnecting", "97 bpm"), never sentences. Explanations
+  belong in this file and in code comments, not on a screen read mid-set.
 
 ## Checks
 
