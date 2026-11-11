@@ -7,7 +7,8 @@
  * player's top bar; `HrProblem` sits under it and says, in red, whatever
  * is wrong — strap lost, no skin contact, no permission — never a quiet
  * dash. `StrapPicker` pairs a strap (Settings). `HeartRateCard` shows a
- * saved session's heart rate.
+ * saved session's heart rate — only when Garmin Connect, the record of
+ * heart rate, has none for that session.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HeartRate, Session } from "../types";
@@ -188,7 +189,7 @@ export function StrapPicker({ onPicked }: { onPicked: (s: Paired) => void }) {
  * A saved session's heart rate: average and maximum, and the trace over
  * the session. Gaps (strap off, out of range) break the line.
  */
-export function HeartRateCard({ hr }: { hr: HeartRate }) {
+export function HeartRateCard({ hr, watchMissing }: { hr: HeartRate; watchMissing?: boolean }) {
   const W = 300;
   const H = 70;
   const values = hr.trace.filter((v) => v > 0);
@@ -207,7 +208,7 @@ export function HeartRateCard({ hr }: { hr: HeartRate }) {
   return (
     <div className="card" style={{ marginTop: 12 }}>
       <div className="row" style={{ alignItems: "baseline" }}>
-        <strong>Heart rate</strong>
+        <strong>Heart rate · strap</strong>
         <span className="muted" style={{ fontSize: 14 }}>
           avg <strong style={{ color: "var(--text)" }}>{hr.avg}</strong> · max <strong style={{ color: "var(--text)" }}>{hr.max}</strong> bpm
         </span>
@@ -218,6 +219,11 @@ export function HeartRateCard({ hr }: { hr: HeartRate }) {
           <path d={d} />
         </svg>
       )}
+      <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
+        {watchMissing
+          ? "Read by Varg during the workout. No Garmin activity overlaps this session, so this is the only record."
+          : "Read by Varg during the workout. The Garmin activity for this session has no heart rate."}
+      </div>
       {missing >= 30 && (
         <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 6 }}>
           No reading for {formatSeconds(missing)} of the session.

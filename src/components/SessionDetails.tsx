@@ -95,7 +95,10 @@ export function SessionDetails({ session, onClose }: { session: Session; onClose
         )}
 
         {watch && <WatchCard activity={watch} />}
-        {session.heartRate && <HeartRateCard hr={session.heartRate} />}
+        {/* Garmin Connect is the record of heart rate. What Varg read from
+            the strap itself is shown only when the watch has none: the
+            watch was not started, or the activity has no heart rate. */}
+        {session.heartRate && watch?.avgHr == null && <HeartRateCard hr={session.heartRate} watchMissing={!watch} />}
 
         {prs.length > 0 && (
           <>

@@ -203,7 +203,10 @@ joints and makes limbs shrink in the intermediate frames.
   `attach` adds the summary to the session being logged. No skin contact,
   no data, a dropout or a failed service is shown on the stage in red —
   never a held last number. The session stores the summary as JSON in
-  `sessions.heart_rate`.
+  `sessions.heart_rate`. Garmin Connect is the owner's source of truth
+  for history: a session whose overlapping watch activity has heart rate
+  shows the watch's numbers, and the strap's recording only fills in when
+  there is none. The live strap reading is for the workout itself.
 - **Spoken cues.** Guided workouts name what comes next — the first
   exercise in the lead-in, the next one as each rest or move begins — in a
   calm yoga voice or a firm workout voice. The lines are generated through

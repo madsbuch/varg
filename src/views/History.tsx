@@ -26,7 +26,10 @@ export function SessionRow({ session, watch, onOpen }: {
         <div className="title">{session.name}</div>
         <div className="sub">
           {when} · {n} exercise{n === 1 ? "" : "s"}
-          {watch?.avgHr != null && ` · ♥ ${String(Math.round(watch.avgHr))}`}
+          {/* Garmin is the record; the strap's own reading only fills in without it. */}
+          {watch?.avgHr != null
+            ? ` · ♥ ${String(Math.round(watch.avgHr))}`
+            : session.heartRate && ` · ♥ ${String(session.heartRate.avg)}`}
         </div>
       </div>
       {seconds != null && (
