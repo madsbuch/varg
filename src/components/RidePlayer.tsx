@@ -36,6 +36,7 @@ import { loadVoiceOn, saveVoiceOn, speak } from "../lib/voice";
 import { clipBlob, playClip, prepareClips } from "../lib/voice-clips";
 import { IconCheck, IconClose, IconSkipBack, IconSkipNext, IconVoice } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
+import { HrChip, HrProblem, useHeartRate } from "./HeartRate";
 
 const LEAD_IN = 10;
 
@@ -379,15 +380,17 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
 
   const track = useBattleTrack(config.templateId, paused, done);
   useWorkoutWakeLock(done);
+  const hr = useHeartRate(config.title, done);
+  const attachHr = hr.attach;
 
   // --- Logging ---------------------------------------------------------------
   const logSession = useCallback(() => {
     const results = run.current.results;
     if (results.length === 0) return null;
-    const session = recordedRide(config, results, startedAt, EX.spinBike, ftp, run.current.done, run.current.restarts);
+    const session = attachHr(recordedRide(config, results, startedAt, EX.spinBike, ftp, run.current.done, run.current.restarts));
     update((d) => upsertSession(d, session));
     return session.id;
-  }, [config, startedAt, ftp, update]);
+  }, [config, startedAt, ftp, update, attachHr]);
   useEffect(() => {
     if (!done || loggedId.current !== null || discarded) return;
     loggedId.current = logSession();
@@ -516,9 +519,11 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
       <div className="wod ride">
         <div className="wod-top">
           <span className="chip">{config.title}</span>
+          <HrChip hr={hr} />
           {track.musicButton}
           <button className="check" onClick={openConfirmStop} aria-label="Stop"><IconClose /></button>
         </div>
+        <HrProblem hr={hr} />
 
         {/* Top half: the clock since the start and the bike's live power. */}
         <div className="ride-now">
@@ -616,6 +621,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
     <div className={`wod ride ${ready ? "resting" : ""}`}>
       <div className="wod-top">
         <span className="chip">{config.title}</span>
+        <HrChip hr={hr} />
         <button
           className={`check music ${voiceOn ? "on" : ""}`}
           aria-label={voiceOn ? "Stop the spoken cues" : "Speak the cues"}
@@ -626,6 +632,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         {track.musicButton}
         <button className="check" onClick={openConfirmStop} aria-label="Stop"><IconClose /></button>
       </div>
+      <HrProblem hr={hr} />
       <div className="ride-total">
         <div className="ride-total-row">
           <span className="ride-total-label">Total left</span>

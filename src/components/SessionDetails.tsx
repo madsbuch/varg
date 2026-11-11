@@ -6,6 +6,7 @@ import { deleteSession } from "../lib/store";
 import { formatPR, prKindLabel } from "../lib/prs";
 import { formatDate, formatSeconds, kmFromMeters, roundW } from "../lib/units";
 import { ConfirmSheet, Sheet } from "./ui";
+import { HeartRateCard } from "./HeartRate";
 import { IconTrash, IconTrophy } from "./icons";
 
 /** Wall-clock length of a finished session, or undefined if it never finished. */
@@ -83,6 +84,8 @@ export function SessionDetails({ session, onClose }: { session: Session; onClose
             )}
           </div>
         )}
+
+        {session.heartRate && <HeartRateCard hr={session.heartRate} />}
 
         {prs.length > 0 && (
           <>

@@ -23,6 +23,7 @@ import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import type {
   AppData,
   Exercise,
+  HeartRate,
   PersonalRecord,
   Session,
 } from "../types";
@@ -54,6 +55,20 @@ const migrationFiles: Record<string, string> = Object.fromEntries(
     }),
   ).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
 );
+
+/**
+ * The stored heart-rate JSON. A row that does not parse is reported, not
+ * dropped quietly: the session still loads, without its heart rate.
+ */
+function parseHeartRate(raw: string | undefined): HeartRate | undefined {
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw) as HeartRate;
+  } catch (err) {
+    console.error(`Unreadable heart rate on a session: ${errorText(err)}`);
+    return undefined;
+  }
+}
 
 export class SqlitePersistence implements Persistence {
   private constructor(
@@ -198,7 +213,7 @@ export class SqlitePersistence implements Persistence {
       await Promise.all([
         this.all<{
           id: string; name: string; date: string; finishedAt?: string;
-          templateId?: string; note?: string;
+          templateId?: string; note?: string; heartRate?: string;
         }>(t.sessions),
         this.all<{ id: string; sessionId: string; exerciseId: string; position: number; note?: string }>(t.sessionEntries),
         this.all<{
@@ -247,6 +262,7 @@ export class SqlitePersistence implements Persistence {
           finishedAt: s.finishedAt,
           templateId: s.templateId,
           note: s.note,
+          heartRate: parseHeartRate(s.heartRate),
           entries: (entriesBySession.get(s.id) ?? []).sort(byPos).map((e) => ({
             id: e.id,
             exerciseId: e.exerciseId,
@@ -348,6 +364,7 @@ export class SqlitePersistence implements Persistence {
       finishedAt: session.finishedAt ?? null,
       templateId: session.templateId ?? null,
       note: session.note ?? null,
+      heartRate: session.heartRate ? JSON.stringify(session.heartRate) : null,
     };
     await this.db
       .insert(t.sessions)

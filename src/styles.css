@@ -1692,3 +1692,40 @@ textarea {
 .persist-error {
   border-radius: var(--radius);
 }
+
+/* --- Heart rate --- */
+/* Under the player's top bar: what is wrong with the strap, loud. */
+.hr-problem {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 0;
+  padding: 6px 10px;
+  border: 1px solid var(--danger-line);
+  border-radius: 10px;
+  color: var(--danger);
+  font-size: 13px;
+}
+.hr-problem span { flex: 1; }
+.hr-problem .btn { width: auto; flex: 0 0 auto; }
+
+.hr-trace {
+  display: block;
+  width: 100%;
+  height: 70px;
+  margin-top: 10px;
+  overflow: visible;
+}
+.hr-trace path {
+  fill: none;
+  stroke: var(--danger);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.hr-trace .hr-avg {
+  stroke: var(--line);
+  stroke-dasharray: 4 4;
+  vector-effect: non-scaling-stroke;
+}

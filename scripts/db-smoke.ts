@@ -199,6 +199,15 @@ db.insert(t.workoutSets)
   ])
   .run();
 
+// heart rate rides on the session row as JSON (migration 0002)
+db.update(t.sessions)
+  .set({ heartRate: JSON.stringify({ avg: 142, max: 178, every: 5, trace: [120, 0, 178] }) })
+  .where(eq(t.sessions.id, "s-1"))
+  .run();
+const withHr = db.select().from(t.sessions).where(eq(t.sessions.id, "s-1")).all();
+const hr = JSON.parse(withHr[0]?.heartRate ?? "null") as { avg: number; trace: number[] } | null;
+assert(hr?.avg === 142 && hr.trace.length === 3, "session heart-rate roundtrip");
+
 // per-session replacement path used by saveSession
 db.delete(t.workoutSets).where(eq(t.workoutSets.sessionId, "s-1")).run();
 db.delete(t.sessionEntries).where(eq(t.sessionEntries.sessionId, "s-1")).run();

@@ -59,6 +59,18 @@ export interface Session {
   templateId?: string | undefined;
   entries: SessionEntry[];
   note?: string | undefined;
+  /** From the paired chest strap, when one recorded the session. */
+  heartRate?: HeartRate | undefined;
+}
+
+/** A session's heart rate, from the strap (see lib/hr.ts). */
+export interface HeartRate {
+  avg: number; // bpm, time-weighted
+  max: number; // bpm
+  /** Seconds per trace value. */
+  every: number;
+  /** Average bpm per `every` seconds from the start; 0 = no reading. */
+  trace: number[];
 }
 
 export type PRKind =

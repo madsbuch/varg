@@ -28,6 +28,7 @@ import { cueLine, playClip, prepareClips, voiceConfigured } from "../lib/voice-c
 import ExerciseAnim from "./ExerciseAnim";
 import { IconCheck, IconClose, IconVoice } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
+import { HrChip, HrProblem, useHeartRate } from "./HeartRate";
 import { formatSeconds } from "../lib/units";
 
 /** The workout's position on the wall clock. */
@@ -327,13 +328,15 @@ export default function WodPlayer({
   // --- Battle track & wake lock -------------------------------------------
   const track = useBattleTrack(config.trackKey, paused, done);
   useWorkoutWakeLock(done);
+  const hr = useHeartRate(config.title ?? "Workout", done);
+  const attachHr = hr.attach;
 
   const logSession = useCallback(() => {
-    const session = recordedSession(config, steps, progress.current, startedAt, stoppedEarly);
+    const session = attachHr(recordedSession(config, steps, progress.current, startedAt, stoppedEarly));
     if (session.entries.length === 0) return null;
     update((d) => upsertSession(d, session));
     return session.id;
-  }, [config, steps, startedAt, stoppedEarly, update]);
+  }, [config, steps, startedAt, stoppedEarly, update, attachHr]);
 
   const stopAndSave = () => {
     // Freeze at the dialog's pause time, including the fraction since the last tick.
@@ -428,6 +431,7 @@ export default function WodPlayer({
             ? `Pose ${String(step.round)}/${String(config.sequence.length)}`
             : `Round ${String(step.round)}/${String(config.rounds)}`}
         </span>
+        <HrChip hr={hr} />
         <span className="chip">
           {formatSeconds(workElapsed)} / {formatSeconds(workTotal)}
         </span>
@@ -450,6 +454,8 @@ export default function WodPlayer({
           <IconClose />
         </button>
       </div>
+
+      <HrProblem hr={hr} />
 
       <div className="wod-progress" aria-hidden>
         <div style={{ width: `${String((workElapsed / workTotal) * 100)}%` }} />
