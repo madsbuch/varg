@@ -202,9 +202,15 @@ joints and makes limbs shrink in the intermediate frames.
   packets; parsing and the recording (`HrRecorder`) are in
   [`src/lib/hr.ts`](src/lib/hr.ts), unit-tested. `useHeartRate` in
   [`src/components/HeartRate.tsx`](src/components/HeartRate.tsx) is the
-  whole player integration: it connects the paired strap, runs a foreground
-  service (`HrService`) so beats are recorded with the phone locked, and
-  `attach` adds the summary to the session being logged. Like the bike,
+  whole player integration: it connects the paired strap, marks the
+  workout active (`setHrWorkout`), and `attach` adds the summary to the
+  session being logged. Once connected, the strap stays connected for as
+  long as Varg lives: a foreground service (`HrService`) holds it through
+  the locked phone, another app on screen and the gaps between workouts.
+  Players never disconnect it. The service lets go when Varg is swiped
+  away (`onTaskRemoved`), when the strap is forgotten in Skipan, or after
+  20 minutes with no workout running. That timer is native because the
+  WebView's timers stop in the background. Like the bike,
   the strap is connected *before* the clock starts: with a strap paired,
   a guided workout opens `HrConnectSheet` (live bpm, then start with or
   without it) and a ride's connect sheet carries a `StrapCard`; a

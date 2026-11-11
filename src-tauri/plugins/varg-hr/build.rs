@@ -1,6 +1,6 @@
 const COMMANDS: &[&str] = &[
     "ensure_permissions", "scan", "connect", "disconnect", "read",
-    "start_service", "stop_service",
+    "start_service", "workout", "stop_service",
 ];
 
 fn main() {

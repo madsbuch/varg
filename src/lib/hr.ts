@@ -328,11 +328,19 @@ export async function readHr(): Promise<HrRead> {
   return call<HrRead>("read");
 }
 
-// While a workout runs, a native foreground service keeps the strap
-// connected and recording with the phone locked. No-ops in the browser.
+// Once connected, a native foreground service keeps the strap connected
+// for as long as Varg lives: locked phone, another app on screen, between
+// workouts. It lets go when Varg is swiped away, or after 20 minutes with
+// no workout running — timed natively, because the WebView sleeps in the
+// background. Players report workouts with setHrWorkout. No-ops in the browser.
 
 export async function startHrService(title: string): Promise<void> {
   if (hrAvailable()) await call("start_service", { title });
+}
+
+/** A workout started (true) or ended (false): the idle clock runs between workouts. */
+export async function setHrWorkout(active: boolean): Promise<void> {
+  if (hrAvailable()) await call("workout", { active });
 }
 
 export async function stopHrService(): Promise<void> {

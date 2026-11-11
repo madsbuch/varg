@@ -24,7 +24,7 @@ import { WorkoutDetails } from "../components/WorkoutDetails";
 import WodPlayer from "../components/WodPlayer";
 import ForTimePlayer from "../components/ForTimePlayer";
 import RidePlayer from "../components/RidePlayer";
-import { disconnectStrap, loadHrZones, loadStrap } from "../lib/hr";
+import { loadHrZones, loadStrap } from "../lib/hr";
 import { HrConnectSheet } from "../components/HeartRate";
 import { RideConnectSheet } from "../components/BikeConnect";
 import { disconnectBike } from "../lib/bike";
@@ -355,10 +355,9 @@ function StartScreen() {
       {pendingHr && (
         <HrConnectSheet
           title={pendingHr.title}
-          onCancel={() => { void disconnectStrap().catch(() => undefined); setPendingHr(null); }}
+          onCancel={() => { setPendingHr(null); }}
           onStart={(hr) => {
             unlockAudio(); // inside the Start tap: unlocks cues and music
-            if (!hr) void disconnectStrap().catch(() => undefined);
             pendingHr.start(hr);
             setPendingHr(null);
           }}
@@ -370,14 +369,12 @@ function StartScreen() {
           needsHr={pendingRide.segments.some((x) => x.hrZone !== undefined)}
           onCancel={() => {
             void disconnectBike().catch(() => undefined);
-            void disconnectStrap().catch(() => undefined);
             setPendingRide(null);
           }}
           onStart={(withBike, withHr) => {
             unlockAudio(); // inside the Start tap: unlocks cues and music
             // Riding without it means not reading it either.
             if (!withBike) void disconnectBike().catch(() => undefined);
-            if (!withHr) void disconnectStrap().catch(() => undefined);
             setRunningRide({ ...pendingRide, withBike, withHr });
             setPendingRide(null);
           }}

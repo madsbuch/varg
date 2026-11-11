@@ -31,7 +31,7 @@ import { loadFtp, saveFtp, targetWatts } from "../lib/ride";
 import { loadBike, saveBike } from "../lib/bike";
 import { BikePicker } from "../components/BikeConnect";
 import { StrapPicker } from "../components/HeartRate";
-import { HR_ZONE_NAMES, hrZonesProblem, loadHrZones, loadStrap, saveHrZones, saveStrap, zonesFromMax } from "../lib/hr";
+import { disconnectStrap, HR_ZONE_NAMES, hrZonesProblem, loadHrZones, loadStrap, saveHrZones, saveStrap, stopHrService, zonesFromMax } from "../lib/hr";
 import type { HrZones } from "../lib/hr";
 import { gpsAvailable, loadGpsEnabled, requestGpsPermission, saveGpsEnabled } from "../lib/gps";
 import {
@@ -566,7 +566,14 @@ function HeartRateSetting() {
               <button className="btn sm" style={{ width: "auto" }} onClick={() => { setChanging(true); }}>Change</button>
             )}
             {strap && (
-              <button className="btn sm ghost" style={{ width: "auto" }} onClick={() => { saveStrap(null); setStrap(null); setChanging(false); }}>
+              <button className="btn sm ghost" style={{ width: "auto" }} onClick={() => {
+                saveStrap(null);
+                setStrap(null);
+                setChanging(false);
+                // Forgotten means released now, not after the idle timeout.
+                void stopHrService().catch(() => undefined);
+                void disconnectStrap().catch(() => undefined);
+              }}>
                 Forget
               </button>
             )}

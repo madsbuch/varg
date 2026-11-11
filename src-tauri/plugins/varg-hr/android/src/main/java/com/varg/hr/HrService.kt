@@ -16,12 +16,18 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 
 /**
- * Keeps the heart-rate strap recording while a workout runs and Varg is
- * not on screen — the phone locked in a pocket, or on the floor between
- * sets. As a foreground service it keeps the process (and HrLink's
- * Bluetooth connection and packet queue) alive; the frontend replays the
- * queue when it wakes. The notification says whether the strap is
- * delivering, so a dropout is visible without opening the app.
+ * Keeps the heart-rate strap connected for as long as Varg lives — through
+ * a locked phone and through another app on screen (a video during a zone-2
+ * ride) — not just for one workout. As a foreground service it keeps the
+ * process (and HrLink's Bluetooth connection and packet queue) alive; the
+ * frontend replays the queue when it wakes.
+ *
+ * It ends in exactly two ways, both here because the WebView is frozen in
+ * the background and its timers do not run:
+ * - Varg is swiped away (onTaskRemoved): the strap is released at once.
+ * - IDLE_MS pass with no workout running: the strap is released, so a
+ *   forgotten app does not hold the watch's broadcast all day.
+ * The notification says whether the strap is delivering.
  */
 class HrService : Service() {
     companion object {
@@ -30,8 +36,15 @@ class HrService : Service() {
         private const val CHANNEL = "varg_hr"
         private const val NOTIFICATION_ID = 4713
 
-        @Volatile var title: String = "Workout"
+        /** No workout for this long: release the strap and stop. */
+        const val IDLE_MS = 20 * 60 * 1000L
+
+        @Volatile var title: String = "Heart rate"
         @Volatile var running = false; private set
+        /** A workout is running; set by the plugin from the players. */
+        @Volatile var workoutActive = false
+        /** When the last workout ended, or the service started without one. */
+        @Volatile var idleSince = System.currentTimeMillis()
         /** Why the last start failed, for the plugin to report. */
         @Volatile var startError: String? = null
     }
@@ -65,6 +78,13 @@ class HrService : Service() {
         return START_NOT_STICKY
     }
 
+    /** Varg swiped away from recents: closed for good, so let the strap go. */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        HrLink.disconnect()
+        stopEverything()
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
         stopEverything()
         super.onDestroy()
@@ -80,6 +100,11 @@ class HrService : Service() {
     private val refresher = object : Runnable {
         override fun run() {
             if (!running) return
+            if (!workoutActive && System.currentTimeMillis() - idleSince > IDLE_MS) {
+                HrLink.disconnect()
+                stopEverything()
+                return
+            }
             try {
                 val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 nm.notify(NOTIFICATION_ID, notification(statusLine()))
@@ -96,6 +121,7 @@ class HrService : Service() {
             HrLink.state == "reconnecting" -> "Heart rate lost — reconnecting to ${HrLink.deviceName}"
             HrLink.state != "connected" -> "Heart-rate strap not connected"
             now - HrLink.lastPacketAt > 5000 -> "No heart rate from ${HrLink.deviceName} — check the strap"
+            !workoutActive -> "${HrLink.deviceName} connected"
             else -> "Recording heart rate from ${HrLink.deviceName}"
         }
     }

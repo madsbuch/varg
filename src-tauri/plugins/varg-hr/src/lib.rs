@@ -62,6 +62,11 @@ async fn start_service<R: Runtime>(app: tauri::AppHandle<R>, title: String) -> R
 }
 
 #[tauri::command]
+async fn workout<R: Runtime>(app: tauri::AppHandle<R>, active: bool) -> Result<Value, String> {
+    call(&app, "workout", serde_json::json!({ "active": active }))
+}
+
+#[tauri::command]
 async fn stop_service<R: Runtime>(app: tauri::AppHandle<R>) -> Result<Value, String> {
     call(&app, "stopService", Value::Null)
 }
@@ -69,7 +74,7 @@ async fn stop_service<R: Runtime>(app: tauri::AppHandle<R>) -> Result<Value, Str
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("varg-hr")
         .invoke_handler(tauri::generate_handler![
-            ensure_permissions, scan, connect, disconnect, read, start_service, stop_service
+            ensure_permissions, scan, connect, disconnect, read, start_service, workout, stop_service
         ])
         .setup(|_app, _api| {
             #[cfg(target_os = "android")]

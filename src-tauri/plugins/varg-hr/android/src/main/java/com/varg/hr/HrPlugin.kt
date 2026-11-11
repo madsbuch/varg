@@ -40,7 +40,12 @@ class ConnectArgs {
 
 @InvokeArg
 class StartServiceArgs {
-    var title: String = "Workout"
+    var title: String = "Heart rate"
+}
+
+@InvokeArg
+class WorkoutArgs {
+    var active: Boolean = false
 }
 
 /**
@@ -199,6 +204,12 @@ class HrPlugin(private val activity: Activity) : Plugin(activity) {
             return
         }
         HrService.title = args.title
+        // A (re)start begins a fresh idle window; a running workout keeps it open.
+        HrService.idleSince = System.currentTimeMillis()
+        if (HrService.running) {
+            invoke.resolve()
+            return
+        }
         try {
             ContextCompat.startForegroundService(
                 activity,
@@ -208,6 +219,15 @@ class HrPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.reject("Could not keep heart rate recording in the background: ${e.message}")
             return
         }
+        invoke.resolve()
+    }
+
+    /** A workout started or ended: the service's idle clock runs only between workouts. */
+    @Command
+    fun workout(invoke: Invoke) {
+        val active = invoke.parseArgs(WorkoutArgs::class.java).active
+        HrService.workoutActive = active
+        if (!active) HrService.idleSince = System.currentTimeMillis()
         invoke.resolve()
     }
 

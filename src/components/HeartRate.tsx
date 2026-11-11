@@ -16,8 +16,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HeartRate, Session } from "../types";
 import {
-  connectStrap, disconnectStrap, hrZoneOf, HrRecorder, loadHrZones, loadStrap, readHr, requestHrPermission, saveStrap, scanStraps,
-  STALE_MS, startHrService, stopHrService, withHeartRate,
+  connectStrap, hrZoneOf, HrRecorder, loadHrZones, loadStrap, readHr, requestHrPermission, saveStrap, scanStraps,
+  setHrWorkout, STALE_MS, startHrService, withHeartRate,
 } from "../lib/hr";
 import type { FoundStrap, HrRead } from "../lib/hr";
 import { formatSeconds } from "../lib/units";
@@ -108,6 +108,7 @@ export function useHeartRate(title: string, done: boolean, enabled: boolean): Hr
         return connectStrap(strap.address);
       })
       .then(() => startHrService(title))
+      .then(() => setHrWorkout(true))
       .catch((e: unknown) => { if (alive) setSetupError(errText(e)); });
     const id = setInterval(() => {
       read()
@@ -126,8 +127,10 @@ export function useHeartRate(title: string, done: boolean, enabled: boolean): Hr
       alive = false;
       live.current = false;
       clearInterval(id);
-      void stopHrService().catch(() => undefined);
-      void disconnectStrap().catch(() => undefined);
+      // The strap stays connected: the next workout, or a zone-2 ride after
+      // a video, picks it straight up. The service lets go after 20 minutes
+      // without a workout, or when Varg is closed.
+      void setHrWorkout(false).catch(() => undefined);
     };
   }, [strap, done, title, attempt, read]);
 
@@ -305,6 +308,8 @@ export function StrapCard({ onLive }: { onLive?: (live: boolean) => void }) {
         if (!ok) throw new Error(NO_PERMISSION);
         return connectStrap(strap.address);
       })
+      // Held from here on, not just for the workout this sheet starts.
+      .then(() => startHrService("Heart rate"))
       .catch((e: unknown) => { if (alive) setProblem(errText(e)); });
     const id = setInterval(() => {
       readHr()
