@@ -1,32 +1,33 @@
 /* Fonts are bundled (fontsource), never fetched: the app is offline-first. */
 :root {
-  /* Light theme, "birch and bone": bleached hide, birch bark, moss, bronze. */
-  --bg: #e7e0cd;
-  --panel: #f3eddb;
-  --panel-2: #e5dcc1;
-  --panel-3: #d9ceac;
-  --line: #bfb187;
-  --text: #25231a;
-  --muted: #6a6347;
+  /* Day theme, "woad and stone": weathered stone, iron grey, woad blue,
+     bronze. Woad was the Norse blue dye. */
+  --bg: #e3e5e3;
+  --panel: #f1f2ef;
+  --panel-2: #dde1df;
+  --panel-3: #cdd3d2;
+  --line: #aeb7b8;
+  --text: #1a2026;
+  --muted: #55606a;
   /* Darkened from #948b69, which was 2.89:1 on --panel — a WCAG AA fail at
      every size it is used (10.5-13 px) and at the 3:1 graphic threshold for
      the tab icons, which inherit it. `user-scalable=no` in index.html means
      zoom is not a workaround. Keep it at or above 4.5:1 on --panel. */
-  --faint: #6b6247;
-  --accent: #53652f; /* moss */
-  --accent-dim: #73853d;
-  --on-accent: #f6f2e2;
+  --faint: #56616b;
+  --accent: #2f5578; /* woad */
+  --accent-dim: #4a7299;
+  --on-accent: #f2f5f7;
   --danger: #a4392c; /* madder */
   --danger-line: #cf9a8b;
   --danger-bg: #f6e3df;
   --gold: #8a6a1c; /* bronze */
   --gold-line: #c0a95e;
   /* The resting phase of the interval player: the whole screen shifts. */
-  --rest-bg: #ece3c8;
-  --scrim: rgba(40, 35, 20, 0.5);
+  --rest-bg: #ebe5cf;
+  --scrim: rgba(18, 23, 28, 0.5);
   /* Painted behind the system status bar in both themes: Android draws its
-     clock and icons in white there, which vanished on the sand background. */
-  --iron: #1b1a15;
+     clock and icons in white there, which vanished on a light background. */
+  --iron: #12171c;
   --radius: 7px;
   --radius-sm: 4px;
   --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
@@ -35,30 +36,30 @@
   color-scheme: light;
 }
 
-/* Dark theme, "the longhouse at night": peat, soot, bone, ember-lit bronze.
+/* Night theme, "woad and iron": night sea, cold iron, bone, bronze.
    lib/theme.ts always resolves the choice (system, light or dark) to an
    explicit data-theme, so there is one selector and no media query to keep
    in step with it. Every text token is 4.5:1 or better on --panel. */
 :root[data-theme="dark"] {
-  --bg: #12110d;
-  --panel: #1c1a14;
-  --panel-2: #27241b;
-  --panel-3: #343024;
-  --line: #4a4330;
-  --text: #ebe3ce; /* bone */
-  --muted: #aba286;
-  --faint: #9d9479;
-  --accent: #a1b660; /* lichen */
-  --accent-dim: #6f8040;
-  --on-accent: #14150c;
+  --bg: #0f1317;
+  --panel: #171d23;
+  --panel-2: #202831;
+  --panel-3: #2b3540;
+  --line: #3b4856;
+  --text: #e6e3d8; /* bone */
+  --muted: #9ba6b0;
+  --faint: #909ba6;
+  --accent: #86aed6; /* woad, lit */
+  --accent-dim: #4d7299;
+  --on-accent: #0c1218;
   --danger: #e57a68;
   --danger-line: #7d3b30;
   --danger-bg: #351c18;
-  --gold: #d6ab4c;
-  --gold-line: #7b6430;
-  --rest-bg: #231d0e;
+  --gold: #d1a64f;
+  --gold-line: #7a6230;
+  --rest-bg: #1f1b10;
   --scrim: rgba(0, 0, 0, 0.62);
-  --iron: #0b0a08;
+  --iron: #080a0d;
   color-scheme: dark;
 }
 
@@ -334,7 +335,7 @@ input.invalid,
   gap: 6px;
   margin-top: 8px;
 }
-/* Level reads at a glance: olive, brass, rust — easy to hard. */
+/* Level reads at a glance: woad, bronze, rust — easy to hard. */
 .chip.level-beginner { color: var(--accent); border-color: var(--accent-dim); }
 .chip.level-intermediate { color: var(--gold); border-color: var(--gold-line); }
 .chip.level-advanced { color: var(--danger); border-color: var(--danger-line); }
@@ -847,7 +848,7 @@ input.invalid,
   margin: 0 auto;
 }
 
-/* Work is olive, rest is brass — the whole screen changes colour so the
+/* Work is woad, rest is bronze — the whole screen changes colour so the
    phase is legible from across the room, mid-burpee. */
 .wod {
   --phase: var(--accent);
@@ -899,7 +900,7 @@ input.invalid,
 }
 
 /* On reuses the filled .check.on button, so the icon takes the on-accent
-   colour — painting it --accent too put an olive note on an olive fill,
+   colour — painting it --accent too put an accent note on an accent fill,
    and the toggle vanished exactly while the music was playing. */
 .wod-top .check.music.on {
   color: var(--on-accent);
@@ -1181,7 +1182,7 @@ input.invalid,
   font-variant-numeric: tabular-nums;
 }
 /* The live power, coloured by where it sits against the target:
-   olive on target, brass below, rust above, faint with no reading. */
+   accent on target, bronze below, rust above, faint with no reading. */
 .ride-power {
   display: flex;
   align-items: baseline;
