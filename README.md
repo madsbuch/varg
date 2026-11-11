@@ -81,7 +81,8 @@ documented in [CLAUDE.md](CLAUDE.md).
   anchored to the wall clock, so a re-render or a spell in standby can never
   desync the workout.
 - **Offline-first** — all data lives in an on-device SQLite database.
-- **Desert field theme** — light sand/canvas palette with olive-drab accents.
+- **Day and night themes**: birch-and-bone by day, a dark longhouse palette
+  by night, with carved Norse styling. Skipan picks one or follows the phone.
 
 ## Data & migrations
 
