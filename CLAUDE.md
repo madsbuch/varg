@@ -204,9 +204,17 @@ joints and makes limbs shrink in the intermediate frames.
   [`src/components/HeartRate.tsx`](src/components/HeartRate.tsx) is the
   whole player integration: it connects the paired strap, runs a foreground
   service (`HrService`) so beats are recorded with the phone locked, and
-  `attach` adds the summary to the session being logged. No skin contact,
-  no data, a dropout or a failed service is shown on the stage in red —
-  never a held last number. The session stores the summary as JSON in
+  `attach` adds the summary to the session being logged. Like the bike,
+  the strap is connected *before* the clock starts: with a strap paired,
+  a guided workout opens `HrConnectSheet` (live bpm, then start with or
+  without it) and a ride's connect sheet carries a `StrapCard`; a
+  heart-rate ride cannot start until the strap reads. Every player shows
+  the live heart rate whenever a strap is connected — a badge on the phase
+  row (`HrBadge`), or on a ride's target line — and never in the top bar,
+  which has no room at phone width. No skin contact, nothing coming in, a
+  dropout or a failed service is a red `HrLine` under the top bar, shown
+  only while it is wrong — never a held last number. Check every player at
+  360×640 and at the owner's phone (about 459×948) after touching this. The session stores the summary as JSON in
   `sessions.heart_rate`. Garmin Connect is the owner's source of truth
   for history: a session whose overlapping watch activity has heart rate
   shows the watch's numbers, and the strap's recording only fills in when

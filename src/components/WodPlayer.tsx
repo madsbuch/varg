@@ -28,7 +28,7 @@ import { cueLine, playClip, prepareClips, voiceConfigured } from "../lib/voice-c
 import ExerciseAnim from "./ExerciseAnim";
 import { IconCheck, IconClose, IconVoice } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
-import { HrChip, HrProblem, useHeartRate } from "./HeartRate";
+import { HrBadge, HrLine, useHeartRate } from "./HeartRate";
 import { formatSeconds } from "../lib/units";
 
 /** The workout's position on the wall clock. */
@@ -91,9 +91,12 @@ const PHASE_LABEL: Record<StepKind, string> = {
 export default function WodPlayer({
   config,
   onClose,
+  withHr = false,
 }: {
   config: WodConfig;
   onClose: () => void;
+  /** The pre-workout step connected the strap (HrConnectSheet). */
+  withHr?: boolean;
 }) {
   const { update } = useApp();
   const steps = useMemo(() => buildSteps(config), [config]);
@@ -328,7 +331,7 @@ export default function WodPlayer({
   // --- Battle track & wake lock -------------------------------------------
   const track = useBattleTrack(config.trackKey, paused, done);
   useWorkoutWakeLock(done);
-  const hr = useHeartRate(config.title ?? "Workout", done);
+  const hr = useHeartRate(config.title ?? "Workout", done, withHr);
   const attachHr = hr.attach;
 
   const logSession = useCallback(() => {
@@ -431,7 +434,6 @@ export default function WodPlayer({
             ? `Pose ${String(step.round)}/${String(config.sequence.length)}`
             : `Round ${String(step.round)}/${String(config.rounds)}`}
         </span>
-        <HrChip hr={hr} />
         <span className="chip">
           {formatSeconds(workElapsed)} / {formatSeconds(workTotal)}
         </span>
@@ -455,15 +457,18 @@ export default function WodPlayer({
         </button>
       </div>
 
-      <HrProblem hr={hr} />
+      <HrLine hr={hr} />
 
       <div className="wod-progress" aria-hidden>
         <div style={{ width: `${String((workElapsed / workTotal) * 100)}%` }} />
       </div>
 
       <div className="wod-center">
-        <div className="wod-phase">
-          {flow && step.kind === "work" ? "Hold" : flow && step.kind === "rest" ? "Move to" : PHASE_LABEL[step.kind]}
+        <div className="wod-phase-row">
+          <div className="wod-phase">
+            {flow && step.kind === "work" ? "Hold" : flow && step.kind === "rest" ? "Move to" : PHASE_LABEL[step.kind]}
+          </div>
+          <HrBadge hr={hr} />
         </div>
         <div className={`wod-time ${remain <= 3 ? "urgent" : ""}`}>
           {formatSeconds(remain)}

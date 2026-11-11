@@ -14,6 +14,8 @@ import {
 } from "../lib/bike";
 import type { BikeRead, FoundBike } from "../lib/bike";
 import { Sheet } from "./ui";
+import { StrapCard } from "./HeartRate";
+import { loadStrap } from "../lib/hr";
 
 interface Paired { address: string; name: string }
 
@@ -77,11 +79,16 @@ export function BikePicker({ onPicked }: { onPicked: (b: Paired) => void }) {
  * `onStart(true)` means the bike is connected and sending data;
  * `onStart(false)` means riding without it.
  */
-export function RideConnectSheet({ title, onStart, onCancel }: {
+export function RideConnectSheet({ title, needsHr, onStart, onCancel }: {
   title: string;
-  onStart: (withBike: boolean) => void;
+  /** Steered by heart rate: neither start is offered until the strap reads. */
+  needsHr: boolean;
+  onStart: (withBike: boolean, withHr: boolean) => void;
   onCancel: () => void;
 }) {
+  const [hrLive, setHrLive] = useState(false);
+  const [strapPaired, setStrapPaired] = useState(() => loadStrap() !== null);
+  const hrBlocked = needsHr && !hrLive;
   const [bike, setBike] = useState(loadBike);
   const [read, setRead] = useState<BikeRead | null>(null);
   const [live, setLive] = useState<{ power: number; cadence: number; at: number } | null>(null);
@@ -154,10 +161,17 @@ export function RideConnectSheet({ title, onStart, onCancel }: {
           <BikePicker onPicked={(b) => { setBike(b); }} />
         </div>
       )}
-      <button className="btn primary" style={{ marginTop: 12 }} disabled={!connected} onClick={() => { onStart(true); }}>
+      <div className="section-label" style={{ marginTop: 14 }}>Heart rate{needsHr ? " · steers this ride" : ""}</div>
+      <StrapCard onLive={(live) => { setHrLive(live); setStrapPaired(loadStrap() !== null); }} />
+      {hrBlocked && (
+        <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>
+          This ride is steered by heart rate: it starts once the strap reads.
+        </div>
+      )}
+      <button className="btn primary" style={{ marginTop: 12 }} disabled={!connected || hrBlocked} onClick={() => { onStart(true, strapPaired); }}>
         Start ride
       </button>
-      <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => { onStart(false); }}>
+      <button className="btn ghost" style={{ marginTop: 8 }} disabled={hrBlocked} onClick={() => { onStart(false, strapPaired); }}>
         Ride without the bike
       </button>
       <p className="muted" style={{ fontSize: 13 }}>

@@ -24,7 +24,8 @@ import { WorkoutDetails } from "../components/WorkoutDetails";
 import WodPlayer from "../components/WodPlayer";
 import ForTimePlayer from "../components/ForTimePlayer";
 import RidePlayer from "../components/RidePlayer";
-import { loadHrZones, loadStrap } from "../lib/hr";
+import { disconnectStrap, loadHrZones, loadStrap } from "../lib/hr";
+import { HrConnectSheet } from "../components/HeartRate";
 import { RideConnectSheet } from "../components/BikeConnect";
 import { disconnectBike } from "../lib/bike";
 import type { RideConfig } from "../lib/ride";
@@ -128,7 +129,10 @@ function StartScreen() {
   const [runningForTime, setRunningForTime] = useState<ForTimeConfig | null>(null);
   const [runningRide, setRunningRide] = useState<RideConfig | null>(null);
   /** A ride waiting on its connect-the-bike step. */
-  const [pendingRide, setPendingRide] = useState<Omit<RideConfig, "withBike"> | null>(null);
+  const [pendingRide, setPendingRide] = useState<Omit<RideConfig, "withBike" | "withHr"> | null>(null);
+  // A guided workout waiting on the strap step, like a ride waits on the bike.
+  const [pendingHr, setPendingHr] = useState<{ title: string; start: (withHr: boolean) => void } | null>(null);
+  const [withHr, setWithHr] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   // Alphabetical, Danish collation so æ/ø/å sort where a Dane expects, and
   // numeric so "Mobility 5" comes before "Mobility 20".
@@ -175,6 +179,20 @@ function StartScreen() {
     return [t.name, t.branch, t.scheme, t.description].some((x) => x.toLowerCase().includes(q));
   });
 
+  /**
+   * With a strap paired, a guided workout starts through the strap step
+   * (connect, see the heart rate, start or skip) — the bike's pre-ride
+   * pattern. Without one it starts at once. Audio unlocks in the Start tap.
+   */
+  const withStrapStep = (title: string, start: (withHr: boolean) => void) => {
+    if (!loadStrap()) {
+      unlockAudio(); // must happen inside the tap gesture
+      start(false);
+      return;
+    }
+    setPendingHr({ title, start });
+  };
+
   const startFromTemplate = (templateId: string) => {
     const tpl = templates.find((t) => t.id === templateId);
     if (!tpl) return;
@@ -194,9 +212,9 @@ function StartScreen() {
         );
         return;
       }
-      unlockAudio(); // must happen inside the tap gesture
+      const cfg = { title: tpl.name, templateId: tpl.id, stages, exercises };
       setSelectedTemplate(null);
-      setRunningForTime({ title: tpl.name, templateId: tpl.id, stages, exercises });
+      withStrapStep(tpl.name, (hr) => { setWithHr(hr); setRunningForTime(cfg); });
       return;
     }
     if (tpl.ride) {
@@ -206,10 +224,6 @@ function StartScreen() {
       if (tpl.ride.segments.some((x) => x.hrZone !== undefined)) {
         if (!loadHrZones()) {
           setStartError(`${tpl.name} is steered by heart rate. Enter your heart-rate zones in Skipan → Heart rate, copied from Garmin Connect, so Varg's zones match your watch.`);
-          return;
-        }
-        if (!loadStrap()) {
-          setStartError(`${tpl.name} is steered by heart rate. Pair your chest strap in Skipan → Heart rate first.`);
           return;
         }
       }
@@ -231,9 +245,8 @@ function StartScreen() {
         setStartError(cfg);
         return;
       }
-      unlockAudio(); // must happen inside the tap gesture
       setSelectedTemplate(null);
-      setRunningWod(cfg);
+      withStrapStep(tpl.name, (hr) => { setWithHr(hr); setRunningWod(cfg); });
       return;
     }
     update((d) => {
@@ -334,20 +347,38 @@ function StartScreen() {
         </Sheet>
       )}
       {runningWod && (
-        <WodPlayer config={runningWod} onClose={() => { setRunningWod(null); }} />
+        <WodPlayer config={runningWod} withHr={withHr} onClose={() => { setRunningWod(null); }} />
       )}
       {runningForTime && (
-        <ForTimePlayer config={runningForTime} onClose={() => { setRunningForTime(null); }} />
+        <ForTimePlayer config={runningForTime} withHr={withHr} onClose={() => { setRunningForTime(null); }} />
+      )}
+      {pendingHr && (
+        <HrConnectSheet
+          title={pendingHr.title}
+          onCancel={() => { void disconnectStrap().catch(() => undefined); setPendingHr(null); }}
+          onStart={(hr) => {
+            unlockAudio(); // inside the Start tap: unlocks cues and music
+            if (!hr) void disconnectStrap().catch(() => undefined);
+            pendingHr.start(hr);
+            setPendingHr(null);
+          }}
+        />
       )}
       {pendingRide && (
         <RideConnectSheet
           title={pendingRide.title}
-          onCancel={() => { void disconnectBike().catch(() => undefined); setPendingRide(null); }}
-          onStart={(withBike) => {
+          needsHr={pendingRide.segments.some((x) => x.hrZone !== undefined)}
+          onCancel={() => {
+            void disconnectBike().catch(() => undefined);
+            void disconnectStrap().catch(() => undefined);
+            setPendingRide(null);
+          }}
+          onStart={(withBike, withHr) => {
             unlockAudio(); // inside the Start tap: unlocks cues and music
             // Riding without it means not reading it either.
             if (!withBike) void disconnectBike().catch(() => undefined);
-            setRunningRide({ ...pendingRide, withBike });
+            if (!withHr) void disconnectStrap().catch(() => undefined);
+            setRunningRide({ ...pendingRide, withBike, withHr });
             setPendingRide(null);
           }}
         />

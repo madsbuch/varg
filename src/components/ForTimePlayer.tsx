@@ -28,7 +28,7 @@ import { formatSeconds } from "../lib/units";
 import ExerciseAnim from "./ExerciseAnim";
 import { IconCheck, IconClose } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
-import { HrChip, HrProblem, useHeartRate } from "./HeartRate";
+import { HrBadge, HrLine, useHeartRate } from "./HeartRate";
 import type { GpsStatus } from "../lib/gps";
 import { formatPace, gpsAvailable, loadGpsEnabled, runStatus, startRun, stopRun } from "../lib/gps";
 
@@ -53,9 +53,12 @@ function workAt(clock: Clock, now: number): number {
 export default function ForTimePlayer({
   config,
   onClose,
+  withHr = false,
 }: {
   config: ForTimeConfig;
   onClose: () => void;
+  /** The pre-workout step connected the strap (HrConnectSheet). */
+  withHr?: boolean;
 }) {
   const { data, update } = useApp();
   const stages = config.stages;
@@ -272,7 +275,7 @@ export default function ForTimePlayer({
   // --- Music & wake lock -----------------------------------------------------
   const track = useBattleTrack(config.templateId, paused, done);
   useWorkoutWakeLock(done);
-  const hr = useHeartRate(config.title, done);
+  const hr = useHeartRate(config.title, done, withHr);
   const attachHr = hr.attach;
 
   // --- Logging ---------------------------------------------------------------
@@ -399,21 +402,23 @@ export default function ForTimePlayer({
         <span className="chip">
           {config.title} · Stage {stageIdx + 1}/{stages.length}
         </span>
-        <HrChip hr={hr} />
         {track.musicButton}
         <button className="check" onClick={openConfirmStop} aria-label="Stop">
           <IconClose />
         </button>
       </div>
 
-      <HrProblem hr={hr} />
+      <HrLine hr={hr} />
 
       <div className="wod-progress" aria-hidden>
         <div style={{ width: `${String((marks.length / stages.length) * 100)}%` }} />
       </div>
 
       <div className="wod-center">
-        <div className="wod-phase">{ready ? "Get ready" : paused ? "Paused" : "For time"}</div>
+        <div className="wod-phase-row">
+          <div className="wod-phase">{ready ? "Get ready" : paused ? "Paused" : "For time"}</div>
+          <HrBadge hr={hr} />
+        </div>
         <div className="wod-time">
           {ready ? formatSeconds(readyRemain) : formatSeconds(work)}
         </div>

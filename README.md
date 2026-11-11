@@ -87,7 +87,8 @@ documented in [CLAUDE.md](CLAUDE.md).
 - **Heart rate** — pair a Bluetooth chest strap in Skipan (Garmin HRM 600,
   HRM-Pro, HRM-Dual, Polar H10: anything with the standard Heart Rate
   Service; ANT+-only straps like the HRM-Tri cannot reach a phone). Guided
-  workouts, for-time runs and rides show the live rate, keep recording with
+  workouts, for-time runs and rides connect the strap before the clock
+  starts (like the bike), show the live rate, keep recording with
   the phone locked through a foreground service, and save each session's
   average, maximum and trace. A dropped strap reconnects by itself and is
   shown in red until it does. A watch can keep reading the strap over ANT+

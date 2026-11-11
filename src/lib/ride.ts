@@ -125,6 +125,8 @@ export interface RideConfig {
   race: boolean;
   /** Connected in the pre-ride step; false when the rider chose to ride without it. */
   withBike: boolean;
+  /** The strap connected in the pre-ride step; false when riding without it. */
+  withHr: boolean;
   /** The bike console: one open block (FREE_RIDE), clock counting up, no cues. */
   free?: boolean;
 }

@@ -1754,21 +1754,34 @@ textarea {
 }
 
 /* --- Heart rate --- */
-/* Under the player's top bar: what is wrong with the strap, loud. */
-.hr-problem {
+/* Under the player's top bar: the live heart rate on one line, or what is
+   wrong with the strap in red. Fixed height, so a problem appearing never
+   shoves the player's layout around mid-set. */
+.hr-line {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 6px 0 0;
-  padding: 6px 10px;
-  border: 1px solid var(--danger-line);
+  height: 34px;
+  margin-top: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
   border-radius: 10px;
-  color: var(--danger);
-  font-size: 13px;
+  color: var(--muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
 }
-.hr-problem span { flex: 1; }
-.hr-problem .btn { width: auto; flex: 0 0 auto; }
+.hr-line svg { flex: 0 0 auto; width: 14px; height: 14px; }
+.hr-line.bad { color: var(--danger); border-color: var(--danger-line); font-size: 12px; line-height: 1.25; }
+.hr-line-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.hr-line .btn { width: auto; flex: 0 0 auto; min-height: 26px; padding: 2px 10px; }
 
 .hr-trace {
   display: block;
@@ -1802,3 +1815,46 @@ textarea {
   color: var(--muted);
 }
 .hr-zones-grid input { width: 100%; }
+/* No reading on a heart-rate block: words, not a dash that renders as a bar. */
+.ride-power .ride-noreading { font-size: min(40px, 5vh); letter-spacing: 0.04em; }
+/* Five heart-rate zones fit the card without scrolling: zone 5 was cut off. */
+.ride-zones.compact { gap: 2px; }
+.ride-zones.compact li { padding: 4px 8px; }
+/* Short phones (360×640): the instruction half must not run under the card. */
+@media (max-height: 680px) {
+  .ride-now { gap: 2px; padding-bottom: 6px; }
+  .ride-label { font-size: 17px; }
+  .ride-now .wod-time { font-size: min(76px, 8vh); }
+  .ride-now .ride-watts { font-size: min(64px, 6.5vh); }
+  .ride-now .wod-stepbar { margin: 2px 0 4px; }
+}
+@media (max-height: 760px) {
+  .ride-zones.compact { gap: 1px; }
+  .ride-zones.compact li { padding: 2px 8px; font-size: 13px; }
+  .ride-deck .ride-page:has(.ride-zones.compact) { padding-top: 6px; padding-bottom: 6px; }
+}
+
+/* The phase label stays centred; the heart-rate badge sits at the row's
+   right edge, out of its way, and the row is no taller than the label. */
+.wod-phase-row {
+  position: relative;
+  align-self: stretch;
+  display: flex;
+  justify-content: center;
+}
+.hr-badge {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.hr-badge svg { width: 12px; height: 12px; align-self: center; }
+.hr-badge.live { color: var(--accent); }
+.hr-badge strong { font-size: 18px; font-weight: 800; }
+.hr-badge small { font-size: 11px; font-weight: 700; }

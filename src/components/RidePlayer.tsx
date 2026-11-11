@@ -36,7 +36,8 @@ import { loadVoiceOn, saveVoiceOn, speak } from "../lib/voice";
 import { clipBlob, playClip, prepareClips } from "../lib/voice-clips";
 import { IconCheck, IconClose, IconSkipBack, IconSkipNext, IconVoice } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
-import { HrChip, HrProblem, useHeartRate } from "./HeartRate";
+import { HrLine, useHeartRate } from "./HeartRate";
+import type { HrLive } from "./HeartRate";
 import { HR_ZONE_NAMES, hrZoneOf, hrZoneRange, loadHrZones } from "../lib/hr";
 
 const LEAD_IN = 10;
@@ -100,7 +101,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
   const done = finished || stopped;
   const ready = view.raw < clock.lead;
   // The strap: shown in every ride, and the target of heart-rate blocks.
-  const hr = useHeartRate(config.title, done);
+  const hr = useHeartRate(config.title, done, config.withHr);
   const { pull: hrPull, at: hrAt } = hr;
   const seg = config.segments[Math.min(view.idx, config.segments.length - 1)];
 
@@ -530,11 +531,10 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
       <div className="wod ride">
         <div className="wod-top">
           <span className="chip">{config.title}</span>
-          <HrChip hr={hr} />
           {track.musicButton}
           <button className="check" onClick={openConfirmStop} aria-label="Stop"><IconClose /></button>
         </div>
-        <HrProblem hr={hr} />
+        <HrLine hr={hr} />
 
         {/* Top half: the clock since the start and the bike's live power. */}
         <div className="ride-now">
@@ -548,7 +548,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
             {zone ? `Zone ${String(zone.zone)} · ${zone.name}` : "No power reading"}
           </div>
           <div className="ride-target">
-            {view.live ? Math.round(view.cadence) : 0} rpm · {Math.round(view.kcal)} kcal
+            {view.live ? Math.round(view.cadence) : 0} rpm · {Math.round(view.kcal)} kcal{hrText(hr)}
           </div>
           {serviceError && (
             <div className="fortime-gps bad">
@@ -632,7 +632,6 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
     <div className={`wod ride ${ready ? "resting" : ""}`}>
       <div className="wod-top">
         <span className="chip">{config.title}</span>
-        <HrChip hr={hr} />
         <button
           className={`check music ${voiceOn ? "on" : ""}`}
           aria-label={voiceOn ? "Stop the spoken cues" : "Speak the cues"}
@@ -643,7 +642,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         {track.musicButton}
         <button className="check" onClick={openConfirmStop} aria-label="Stop"><IconClose /></button>
       </div>
-      <HrProblem hr={hr} />
+      <HrLine hr={hr} />
       <div className="ride-total">
         <div className="ride-total-row">
           <span className="ride-total-label">Total left</span>
@@ -666,23 +665,24 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         </div>
         {hrTarget ? (
           <>
+            {/* Three short lines, like the watt view: the reading, the target,
+                the verdict. Watts and cadence live in the Ride card below. */}
             <div className={`ride-power ${f ?? "none"}`}>
-              <span className="ride-watts">{hr.bpm ?? "—"}</span>
-              <span className="ride-unit">bpm</span>
+              {hr.bpm !== null
+                ? <><span className="ride-watts">{hr.bpm}</span><span className="ride-unit">bpm</span></>
+                : <span className="ride-watts ride-noreading">No HR</span>}
             </div>
             <div className="ride-target">
-              Zone {seg.hrZone} · {hrTarget[0]}–{hrTarget[1]} bpm
-              {" · "}{view.live ? `${String(Math.round(view.power))} W now` : `start ${String(target[0])}–${String(target[1])} W`}
-              {seg.cadence ? ` · ${String(seg.cadence[0])}–${String(seg.cadence[1])} rpm` : ""}
+              {hrTarget[0]}–{hrTarget[1]} bpm{seg.cadence ? ` · ${String(seg.cadence[0])}–${String(seg.cadence[1])} rpm` : ""}
             </div>
             <div className={`ride-fit ${f ?? "none"}`}>
               {f === "in"
                 ? `In zone ${String(seg.hrZone)}`
                 : f === "below"
-                  ? "Push a little: heart rate below the zone"
+                  ? "Push a little: below the zone"
                   : f === "above"
-                    ? "Ease off: heart rate above the zone"
-                    : "No heart rate: the strap steers this block"}
+                    ? "Ease off: above the zone"
+                    : "Waiting for the strap"}
             </div>
           </>
         ) : (
@@ -693,6 +693,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
             </div>
             <div className="ride-target">
               {target[0]}–{target[1]} W{seg.cadence ? ` · ${String(seg.cadence[0])}–${String(seg.cadence[1])} rpm` : ""}
+              {hrText(hr)}
             </div>
             <div className={`ride-fit ${f ?? "none"}`}>
               {f === "in" ? "On target" : f === "below" ? "Push: below target" : f === "above" ? "Ease off: above target" : "No power reading"}
@@ -728,7 +729,9 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
               <Stat value={view.live ? Math.round(view.cadence) : 0} unit="rpm" />
               <Stat value={Math.round(view.kcal)} unit="kcal" />
               <Stat value={formatSeconds(view.t)} unit="ride time" />
-              <Stat value={ready || view.segElapsed < 1 ? 0 : Math.round(view.segAvg)} unit="block avg W" />
+              {hrTarget
+                ? <Stat value={view.live ? Math.round(view.power) : 0} unit="W now" />
+                : <Stat value={ready || view.segElapsed < 1 ? 0 : Math.round(view.segAvg)} unit="block avg W" />}
               <Stat value={view.segOnTarget == null ? "0%" : `${String(Math.round(view.segOnTarget * 100))}%`} unit={hrTarget ? "block in zone" : "block on target"} />
               <Stat value={view.t >= 1 ? Math.round((view.kj * 1000) / view.t) : 0} unit="ride avg W" />
             </div>
@@ -763,7 +766,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         ...(hrTarget && zones ? [{
           title: "HR",
           body: (
-            <ol className="ride-zones">
+            <ol className="ride-zones compact">
               {HR_ZONE_NAMES.map((name, i) => {
                 const z = i + 1;
                 const [lo, hi] = hrZoneRange(zones, z);
@@ -775,7 +778,6 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
                   </li>
                 );
               })}
-              <li className="ride-zones-ftp muted">Your Garmin zones, from Skipan</li>
             </ol>
           ),
         }] : []),
@@ -838,6 +840,13 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
       )}
     </div>
   );
+}
+
+/** The live heart rate appended to a ride's target line: " · ♥ 125 Z2". */
+function hrText(hr: HrLive): string {
+  if (!hr.paired || hr.problem) return "";
+  if (hr.bpm === null) return " · ♥ …";
+  return ` · ♥ ${String(hr.bpm)}${hr.zone ? ` Z${String(hr.zone)}` : ""}`;
 }
 
 function Stat({ value, unit }: { value: string | number; unit: string }) {
