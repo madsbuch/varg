@@ -23,7 +23,7 @@
   --gold: #8a6a1c; /* bronze */
   --gold-line: #c0a95e;
   /* The resting phase of the interval player: the whole screen shifts. */
-  --rest-bg: #ebeae6;
+  --rest-bg: #eceeed;
   --scrim: rgba(18, 23, 28, 0.5);
   /* Painted behind the system status bar in both themes: Android draws its
      clock and icons in white there, which vanished on a light background. */
@@ -57,7 +57,7 @@
   --danger-bg: #351c18;
   --gold: #d1a64f;
   --gold-line: #7a6230;
-  --rest-bg: #1a1916;
+  --rest-bg: #181c21;
   --scrim: rgba(0, 0, 0, 0.62);
   --iron: #080a0d;
   color-scheme: dark;
@@ -848,14 +848,14 @@ input.invalid,
   margin: 0 auto;
 }
 
-/* Work is woad, rest is bronze — the whole screen changes colour so the
+/* Work is woad, rest is slate — the whole screen changes colour so the
    phase is legible from across the room, mid-burpee. */
 .wod {
   --phase: var(--accent);
 }
 
 .wod.resting {
-  --phase: var(--gold);
+  --phase: var(--muted);
   background-color: var(--rest-bg);
 }
 
@@ -989,15 +989,14 @@ input.invalid,
   max-height: 170px;
 }
 
-/* The rest block is visibly not a station: brass frame, dashed edge. */
+/* The rest block is visibly not a station: slate, with a dashed edge.
+   Work is woad blue; rest drains to iron grey, label, bar, frame and figure
+   alike. Bronze here was a leftover of the old sand palette. */
 .wod.resting .wod-anim {
   border-style: dashed;
-  border-color: var(--gold-line);
+  border-color: var(--faint);
 }
 
-/* The resting figure is slate, not bronze: a walking man in bronze read as
-   a leftover of the old sand palette. The label, bar and dashed frame still
-   carry the phase colour. */
 .wod.resting .wod-anim .ex-anim {
   color: var(--muted);
 }
