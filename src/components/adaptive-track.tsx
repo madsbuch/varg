@@ -9,7 +9,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAudioContext, setCueDucker } from "../lib/beep";
-import { AdaptiveMixer, prepareLayer } from "../lib/mixer";
+import { AdaptiveMixer, LayerError, prepareLayer } from "../lib/mixer";
 import type { Layer } from "../lib/mixer";
 import { getCachedTrack, LAYER_NAMES, LAYERS, layerKey, musicLog } from "../lib/music";
 import type { MusicPlan } from "../lib/ride";
@@ -67,12 +67,12 @@ export function useAdaptiveTrack(templateId: string | undefined, bpm: number, do
           const layer = await prepareLayer(ctx, blob, l, LAYER_NAMES[l], bpm);
           layers.push(layer);
           musicLog(
-            `Mixer: ${LAYER_NAMES[l]} at ${layer.grid.bpm.toFixed(2)} BPM (×${layer.rate.toFixed(4)}), ` +
-            `downbeat ${layer.grid.downbeat.toFixed(3)} s, jitter ${layer.grid.jitterMs.toFixed(1)} ms, ${String(layer.bars)}-bar loop.`,
+            `Mixer: ${LAYER_NAMES[l]} at ${layer.loop.bpm.toFixed(2)} BPM (×${layer.rate.toFixed(4)}), ` +
+            `${String(layer.bars)}-bar loop from ${layer.loop.start.toFixed(2)} s, ±${layer.loop.jitterMs.toFixed(1)} ms, ${(layer.loop.coverage * 100).toFixed(0)} % of beats hit.`,
           );
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
-          musicLog(`Mixer refused a layer: ${msg}`);
+          musicLog(`Mixer refused ${msg}${e instanceof LayerError ? ` (${e.detail})` : ""}.`);
           if (alive()) setProblem(`Music · ${msg}`);
           return;
         }

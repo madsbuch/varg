@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { analyzeBeats, loopRegion, MAX_JITTER_MS } from "../src/lib/beatgrid";
+import { analyzeBeats, findLoop, MAX_JITTER_MS } from "../src/lib/beatgrid";
 
 /**
  * A synthetic dance track: a 55 Hz kick with a click on every beat (twice as loud on
@@ -89,20 +89,62 @@ describe("beat grid", () => {
     expect(analyzeBeats(n, 22050, 144).jitterMs).toBeGreaterThan(MAX_JITTER_MS);
   });
 
-  test("loop region: whole phrases from a downbeat, past the intro, clear of the tail", () => {
-    const r = loopRegion({ bpm: 144, downbeat: 0.5, jitterMs: 0 }, 120);
-    if (!r) throw new Error("no loop");
-    expect(r.barSeconds).toBeCloseTo(240 / 144, 9);
-    expect(r.start).toBeCloseTo(0.5 + 8 * r.barSeconds, 9);
-    expect(r.bars % 8).toBe(0);
-    expect(r.bars).toBe(32);
-    expect(r.start + r.bars * r.barSeconds).toBeLessThanOrEqual(120 - 8);
+  test("a whole track with an intro, a breakdown and drift: the steady section is the loop", () => {
+    const sr = 22050, seconds = 120;
+    // Beat times: an ambient intro to 25 s, then a kick whose tempo drifts
+    // from 143 to 145 BPM, with no kick 70-80 s (a breakdown).
+    const times: number[] = [];
+    for (let t = 25; t < seconds; ) {
+      if (t < 70 || t >= 80) times.push(t);
+      const bpm = 143 + (2 * (t - 25)) / (seconds - 25);
+      t += 60 / bpm;
+    }
+    const out = new Float32Array(seconds * sr);
+    let seed = 3;
+    const noise = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
+    for (let i = 0; i < out.length; i++) out[i] = 0.05 * Math.sin((2 * Math.PI * 220 * i) / sr) + 0.02 * noise();
+    times.forEach((t0, k) => {
+      const accent = k % 4 === 0 ? 1 : 0.5;
+      for (let j = 0; j < 0.15 * sr; j++) {
+        const i = Math.round(t0 * sr) + j;
+        if (i >= out.length) break;
+        out[i] = (out[i] ?? 0) + accent * Math.exp(-j / (0.04 * sr)) * Math.sin((2 * Math.PI * 55 * j) / sr);
+        if (j < 0.004 * sr) out[i] = (out[i] ?? 0) + 0.3 * accent * noise();
+      }
+    });
+    // One tempo for the whole track does not fit: the old analysis refused it.
+    expect(analyzeBeats(out, sr, 144).jitterMs).toBeGreaterThan(MAX_JITTER_MS);
+    const { loop } = findLoop(out, sr, 144);
+    if (!loop) throw new Error("no loop");
+    // Inside the beat, clear of the breakdown, on a downbeat of the kick.
+    const end = loop.start + (loop.bars * 240) / loop.bpm;
+    expect(loop.start).toBeGreaterThanOrEqual(25);
+    expect(end <= 70 || loop.start >= 80).toBe(true);
+    expect(end).toBeLessThanOrEqual(seconds);
+    const nearest = times.reduce((best, t) => (Math.abs(t - loop.start) < Math.abs(best - loop.start) ? t : best));
+    expect(Math.abs(nearest - loop.start)).toBeLessThan(0.012);
+    expect(times.indexOf(nearest) % 4).toBe(0);
+    expect(loop.jitterMs).toBeLessThan(MAX_JITTER_MS);
   });
 
-  test("loop region: a short track starts at the top; too short is null", () => {
-    const short = loopRegion({ bpm: 144, downbeat: 0.5, jitterMs: 0 }, 30);
-    expect(short?.start).toBe(0.5);
-    expect(short?.bars).toBe(8);
-    expect(loopRegion({ bpm: 144, downbeat: 0.5, jitterMs: 0 }, 15)).toBeNull();
+  test("a steady track loops 32 bars at its own tempo", () => {
+    const { loop } = findLoop(busy(146.3, 1.02, 120), 22050, 144);
+    expect(loop?.bars).toBe(32);
+    expect(Math.abs((loop?.bpm ?? 0) - 146.3)).toBeLessThan(0.05);
+  });
+
+  test("accented ones: soft beats 2-4 still count as hits", () => {
+    // The one at twice the level of the other three: every beat is a hit.
+    const { loop } = findLoop(track(146.9, 0.77, 120), 22050, 144);
+    expect(loop?.bars).toBe(32);
+    expect(loop?.coverage).toBeGreaterThan(0.95);
+  });
+
+  test("noise: no loop, and the closest numbers for the log", () => {
+    let seed = 7;
+    const n = new Float32Array(22050 * 60).map(() => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1);
+    const r = findLoop(n, 22050, 144);
+    expect(r.loop).toBeNull();
+    expect(r.jitterMs).toBeGreaterThan(0);
   });
 });

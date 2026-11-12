@@ -26,6 +26,10 @@ const TEMPO_SPAN = 0.06;
  * across the ±40 ms search window.
  */
 export const MAX_JITTER_MS = 12;
+/** How far over the mean onset level a beat's onset must reach to count as a hit. */
+const HIT_OVER_BACKGROUND = 4;
+/** Least share of a loop's beats that must carry a real hit. */
+export const MIN_COVERAGE = 0.9;
 
 export interface BeatGrid {
   bpm: number;
@@ -33,6 +37,12 @@ export interface BeatGrid {
   downbeat: number;
   /** RMS distance of the strong onsets from the grid, ms. */
   jitterMs: number;
+  /**
+   * Share of beats with a real hit on the grid: an onset within ±25 ms,
+   * HIT_OVER_BACKGROUND times the section's mean onset level or more. An
+   * intro or a breakdown has beats without one.
+   */
+  coverage: number;
 }
 
 /**
@@ -103,7 +113,7 @@ function smooth(env: Float32Array): Float32Array {
  * within ±40 ms of every predicted beat, then a least-squares line through
  * them (beat number → frame). Weak beats (below the median) are left out.
  */
-function fitBeats(env: Float32Array, period: number, phase: number): { period: number; phase: number; rms: number } {
+function fitBeats(env: Float32Array, period: number, phase: number): { period: number; phase: number; rms: number; coverage: number } {
   const pts: { k: number; x: number; v: number }[] = [];
   for (let k = 0; phase + k * period < env.length - 5; k++) {
     const c = Math.round(phase + k * period);
@@ -119,7 +129,7 @@ function fitBeats(env: Float32Array, period: number, phase: number): { period: n
     const off = d < 0 ? (0.5 * (l - r)) / d : 0;
     pts.push({ k, x: bi + off, v: bv });
   }
-  if (pts.length < 8) return { period, phase, rms: Infinity };
+  if (pts.length < 8) return { period, phase, rms: Infinity, coverage: 0 };
   const sorted = pts.map((p) => p.v).sort((a, b) => a - b);
   const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
   const use = pts.filter((p) => p.v >= median);
@@ -128,21 +138,29 @@ function fitBeats(env: Float32Array, period: number, phase: number): { period: n
   const mx = use.reduce((s, p) => s + p.x, 0) / n;
   let num = 0, den = 0;
   for (const p of use) { num += (p.k - mk) * (p.x - mx); den += (p.k - mk) ** 2; }
-  if (den === 0) return { period, phase, rms: Infinity };
+  if (den === 0) return { period, phase, rms: Infinity, coverage: 0 };
   const b = num / den;
   const a = mx - b * mk;
   const rms = Math.sqrt(use.reduce((s, p) => s + (p.x - (a + b * p.k)) ** 2, 0) / n);
-  return { period: b, phase: a, rms };
+  // Coverage, on every beat: a hit near the line, not just the strong half.
+  // A hit stands well clear of the section's average onset level: an
+  // unaccented beat counts, a ripple in an ambient intro does not.
+  let background = 0;
+  for (const v of env) background += v;
+  background /= env.length || 1;
+  const tol = 0.025 * FRAME_RATE; // ±25 ms in frames (nominal rate: close enough for a tolerance)
+  const hits = pts.filter((p) => p.v >= HIT_OVER_BACKGROUND * background && Math.abs(p.x - (a + b * p.k)) <= tol).length;
+  return { period: b, phase: a, rms, coverage: hits / pts.length };
 }
 
-export function analyzeBeats(mono: Float32Array, sampleRate: number, expectedBpm: number): BeatGrid {
+export function analyzeBeats(mono: Float32Array, sampleRate: number, expectedBpm: number, span = TEMPO_SPAN): BeatGrid {
   const { env: raw, low, fps } = onsetEnvelope(mono, sampleRate);
   const env = smooth(raw);
   const toPeriod = (bpm: number) => (60 * fps) / bpm;
 
   // Coarse comb: 0.05 BPM steps, whole-frame phases.
   let best = { period: toPeriod(expectedBpm), phase: 0, score: -1 };
-  const lo = expectedBpm * (1 - TEMPO_SPAN), hi = expectedBpm * (1 + TEMPO_SPAN);
+  const lo = expectedBpm * (1 - span), hi = expectedBpm * (1 + span);
   for (let bpm = lo; bpm <= hi; bpm += 0.05) {
     const period = toPeriod(bpm);
     for (let phase = 0; phase < period; phase++) {
@@ -152,8 +170,8 @@ export function analyzeBeats(mono: Float32Array, sampleRate: number, expectedBpm
   }
   // Exact: fit a line through the real onsets, twice.
   let { period, phase } = best;
-  let rms = Infinity;
-  for (let i = 0; i < 2; i++) ({ period, phase, rms } = fitBeats(raw, period, phase));
+  let rms = Infinity, coverage = 0;
+  for (let i = 0; i < 2; i++) ({ period, phase, rms, coverage } = fitBeats(raw, period, phase));
   while (phase >= period) phase -= period;
   while (phase < 0) phase += period;
 
@@ -176,29 +194,57 @@ export function analyzeBeats(mono: Float32Array, sampleRate: number, expectedBpm
     bpm: (60 * fps) / period,
     downbeat: (phase + bar * period) / fps,
     jitterMs: (rms / fps) * 1000,
+    coverage,
   };
 }
 
+/** A loop to cut: whole bars from a downbeat, at the section's own tempo. */
+export interface Loop {
+  /** Seconds into the track of the loop's first downbeat. */
+  start: number;
+  bars: number;
+  /** The section's own tempo: what the mixer stretches from. */
+  bpm: number;
+  jitterMs: number;
+  coverage: number;
+}
+
+/** Loop lengths to try, longest first: whole phrases. */
+const LOOP_BARS = [32, 16, 8];
+
 /**
- * The loop to cut from a track: whole bars starting on a downbeat, past
- * the intro and clear of any fade at the end. Lengths are multiples of
- * 8 bars (a phrase) so a seam falls where a phrase would turn anyway.
- * Null when not even one phrase fits.
+ * The steadiest section of a track, as a loop. A generated track is not a
+ * sequencer pattern: it can open on an ambient intro, drop its kick for a
+ * breakdown, or drift a little in tempo. So the whole track only gives the
+ * tempo roughly; then every section of `bars` bars, in steps of 4 bars,
+ * gets its own grid. A section qualifies when nearly every beat carries a
+ * hit (MIN_COVERAGE) and they sit tight to the grid (MAX_JITTER_MS); the
+ * tightest qualifying section is the loop. Longer loops first; null when no section has a steady beat,
+ * with the best section's numbers for the log.
  */
-export function loopRegion(
-  grid: BeatGrid,
-  duration: number,
-  opts: { skipBars?: number; tailSeconds?: number; maxBars?: number } = {},
-): { start: number; bars: number; barSeconds: number } | null {
-  const barSeconds = 240 / grid.bpm;
-  const skip = opts.skipBars ?? 8;
-  const tail = opts.tailSeconds ?? 8;
-  const maxBars = opts.maxBars ?? 32;
-  let start = grid.downbeat + skip * barSeconds;
-  // A short track keeps the music: start closer to the top rather than fail.
-  if (start + 8 * barSeconds > duration - tail) start = grid.downbeat;
-  const fit = Math.floor((duration - tail - start) / barSeconds);
-  const bars = Math.min(maxBars, Math.floor(fit / 8) * 8);
-  if (bars < 8) return null;
-  return { start, bars, barSeconds };
+export function findLoop(
+  mono: Float32Array,
+  sampleRate: number,
+  expectedBpm: number,
+): { loop: Loop | null; bpm: number; jitterMs: number; coverage: number } {
+  const whole = analyzeBeats(mono, sampleRate, expectedBpm);
+  const duration = mono.length / sampleRate;
+  const barS = 240 / whole.bpm;
+  let closest = { bpm: whole.bpm, jitterMs: whole.jitterMs, coverage: whole.coverage };
+  for (const bars of LOOP_BARS) {
+    // One spare bar, so the first downbeat (within a bar) still leaves
+    // `bars` whole bars inside the section.
+    const len = (bars + 1) * barS;
+    let best: Loop | null = null;
+    for (let s = 0; s + len <= duration; s += 4 * barS) {
+      const slice = mono.subarray(Math.round(s * sampleRate), Math.round((s + len) * sampleRate));
+      const g = analyzeBeats(slice, sampleRate, whole.bpm, 0.01);
+      if (g.coverage > closest.coverage) closest = { bpm: g.bpm, jitterMs: g.jitterMs, coverage: g.coverage };
+      const start = s + g.downbeat;
+      if (g.jitterMs > MAX_JITTER_MS || g.coverage < MIN_COVERAGE || start + (bars * 240) / g.bpm > duration) continue;
+      if (!best || g.jitterMs < best.jitterMs) best = { start, bars, bpm: g.bpm, jitterMs: g.jitterMs, coverage: g.coverage };
+    }
+    if (best) return { loop: best, bpm: best.bpm, jitterMs: best.jitterMs, coverage: best.coverage };
+  }
+  return { loop: null, ...closest };
 }

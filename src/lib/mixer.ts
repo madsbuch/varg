@@ -19,8 +19,8 @@
  * player's red line, never swallowed into flat music.
  */
 import type { Intensity } from "../types";
-import { analyzeBeats, loopRegion, MAX_JITTER_MS } from "./beatgrid";
-import type { BeatGrid } from "./beatgrid";
+import { findLoop } from "./beatgrid";
+import type { Loop } from "./beatgrid";
 
 export interface Layer {
   level: Intensity;
@@ -28,7 +28,7 @@ export interface Layer {
   /** Playback rate that brings the track to the workout's tempo. */
   rate: number;
   bars: number;
-  grid: BeatGrid;
+  loop: Loop;
 }
 
 /** Analysis runs on a mono copy at about this rate: plenty for a beat. */
@@ -37,6 +37,15 @@ const ANALYSIS_RATE = 22050;
 const MAX_STRETCH = 0.06;
 /** Seam fades, against clicks where the loop wraps. */
 const SEAM_FADE_S = 0.003;
+
+/** A layer the mixer refuses: a short label for the player, numbers for the log. */
+export class LayerError extends Error {
+  readonly detail: string;
+  constructor(label: string, detail: string) {
+    super(label);
+    this.detail = detail;
+  }
+}
 
 /** Mono, decimated to about ANALYSIS_RATE, for the beat analysis. */
 function analysisMono(buf: AudioBuffer): { mono: Float32Array; rate: number } {
@@ -69,19 +78,22 @@ export async function prepareLayer(
   try {
     decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
   } catch {
-    throw new Error(`${name}: can't decode`);
+    throw new LayerError(`${name}: can't decode`, "decodeAudioData refused it");
   }
   const { mono, rate } = analysisMono(decoded);
-  const grid = analyzeBeats(mono, rate, bpm);
-  if (grid.jitterMs > MAX_JITTER_MS) throw new Error(`${name}: no steady beat`);
-  if (Math.abs(grid.bpm / bpm - 1) > MAX_STRETCH) throw new Error(`${name}: tempo off`);
-  const region = loopRegion(grid, decoded.duration);
-  if (!region) throw new Error(`${name}: too short`);
+  const found = findLoop(mono, rate, bpm);
+  const loop = found.loop;
+  if (!loop) {
+    throw new LayerError(`${name}: no steady beat`, `${found.bpm.toFixed(2)} BPM; best section ${(found.coverage * 100).toFixed(0)} % of beats hit, ±${found.jitterMs.toFixed(1)} ms`);
+  }
+  if (Math.abs(loop.bpm / bpm - 1) > MAX_STRETCH) {
+    throw new LayerError(`${name}: tempo off`, `${loop.bpm.toFixed(2)} BPM against ${String(bpm)}`);
+  }
 
   // Copy just the loop, so the rest of the decoded track can be freed.
   const sr = decoded.sampleRate;
-  const from = Math.round(region.start * sr);
-  const length = Math.round(region.bars * region.barSeconds * sr);
+  const from = Math.round(loop.start * sr);
+  const length = Math.round(((loop.bars * 240) / loop.bpm) * sr);
   const buffer = ctx.createBuffer(decoded.numberOfChannels, length, sr);
   const fade = Math.round(SEAM_FADE_S * sr);
   for (let c = 0; c < decoded.numberOfChannels; c++) {
@@ -93,7 +105,7 @@ export async function prepareLayer(
       dst[length - 1 - i] = (dst[length - 1 - i] ?? 0) * (i / fade);
     }
   }
-  return { level, buffer, rate: bpm / grid.bpm, bars: region.bars, grid };
+  return { level, buffer, rate: bpm / loop.bpm, bars: loop.bars, loop };
 }
 
 /** How far the music drops under a cue. */
