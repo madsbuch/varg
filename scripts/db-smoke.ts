@@ -19,7 +19,7 @@ import { join } from "node:path";
 import * as t from "../src/db/schema";
 import { EX, seedExercises, seedTemplates } from "../src/lib/seed";
 import { hasLibraryEntry, libraryFor } from "../src/lib/library";
-import { buildLayerStyle, buildStyle, isAdaptive, LAYERS, STYLE_LIMIT } from "../src/lib/music";
+import { buildLayerStyle, buildStyle, isAdaptive, LAYER_NAMES, layerBpm, LAYERS, STYLE_LIMIT } from "../src/lib/music";
 import { lengthBucket } from "../src/lib/catalog";
 import * as prsModule from "../src/lib/prs";
 import { estimate1RM } from "../src/lib/units";
@@ -585,8 +585,12 @@ for (const probe of METRIC_PROBES) {
         const at = `${where} segment ${i + 1} ("${sg.label}")`;
         assert(sg.intensity === 1 || sg.intensity === 2 || sg.intensity === 3, `${at}: an adaptive ride sets intensity 1-3 on every block`);
         if (sg.seconds !== undefined) {
-          const bars = (sg.seconds * tpl.music.bpm) / 240;
-          assert(Number.isInteger(bars), `${at}: ${sg.seconds} s at ${tpl.music.bpm} BPM is ${bars.toFixed(2)} bars; pick a tempo that makes it whole bars`);
+          // Every layer's tempo, so a change between tempos meets on the one.
+          for (const l of LAYERS) {
+            const bpm = layerBpm(tpl.music, l);
+            const bars = (sg.seconds * bpm) / 240;
+            assert(Number.isInteger(bars), `${at}: ${sg.seconds} s at ${bpm} BPM (${LAYER_NAMES[l]}) is ${bars.toFixed(2)} bars; pick a tempo that makes it whole bars`);
+          }
         }
       });
     }

@@ -590,8 +590,9 @@ export function seedTemplates(): Template[] {
         "20 s accelerate @ 110–130 % FTP, 105–120 rpm) · 5 min cool-down",
       level: "intermediate",
       exerciseIds: [EX.spinBike],
-      // 10 × (20 + 20 + 20) + 300 = 900 s (15:00). At 144 BPM a
-      // 20 s block is exactly 12 bars, so every music change is on a downbeat.
+      // 10 × (20 + 20 + 20) + 300 = 900 s (15:00). A 20 s block is exactly
+      // 12 bars at 144 BPM and 13 at the peak's 156, so every change, either
+      // tempo, lands on a downbeat of both.
       ride: {
         segments: [
           ...Array.from({ length: 10 }, () => [
@@ -604,6 +605,8 @@ export function seedTemplates(): Template[] {
       },
       music: {
         bpm: 144,
+        // Accelerate needs extra tempo: the peak layer runs at 156.
+        layerBpm: { 3: 156 },
         style: "driving tech house, punchy kick, rolling bassline, no vocals",
         theme: "Sit, stand, accelerate, a minute at a time, the music lifting with every block",
         // Three tracks, mixed by the block: they must sound unlike each

@@ -126,6 +126,11 @@ export interface MusicProfile {
    * one groove and the mix is only accents.
    */
   layers?: Record<Intensity, string> | undefined;
+  /**
+   * Adaptive rides: a layer's own tempo where it differs from `bpm` (a
+   * faster peak). Every timed block must be whole bars at every tempo.
+   */
+  layerBpm?: Partial<Record<Intensity, number>> | undefined;
 }
 
 /** Interval prescription for circuit templates that run guided. */

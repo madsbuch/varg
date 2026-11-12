@@ -11,7 +11,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getAudioContext, setCueDucker } from "../lib/beep";
 import { AdaptiveMixer, LayerError, prepareLayer } from "../lib/mixer";
 import type { Layer } from "../lib/mixer";
-import { getCachedTrack, LAYER_NAMES, LAYERS, layerKey, musicLog } from "../lib/music";
+import { getCachedTrack, LAYER_NAMES, layerBpm, LAYERS, layerKey, musicLog } from "../lib/music";
+import type { MusicProfile } from "../types";
 import type { MusicPlan } from "../lib/ride";
 import { IconMusic } from "./icons";
 
@@ -23,7 +24,7 @@ export interface AdaptiveTrack {
   problem: string | null;
 }
 
-export function useAdaptiveTrack(templateId: string | undefined, bpm: number, done: boolean): AdaptiveTrack {
+export function useAdaptiveTrack(templateId: string | undefined, profile: MusicProfile, done: boolean): AdaptiveTrack {
   const mixerRef = useRef<AdaptiveMixer | null>(null);
   const planRef = useRef<MusicPlan | null>(null);
   const [ready, setReady] = useState(false);
@@ -64,10 +65,10 @@ export function useAdaptiveTrack(templateId: string | undefined, bpm: number, do
         if (!blob) return;
         try {
           // One at a time: a decoded track is large until its loop is cut.
-          const layer = await prepareLayer(ctx, blob, l, LAYER_NAMES[l], bpm);
+          const layer = await prepareLayer(ctx, blob, l, LAYER_NAMES[l], layerBpm(profile, l));
           layers.push(layer);
           musicLog(
-            `Mixer: ${LAYER_NAMES[l]} at ${layer.loop.bpm.toFixed(2)} BPM (×${layer.rate.toFixed(4)}), ` +
+            `Mixer: ${LAYER_NAMES[l]} at ${layer.loop.bpm.toFixed(2)} BPM → ${String(layer.bpm)} (×${layer.rate.toFixed(4)}), ` +
             `${String(layer.bars)}-bar loop from ${layer.loop.start.toFixed(2)} s, ±${layer.loop.jitterMs.toFixed(1)} ms, ${(layer.loop.coverage * 100).toFixed(0)} % of beats hit, longest gap ${String(layer.loop.longestGap)}.`,
           );
         } catch (e) {
@@ -78,7 +79,7 @@ export function useAdaptiveTrack(templateId: string | undefined, bpm: number, do
         }
         if (!alive()) return;
       }
-      mixer = new AdaptiveMixer(ctx, layers, bpm);
+      mixer = new AdaptiveMixer(ctx, layers);
       mixerRef.current = mixer;
       const m = mixer;
       setCueDucker((hold) => { m.duck(hold); });
@@ -91,7 +92,7 @@ export function useAdaptiveTrack(templateId: string | undefined, bpm: number, do
       mixer?.dispose();
       mixerRef.current = null;
     };
-  }, [templateId, bpm, apply]);
+  }, [templateId, profile, apply]);
 
   useEffect(() => {
     doneRef.current = done;

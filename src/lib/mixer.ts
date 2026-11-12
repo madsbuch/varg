@@ -4,8 +4,10 @@
  *
  * Each layer is decoded, its real tempo and first downbeat found
  * (beatgrid.ts), and a loop of whole bars cut from it. Every loop is then
- * played at the rate that makes its bars exactly the workout's tempo, so
- * three tracks Suno composed separately run on one grid. All three play
+ * played at the rate that makes its bars exactly its layer's tempo: the
+ * workout's, or a faster one for the peak. Every grid starts at ride time
+ * 0 and every block is whole bars at every tempo, so three tracks Suno
+ * composed separately meet on the one at every block change. All three play
  * all the time; the mix is only which one is up. A block change crossfades
  * onto its layer over one beat, ending on the beat.
  *
@@ -25,7 +27,9 @@ import type { Loop } from "./beatgrid";
 export interface Layer {
   level: Intensity;
   buffer: AudioBuffer;
-  /** Playback rate that brings the track to the workout's tempo. */
+  /** The tempo this layer plays at: the ride's, or its own (a faster peak). */
+  bpm: number;
+  /** Playback rate that brings the track's section to `bpm`. */
   rate: number;
   bars: number;
   loop: Loop;
@@ -105,7 +109,7 @@ export async function prepareLayer(
       dst[length - 1 - i] = (dst[length - 1 - i] ?? 0) * (i / fade);
     }
   }
-  return { level, buffer, rate: bpm / loop.bpm, bars: loop.bars, loop };
+  return { level, buffer, bpm, rate: bpm / loop.bpm, bars: loop.bars, loop };
 }
 
 /** How far the music drops under a cue. */
@@ -115,17 +119,15 @@ const DUCK_RAMP_S = 0.06;
 export class AdaptiveMixer {
   private readonly ctx: AudioContext;
   private readonly layers: Layer[];
-  private readonly barSeconds: number;
   private readonly gains = new Map<Intensity, GainNode>();
   private readonly duckGain: GainNode;
   private readonly master: GainNode;
   private sources: AudioBufferSourceNode[] = [];
   private origin: number | null = null;
 
-  constructor(ctx: AudioContext, layers: Layer[], bpm: number) {
+  constructor(ctx: AudioContext, layers: Layer[]) {
     this.ctx = ctx;
     this.layers = layers;
-    this.barSeconds = 240 / bpm;
     this.master = ctx.createGain();
     this.duckGain = ctx.createGain();
     this.duckGain.connect(this.master).connect(ctx.destination);
@@ -137,8 +139,10 @@ export class AdaptiveMixer {
     }
   }
 
-  private get beat(): number {
-    return this.barSeconds / 4;
+  /** Seconds per beat of the layer at `level`; the slowest layer's for silence. */
+  private beatOf(level: Intensity | 0): number {
+    const l = this.layers.find((x) => x.level === level);
+    return 60 / (l?.bpm ?? Math.min(...this.layers.map((x) => x.bpm)));
   }
 
   /** Context time of a wall-clock moment. */
@@ -179,7 +183,7 @@ export class AdaptiveMixer {
       src.playbackRate.value = l.rate;
       src.connect(g);
       // Bar 1 of every loop is ride time 0: wrap ride time into the loop.
-      const loop = l.bars * this.barSeconds;
+      const loop = (l.bars * 240) / l.bpm;
       const pos = ((t % loop) + loop) % loop;
       src.start(when, pos * l.rate);
       this.sources.push(src);
@@ -194,9 +198,13 @@ export class AdaptiveMixer {
    */
   mix(level: Intensity | 0, changes: { at: number; level: Intensity | 0 }[]): void {
     const now = this.ctx.currentTime;
-    const beat = this.beat;
     const origin = this.origin === null ? null : this.ctxTime(this.origin);
-    const snap = (t: number) => (origin === null ? t : origin + Math.ceil((t - origin) / beat - 1e-6) * beat);
+    // Each layer keeps its own grid from ride time 0. A change lands on a
+    // beat of the layer coming in, crossfading over that layer's beat. A
+    // timed block ends on a downbeat of every layer (the smoke test holds
+    // every tempo to whole bars per block), so tempos meet on the one.
+    const snap = (t: number, beat: number) =>
+      origin === null ? t : origin + Math.ceil((t - origin) / beat - 1e-6) * beat;
     // Hold every gain where it is now: reading first, because cancelling a
     // ramp in flight snaps the value back to where the ramp began.
     const held = new Map<Intensity, number>();
@@ -206,9 +214,10 @@ export class AdaptiveMixer {
       g.gain.cancelScheduledValues(now);
       g.gain.setValueAtTime(v, now);
     }
-    // Onto `level` by the next beat (at once while paused: no grid running).
-    const first = origin === null ? now + 0.15 : snap(now + 0.05);
-    const firstStart = Math.max(now, first - beat);
+    // Onto `level` by its next beat (at once while paused: no grid running).
+    const firstBeat = this.beatOf(level);
+    const first = origin === null ? now + 0.15 : snap(now + 0.05, firstBeat);
+    const firstStart = Math.max(now, first - firstBeat);
     for (const [l, g] of this.gains) {
       const target = l === level ? 1 : 0;
       if (Math.abs((held.get(l) ?? 0) - target) < 1e-3) continue;
@@ -220,7 +229,8 @@ export class AdaptiveMixer {
     let free = first;
     for (const c of changes) {
       if (c.level === prev) continue;
-      const at = snap(Math.max(this.ctxTime(c.at), free + beat + 0.01));
+      const beat = this.beatOf(c.level);
+      const at = snap(Math.max(this.ctxTime(c.at), free + beat + 0.01), beat);
       const start = at - beat;
       for (const [l, g] of this.gains) {
         const before = l === prev ? 1 : 0, after = l === c.level ? 1 : 0;

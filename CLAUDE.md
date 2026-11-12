@@ -83,9 +83,11 @@ should shape what you build:
    ride player mixes them (`mixer.ts`): each track's real tempo and
    downbeat are found on the phone (`beatgrid.ts`), a loop of whole bars
    is cut and stretched to `music.bpm`, and the music's position is a
-   function of ride time, so pause and skip cannot desync it. Its
-   `music.bpm` must make every timed block whole bars (20 s → a multiple
-   of 12 BPM), so changes land on a downbeat. A track the mixer cannot
+   function of ride time, so pause and skip cannot desync it. Each layer
+   gets its own style (`music.layers`, required) and may get its own tempo
+   (`music.layerBpm`, a faster peak). Every tempo must make every timed
+   block whole bars (20 s → a multiple of 12 BPM), so changes land on a
+   downbeat of both tracks. A track the mixer cannot
    put on the beat is a red line in the player, never off-beat music.
 4. Run `bun run build && bun run db:smoke`. The smoke test is the only
    reviewer this content gets. It asserts that every built-in exercise has its

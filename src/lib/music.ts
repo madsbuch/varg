@@ -703,9 +703,14 @@ const LAYER_ENERGY: Record<Intensity, string> = {
  * trimmed: one steady tempo, a kick on every beat (the beat grid is found
  * from it), one key so layers can cross, and no intro, breakdown or fade.
  */
+/** The tempo a layer is composed and played at. */
+export function layerBpm(profile: MusicProfile, level: Intensity): number {
+  return profile.layerBpm?.[level] ?? profile.bpm;
+}
+
 export function buildLayerStyle(profile: MusicProfile, level: Intensity): string {
   const head =
-    `Instrumental electronic workout loop, constant ${String(profile.bpm)} BPM, strict 4/4, ` +
+    `Instrumental electronic workout loop, constant ${String(layerBpm(profile, level))} BPM, strict 4/4, ` +
     `four-on-the-floor kick on every beat, A minor, no vocals. Starts on the first beat ` +
     `with no intro; no breakdowns, no tempo changes, no fade-out. ${LAYER_ENERGY[level]}`;
   const full = `${head} Style: ${profile.layers?.[level] ?? profile.style}.`;
