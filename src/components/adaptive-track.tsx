@@ -78,7 +78,8 @@ export function useAdaptiveTrack(mix: Mix | undefined, seed: number, done: boole
       const songId = songFor(mix, b, seed, (id) => m.has(id));
       if (songId) bookings.push({ songId, at: b.at, until: b.until });
     }
-    m.book(bookings, plan.paused || doneRef.current);
+    // Only the plan's first block may start before its 3-2-1 (the lead-in).
+    m.book(bookings, plan.paused || doneRef.current, plan.blocks[0]?.at);
   }, [mix, seed]);
 
   useEffect(() => {
