@@ -21,7 +21,7 @@ import { getAudioContext, setCueDucker } from "../lib/beep";
 import { AdaptiveMixer, LayerError, prepareSong } from "../lib/mixer";
 import type { Booking } from "../lib/mixer";
 import { getCachedTrack, loadMusicSettings, musicLog } from "../lib/music";
-import { analyzeSong, songLoop } from "../lib/song-loops";
+import { analyzeSong, songMeta } from "../lib/song-loops";
 import type { MusicBlock, MusicPlan } from "../lib/ride";
 import { songById, songKey } from "../lib/songs";
 import type { Intensity } from "../types";
@@ -112,11 +112,11 @@ export function useAdaptiveTrack(mix: Mix | undefined, seed: number, done: boole
         try {
           // The beat model's result for this track, found when it was
           // composed; a song it has not seen yet is analysed now (slow).
-          const kept = songLoop(id, cached.createdAt) ?? (await analyzeSong(id, cached.blob, cached.createdAt));
+          const meta = songMeta(id, cached.createdAt) ?? (await analyzeSong(id, cached.blob, cached.createdAt));
           if (!alive()) return;
-          if ("refused" in kept) throw new LayerError(kept.refused, kept.detail);
+          if (!meta.loop) throw new LayerError(meta.refused ?? `${song.name}: no loop`, meta.detail ?? "");
           // One at a time: a decoded track is large until its loop is cut.
-          const prepared = await prepareSong(ctx, cached.blob, song, kept.loop);
+          const prepared = await prepareSong(ctx, cached.blob, song, meta.loop);
           if (!alive()) return;
           mixer.add(prepared);
           setReady(true);

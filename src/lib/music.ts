@@ -629,8 +629,17 @@ export function getCachedTrack(key: string): Promise<CachedTrack | undefined> {
   return withStore("readonly", (s) => s.get(key) as IDBRequest<CachedTrack>);
 }
 
+const cachedListeners = new Set<(track: CachedTrack) => void>();
+
+/** Called with every track as it is stored: a new song gets its beats analysed at once. */
+export function onTrackCached(fn: (track: CachedTrack) => void): () => void {
+  cachedListeners.add(fn);
+  return () => cachedListeners.delete(fn);
+}
+
 export async function putCachedTrack(track: CachedTrack): Promise<void> {
   await withStore("readwrite", (s) => s.put(track));
+  cachedListeners.forEach((fn) => { fn(track); });
 }
 
 export async function deleteCachedTrack(key: string): Promise<void> {

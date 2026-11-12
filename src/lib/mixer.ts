@@ -70,15 +70,30 @@ async function networkMono(decoded: AudioBuffer): Promise<Float32Array> {
   return (await off.startRendering()).getChannelData(0);
 }
 
+/** What the beat model found in a track. */
+export interface TrackBeats {
+  duration: number;
+  /** The stretch of the track the network read, seconds. */
+  analysed: [number, number];
+  beats: number[];
+  downbeats: number[];
+  /** The loop the mixer plays, or null and why. */
+  loop: Loop | null;
+  why: string;
+}
+
 /**
- * Find a song's loop: the network's beats and downbeats (beat-this.ts),
- * then the loudest steady section starting on a downbeat (beatgrid.ts).
- * Seconds of work on a phone, so it runs once per composed track, as soon
- * as the track is downloaded (song-loops.ts), and the result is kept.
+ * Run the beat model over a track: its beats and downbeats (beat-this.ts),
+ * and the loudest steady section starting on a downbeat as the loop
+ * (beatgrid.ts). Seconds of work on a phone, so it runs once per composed
+ * track, as soon as it is downloaded (song-loops.ts), and is kept.
+ * Throws a LayerError only when the track cannot be decoded or the model
+ * cannot run; a track without a steady beat comes back with `loop: null`.
  */
-export async function findSongLoop(ctx: BaseAudioContext, blob: Blob, song: Song): Promise<Loop> {
+export async function analyzeTrack(ctx: BaseAudioContext, blob: Blob, song: Song): Promise<TrackBeats> {
   const decoded = await decode(ctx, blob, song);
   const mono = await networkMono(decoded);
+  const duration = mono.length / SAMPLE_RATE;
   const beatsIn = async (from: number, to: number) => {
     try {
       const a = Math.round(from * SAMPLE_RATE), b = Math.round(to * SAMPLE_RATE);
@@ -95,24 +110,23 @@ export async function findSongLoop(ctx: BaseAudioContext, blob: Blob, song: Song
   // there is steady does it read the whole track.
   const window = (CHUNK - 2 * BORDER) / FPS;
   const from = loudestWindow(mono, SAMPLE_RATE, window);
-  const first = await beatsIn(from, from + window);
-  let result = loopFromBeats(first.beats, first.downbeats, mono, SAMPLE_RATE, song.bpm, SONG_LOOP_BARS);
+  const to = Math.min(duration, from + window);
+  let found = await beatsIn(from, to);
+  let analysed: [number, number] = [from, to];
+  let result = loopFromBeats(found.beats, found.downbeats, mono, SAMPLE_RATE, song.bpm, SONG_LOOP_BARS);
   if (!result.loop) {
-    const whole = await beatsIn(0, mono.length / SAMPLE_RATE);
-    result = loopFromBeats(whole.beats, whole.downbeats, mono, SAMPLE_RATE, song.bpm, SONG_LOOP_BARS);
+    found = await beatsIn(0, duration);
+    analysed = [0, duration];
+    result = loopFromBeats(found.beats, found.downbeats, mono, SAMPLE_RATE, song.bpm, SONG_LOOP_BARS);
   }
-  if (!result.loop) throw new LayerError(`${song.name}: no steady beat`, result.why);
-  return result.loop;
+  return { duration, analysed, ...found, loop: result.loop, why: result.why };
 }
 
 /**
- * Decode a song and cut its loop. `known` is the loop found for this very
- * track (song-loops.ts); without one it is found now, which takes seconds.
- * Throws a LayerError ("Jazz house: no steady beat") when the song cannot
- * be mixed in time.
+ * Decode a song and cut the loop the beat model chose for it
+ * (song-loops.ts). Throws a LayerError when it cannot be mixed in time.
  */
-export async function prepareSong(ctx: BaseAudioContext, blob: Blob, song: Song, known?: Loop): Promise<SongLoop> {
-  const loop = known ?? (await findSongLoop(ctx, blob, song));
+export async function prepareSong(ctx: BaseAudioContext, blob: Blob, song: Song, loop: Loop): Promise<SongLoop> {
   if (Math.abs(loop.bpm / song.bpm - 1) > MAX_STRETCH) {
     throw new LayerError(`${song.name}: tempo off`, `${loop.bpm.toFixed(2)} BPM against ${String(song.bpm)}`);
   }

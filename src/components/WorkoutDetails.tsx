@@ -62,6 +62,7 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
               workoutName={song.name}
               profile={{ bpm: song.bpm, style: song.style, theme: "" }}
               label={`${INTENSITY_NAMES[l]} · ${song.name}`}
+              songId={id}
             />
           ) : null;
         }))

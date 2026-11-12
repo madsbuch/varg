@@ -19,18 +19,22 @@ import {
 } from "../lib/music";
 import { ConfirmSheet } from "./ui";
 import { ensureSongLoops } from "../lib/song-loops";
+import { SongBeats } from "./SongBeats";
 
 export function BattleTrack({
   cacheKey,
   workoutName,
   profile,
   label = "Battle track",
+  songId,
 }: {
   cacheKey: string;
   workoutName: string;
   profile: MusicProfile;
-  /** Card title: an adaptive ride's layers say which one they are. */
+  /** Card title: an adaptive ride's songs say which one they are. */
   label?: string;
+  /** A song from the collection: show its beat metadata under the player. */
+  songId?: string | undefined;
 }) {
   const [track, setTrack] = useState<CachedTrack | null | undefined>(undefined);
   const [ensure, setEnsure] = useState<EnsureStatus | null>(null);
@@ -185,6 +189,7 @@ export function BattleTrack({
       {track && url ? (
         <>
           <audio ref={audio} controls preload="metadata" aria-label={`${workoutName} battle track`} src={url} style={{ width: "100%", marginTop: 10 }} />
+          {songId && <SongBeats songId={songId} createdAt={track.createdAt} />}
           {busy ? (
             <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
               Composing a new track on Suno's servers. Locking your phone is
