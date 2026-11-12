@@ -84,7 +84,7 @@ export async function prepareLayer(
   const found = findLoop(mono, rate, bpm);
   const loop = found.loop;
   if (!loop) {
-    throw new LayerError(`${name}: no steady beat`, `${found.bpm.toFixed(2)} BPM; best section ${(found.coverage * 100).toFixed(0)} % of beats hit, ±${found.jitterMs.toFixed(1)} ms`);
+    throw new LayerError(`${name}: no steady beat`, `${found.bpm.toFixed(2)} BPM; best section ${(found.coverage * 100).toFixed(0)} % of beats hit, longest gap ${String(found.longestGap)} beats, ±${found.jitterMs.toFixed(1)} ms`);
   }
   if (Math.abs(loop.bpm / bpm - 1) > MAX_STRETCH) {
     throw new LayerError(`${name}: tempo off`, `${loop.bpm.toFixed(2)} BPM against ${String(bpm)}`);

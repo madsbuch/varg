@@ -140,6 +140,24 @@ describe("beat grid", () => {
     expect(loop?.coverage).toBeGreaterThan(0.95);
   });
 
+  test("fills: a bar without the kick every 8 bars still loops 32 bars", () => {
+    // Like the owner's real Mid layer (89 % of beats hit): the kick drops
+    // out for the last bar of every 8-bar phrase.
+    const sr = 22050, bpm = 143.95, beat = 60 / bpm;
+    const x = track(bpm, 0.42, 120, sr);
+    for (let k = 28; 0.42 + k * beat < 120; k += 32) {
+      // Silence the kick region of the four fill beats (a pad stays).
+      for (let q = 0; q < 4; q++) {
+        const i0 = Math.round((0.42 + (k + q) * beat - 0.01) * sr);
+        for (let j = 0; j < beat * sr; j++) if (i0 + j < x.length) x[i0 + j] = 0.02 * Math.sin((2 * Math.PI * 220 * (i0 + j)) / sr);
+      }
+    }
+    const { loop } = findLoop(x, sr, 144);
+    expect(loop?.bars).toBe(32);
+    expect(loop?.coverage).toBeLessThan(0.9);
+    expect(loop?.longestGap).toBeLessThanOrEqual(4);
+  });
+
   test("noise: no loop, and the closest numbers for the log", () => {
     let seed = 7;
     const n = new Float32Array(22050 * 60).map(() => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1);

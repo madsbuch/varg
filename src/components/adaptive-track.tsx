@@ -68,7 +68,7 @@ export function useAdaptiveTrack(templateId: string | undefined, bpm: number, do
           layers.push(layer);
           musicLog(
             `Mixer: ${LAYER_NAMES[l]} at ${layer.loop.bpm.toFixed(2)} BPM (×${layer.rate.toFixed(4)}), ` +
-            `${String(layer.bars)}-bar loop from ${layer.loop.start.toFixed(2)} s, ±${layer.loop.jitterMs.toFixed(1)} ms, ${(layer.loop.coverage * 100).toFixed(0)} % of beats hit.`,
+            `${String(layer.bars)}-bar loop from ${layer.loop.start.toFixed(2)} s, ±${layer.loop.jitterMs.toFixed(1)} ms, ${(layer.loop.coverage * 100).toFixed(0)} % of beats hit, longest gap ${String(layer.loop.longestGap)}.`,
           );
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
