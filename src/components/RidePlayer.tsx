@@ -28,7 +28,7 @@ import {
 } from "../lib/bike";
 import type { BikeRead } from "../lib/bike";
 import {
-  announceLead, bestRide, COUNTDOWN, fit, loadFtp, recordedRide, rideLine, RideRun, rideLeft, rideSchedule, rideSeconds, shownAmount, speechSeconds, targetWatts, zoneOf, zoneTable,
+  announceLead, bestRide, COUNTDOWN, fit, loadFtp, musicPlan, recordedRide, rideLine, RideRun, rideLeft, rideSchedule, rideSeconds, shownAmount, speechSeconds, targetWatts, zoneOf, zoneTable,
 } from "../lib/ride";
 import type { RideConfig, SegmentResult } from "../lib/ride";
 import { EX } from "../lib/seed";
@@ -389,6 +389,15 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
 
   const track = useBattleTrack(config.templateId, paused, done);
   useWorkoutWakeLock(done);
+  // Adaptive rides: book every intensity change of the timed blocks ahead
+  // on the audio clock, rebooked on a new block, a pause or a skip.
+  const { setMusicPlan } = track;
+  useEffect(() => {
+    if (done) return;
+    const r = run.current;
+    const c = clockRef.current;
+    setMusicPlan(musicPlan(config.segments, r.idx, c.anchor + (c.lead + r.segmentStart) * 1000, c.pausedAt !== null));
+  }, [view.idx, jumps, clock, done, config.segments, setMusicPlan]);
   const attachHr = hr.attach;
 
   // --- Logging ---------------------------------------------------------------

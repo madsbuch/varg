@@ -19,7 +19,7 @@ import { join } from "node:path";
 import * as t from "../src/db/schema";
 import { EX, seedExercises, seedTemplates } from "../src/lib/seed";
 import { hasLibraryEntry, libraryFor } from "../src/lib/library";
-import { buildStyle, STYLE_LIMIT } from "../src/lib/music";
+import { buildStyle, isAdaptive, STYLE_LIMIT } from "../src/lib/music";
 import { lengthBucket } from "../src/lib/catalog";
 import * as prsModule from "../src/lib/prs";
 import { estimate1RM } from "../src/lib/units";
@@ -576,6 +576,20 @@ for (const probe of METRIC_PROBES) {
       }
     });
     assert(anyKcal === (r.race === true), `${where}: a ride with kcal segments is a race (race: true), and only then`);
+    // Adaptive music: the track's intensity is booked block by block, so a
+    // block without one would leave the music wherever the last one put
+    // it. And every timed block must be whole bars at the track's tempo,
+    // or the changes drift off the downbeat.
+    if (r.segments.some((sg) => sg.intensity !== undefined)) {
+      r.segments.forEach((sg, i) => {
+        const at = `${where} segment ${i + 1} ("${sg.label}")`;
+        assert(sg.intensity === 1 || sg.intensity === 2 || sg.intensity === 3, `${at}: an adaptive ride sets intensity 1-3 on every block`);
+        if (sg.seconds !== undefined) {
+          const bars = (sg.seconds * tpl.music.bpm) / 240;
+          assert(Number.isInteger(bars), `${at}: ${sg.seconds} s at ${tpl.music.bpm} BPM is ${bars.toFixed(2)} bars; pick a tempo that makes it whole bars`);
+        }
+      });
+    }
     assert(tpl.exerciseIds.length === 1 && tpl.exerciseIds[0] === EX.spinBike, `${where}: exerciseIds must be [EX.spinBike]`);
   }
 }
@@ -600,7 +614,7 @@ for (const tpl of seedTemplates()) {
 // Every built-in's music description must fit the gateway's limit untrimmed — a
 // truncated prompt silently loses the end of its style description.
 for (const tpl of seedTemplates()) {
-  const style = buildStyle(tpl.name, tpl.music, tpl.interval);
+  const style = buildStyle(tpl.name, tpl.music, tpl.interval, isAdaptive(tpl));
   assert(
     !style.endsWith("…") && style.length <= STYLE_LIMIT,
     `template "${tpl.name}" music style is truncated to ${STYLE_LIMIT} chars — shorten its theme or style`,

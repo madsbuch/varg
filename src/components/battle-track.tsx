@@ -10,6 +10,7 @@ import { setCueDucker, unlockAudio } from "../lib/beep";
 import type { TrackChannel } from "../lib/track";
 import { createTrackChannel, SEAM_FADE_SECONDS } from "../lib/track";
 import { getCachedTrack } from "../lib/music";
+import type { MusicPlan } from "../lib/ride";
 import { IconMusic } from "./icons";
 
 export interface BattleTrack {
@@ -17,6 +18,12 @@ export interface BattleTrack {
   musicButton: React.ReactNode;
   /** The hidden audio element; render it anywhere in the player. */
   audioElement: React.ReactNode;
+  /**
+   * Drive the track's intensity (adaptive rides). Call from an effect or
+   * handler whenever the plan moves; it is kept and reapplied to a track
+   * that arrives later.
+   */
+  setMusicPlan: (plan: MusicPlan) => void;
 }
 
 export function useBattleTrack(
@@ -56,18 +63,33 @@ export function useBattleTrack(
   // Route the track through the cue context: ducking, a crossfaded loop
   // seam, and playback that is not subject to the media autoplay policy.
   const channelRef = useRef<TrackChannel | null>(null);
+  const planRef = useRef<MusicPlan | null>(null);
+  const applyPlan = useCallback(() => {
+    const plan = planRef.current;
+    if (!plan) return;
+    const now = Date.now();
+    channelRef.current?.setIntensity(
+      plan.level,
+      plan.changes.map((c) => ({ in: (c.at - now) / 1000, level: c.level })),
+    );
+  }, []);
+  const setMusicPlan = useCallback((plan: MusicPlan) => {
+    planRef.current = plan;
+    applyPlan();
+  }, [applyPlan]);
   useEffect(() => {
     const a = audioRef.current;
     if (!a || !trackUrl) return;
     const channel = createTrackChannel(a);
     channelRef.current = channel;
+    applyPlan();
     if (channel) setCueDucker((hold) => { channel.duck(hold); });
     return () => {
       setCueDucker(null);
       channel?.dispose();
       channelRef.current = null;
     };
-  }, [trackUrl]);
+  }, [trackUrl, applyPlan]);
 
   // "The track should be playing and isn't": either play() was refused —
   // a track that finishes composing mid-workout mounts long after the tap
@@ -139,7 +161,7 @@ export function useBattleTrack(
   }, []);
   const onPlay = useCallback(() => { setMusicBlocked(false); }, []);
 
-  if (!trackUrl) return { musicButton: null, audioElement: null };
+  if (!trackUrl) return { musicButton: null, audioElement: null, setMusicPlan };
   return {
     musicButton: (
       <button
@@ -167,6 +189,7 @@ export function useBattleTrack(
         onPause={onPause}
       />
     ),
+    setMusicPlan,
   };
 }
 

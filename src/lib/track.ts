@@ -28,7 +28,14 @@
  *
  * With no context available the caller still gets working playback, just
  * unprocessed — degraded, never silent.
+ *
+ * Adaptive rides also drive the track's intensity (`setIntensity`). Suno
+ * gives one finished mix, not stems, so intensity is shaped after the mix:
+ * a low-pass filter muffles a held-back block, and a rising high-pass that
+ * thins the bass builds into a hard block, then drops back so the bass
+ * slams in on the change. Every change is booked on the context clock.
  */
+import type { Intensity } from "../types";
 import { getAudioContext } from "./beep";
 
 /** Crossfade length at the loop seam. */
@@ -49,8 +56,29 @@ export interface TrackChannel {
   fadeOutBeforeEnd(remaining: number): void;
   /** Called after the track has been restarted; fades the head back in. */
   fadeIn(): void;
+  /**
+   * Play at `level` now, then change at each `in` seconds from now. Replaces
+   * whatever was booked before. Level 0 is the track as recorded.
+   */
+  setIntensity(level: Intensity | 0, changes: { in: number; level: Intensity | 0 }[]): void;
   dispose(): void;
 }
+
+/** What each intensity does to the mix: low-pass cutoff and level. */
+const INTENSITY: Record<Intensity | 0, { lowpass: number; gain: number }> = {
+  0: { lowpass: 20000, gain: 1 },
+  1: { lowpass: 650, gain: 0.8 },
+  2: { lowpass: 3200, gain: 0.92 },
+  3: { lowpass: 20000, gain: 1 },
+};
+/** The high-pass at rest: below anything audible. */
+const HP_REST = 20;
+/** Where the high-pass sweep peaks just before a drop into level 3. */
+const HP_BUILD = 450;
+/** Seconds the build-up into a harder block takes. */
+const BUILD_S = 4;
+/** Seconds to settle into a softer block. */
+const EASE_S = 1.5;
 
 /**
  * Three gain stages, so the seam fade, the cue duck and the user's volume
@@ -60,6 +88,9 @@ interface Chain {
   seam: GainNode;
   duck: GainNode;
   volume: GainNode;
+  lowpass: BiquadFilterNode;
+  highpass: BiquadFilterNode;
+  drive: GainNode;
 }
 
 // Keyed by element: a second createMediaElementSource() on the same element
@@ -80,11 +111,21 @@ function ensureChain(ctx: AudioContext, el: HTMLAudioElement): Chain | null {
     seam: ctx.createGain(),
     duck: ctx.createGain(),
     volume: ctx.createGain(),
+    lowpass: ctx.createBiquadFilter(),
+    highpass: ctx.createBiquadFilter(),
+    drive: ctx.createGain(),
   };
+  chain.lowpass.type = "lowpass";
+  chain.lowpass.frequency.value = INTENSITY[0].lowpass;
+  chain.highpass.type = "highpass";
+  chain.highpass.frequency.value = HP_REST;
   source
     .connect(chain.seam)
     .connect(chain.duck)
     .connect(chain.volume)
+    .connect(chain.lowpass)
+    .connect(chain.highpass)
+    .connect(chain.drive)
     .connect(ctx.destination);
   chains.set(el, chain);
   return chain;
@@ -100,7 +141,7 @@ export function createTrackChannel(el: HTMLAudioElement): TrackChannel | null {
   if (!ctx) return null;
   const chain = ensureChain(ctx, el);
   if (!chain) return null;
-  const { seam, duck: duckGain, volume } = chain;
+  const { seam, duck: duckGain, volume, lowpass, highpass, drive } = chain;
 
   let fading = false;
 
@@ -133,15 +174,61 @@ export function createTrackChannel(el: HTMLAudioElement): TrackChannel | null {
       fading = false;
       rampTo(seam.gain, 1, SEAM_FADE_S);
     },
+    setIntensity(level, changes) {
+      const now = ctx.currentTime;
+      const lp = lowpass.frequency, hp = highpass.frequency, g = drive.gain;
+      for (const p of [lp, hp, g]) {
+        p.cancelScheduledValues(now);
+        p.setValueAtTime(p.value, now);
+      }
+      // Settle into the current level (a rebook at a change is a no-op).
+      lp.exponentialRampToValueAtTime(INTENSITY[level].lowpass, now + 0.3);
+      g.linearRampToValueAtTime(INTENSITY[level].gain, now + 0.3);
+      hp.exponentialRampToValueAtTime(HP_REST, now + 0.3);
+      let prev = level;
+      let free = now + 0.3; // automation must stay in time order
+      for (const c of changes) {
+        if (c.level === prev) continue;
+        // Never dropped: a change due inside the last one's ramp waits for it.
+        const at = Math.max(now + c.in, free + 0.05);
+        const from = INTENSITY[prev], to = INTENSITY[c.level];
+        if (c.level > prev) {
+          // Build: open the filter towards the change; into the hardest
+          // block, also thin the bass so it drops back in on the beat.
+          const start = Math.max(free, at - BUILD_S);
+          lp.setValueAtTime(from.lowpass, start);
+          lp.exponentialRampToValueAtTime(to.lowpass, at);
+          g.setValueAtTime(from.gain, start);
+          g.linearRampToValueAtTime(to.gain, at);
+          if (c.level === 3) {
+            hp.setValueAtTime(HP_REST, start);
+            hp.exponentialRampToValueAtTime(HP_BUILD, at - 0.02);
+            hp.setValueAtTime(HP_REST, at);
+          }
+          free = at;
+        } else {
+          lp.setValueAtTime(from.lowpass, at);
+          lp.exponentialRampToValueAtTime(to.lowpass, at + EASE_S);
+          g.setValueAtTime(from.gain, at);
+          g.linearRampToValueAtTime(to.gain, at + EASE_S);
+          free = at + EASE_S;
+        }
+        prev = c.level;
+      }
+    },
     dispose() {
       // Deliberately does NOT disconnect: the element's audio only reaches
       // the speakers through this chain, and the element may outlive this
       // channel. Reset to neutral so a re-attach starts clean.
       fading = false;
       const now = ctx.currentTime;
-      for (const g of [seam.gain, duckGain.gain, volume.gain]) {
+      for (const g of [seam.gain, duckGain.gain, volume.gain, drive.gain]) {
         g.cancelScheduledValues(now);
         g.setValueAtTime(1, now);
+      }
+      for (const [f, rest] of [[lowpass.frequency, INTENSITY[0].lowpass], [highpass.frequency, HP_REST]] as const) {
+        f.cancelScheduledValues(now);
+        f.setValueAtTime(rest, now);
       }
     },
   };

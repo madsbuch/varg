@@ -3,7 +3,7 @@
  * finished ride logs. Pure — the ride player feeds it the clock and the
  * bike's meter.
  */
-import type { RideSegment, Session } from "../types";
+import type { Intensity, RideSegment, Session } from "../types";
 import { hrZoneRange } from "./hr";
 import type { HrZones } from "./hr";
 import { newSession, uid } from "./store";
@@ -422,6 +422,41 @@ export function rideSchedule(
     for (let n = COUNTDOWN; n >= 1; n--) out.cues.push({ at: end - n * 1000, beep: "tick" });
     out.cues.push({ at: end, beep: next ? "work" : "finish" });
     start = end;
+  }
+  return out;
+}
+
+/**
+ * The battle track's intensity from block `idx` on: the level to play now
+ * and the wall-clock moment of every later change, as far ahead as the
+ * timed blocks reach. All of it is booked on the audio clock at once, so
+ * the changes land on time even while the WebView is frozen; a kcal block's
+ * end is unknowable, so the plan stops there and is rebooked when it ends.
+ * Level 0 is the track as recorded: rides without intensities never change.
+ */
+export interface MusicPlan {
+  level: Intensity | 0;
+  changes: { at: number; level: Intensity | 0 }[];
+}
+
+export function musicPlan(
+  segments: RideSegment[],
+  idx: number,
+  segmentStartWall: number,
+  paused: boolean,
+): MusicPlan {
+  const level = segments[idx]?.intensity ?? 0;
+  const out: MusicPlan = { level, changes: [] };
+  if (paused) return out;
+  let at = segmentStartWall;
+  let prev = level;
+  for (let i = idx; i < segments.length - 1; i++) {
+    const seconds = segments[i]?.seconds;
+    if (seconds === undefined) break;
+    at += seconds * 1000;
+    const next = segments[i + 1]?.intensity ?? 0;
+    if (next !== prev) out.changes.push({ at, level: next });
+    prev = next;
   }
   return out;
 }

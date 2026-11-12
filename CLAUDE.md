@@ -77,7 +77,11 @@ should shape what you build:
    is only where to start. It is timed, at least 3 minutes (heart rate
    lags), and its scheme says "heart-rate zone N". Such a ride refuses to
    start without zones or a paired strap. Any kcal segment makes it a race (`race: true`), scored by
-   total time.
+   total time. A ride whose battle track should follow the effort sets `intensity`
+   (1 held back, 2 full, 3 build and drop) on every segment; the player
+   books each change on the audio clock (`musicPlan`, `track.ts`). Its
+   `music.bpm` must make every timed block whole bars (20 s → a multiple
+   of 12 BPM), so changes land on a downbeat.
 4. Run `bun run build && bun run db:smoke`. The smoke test is the only
    reviewer this content gets. It asserts that every built-in exercise has its
    own animation, that no template references an exercise that does

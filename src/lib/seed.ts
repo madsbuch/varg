@@ -577,6 +577,35 @@ export function seedTemplates(): Template[] {
       music: { bpm: 174, style: "frantic drum and bass, huge drops, no vocals", theme: "Eight sprints, nothing held back" },
     },
     {
+      id: "tpl-ride-sit-stand-accelerate",
+      name: "Sit · Stand · Accelerate",
+      branch: "Spin bike",
+      description:
+        "Ten one-minute rounds: 20 seconds seated, 20 standing, 20 " +
+        "accelerating, no rest between. The battle track follows the " +
+        "blocks: held back seated, full standing, and a build that drops " +
+        "as you accelerate.",
+      scheme:
+        "5 min warm-up · 10 × (20 s seated @ 75–85 % FTP / 20 s standing @ 90–105 % FTP, 60–75 rpm / " +
+        "20 s accelerate @ 110–130 % FTP, 105–120 rpm) · 5 min cool-down",
+      level: "intermediate",
+      exerciseIds: [EX.spinBike],
+      // 300 + 10 × (20 + 20 + 20) + 300 = 1200 s (20:00). At 144 BPM a
+      // 20 s block is exactly 12 bars, so every music change is on a downbeat.
+      ride: {
+        segments: [
+          { label: "Warm-up", ftp: [50, 65], seconds: 300, cadence: [85, 95], intensity: 1 },
+          ...Array.from({ length: 10 }, () => [
+            { label: "Seated", ftp: [75, 85] as [number, number], seconds: 20, cadence: [85, 95] as [number, number], intensity: 1 as const },
+            { label: "Standing", ftp: [90, 105] as [number, number], seconds: 20, cadence: [60, 75] as [number, number], intensity: 2 as const },
+            { label: "Accelerate", ftp: [110, 130] as [number, number], seconds: 20, cadence: [105, 120] as [number, number], intensity: 3 as const },
+          ]).flat(),
+          { label: "Cool-down", ftp: [40, 55], seconds: 300, intensity: 1 },
+        ],
+      },
+      music: { bpm: 144, style: "driving tech house, punchy kick, rolling bassline, no vocals", theme: "Sit, stand, accelerate, a minute at a time, the music lifting with every block" },
+    },
+    {
       id: "tpl-ride-kcal-ladder",
       name: "Calorie Ladder",
       branch: "Spin bike",

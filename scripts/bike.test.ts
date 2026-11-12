@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { parseIndoorBikeData, parsePowerMeasurement, RideMeter } from "../src/lib/bike";
 import type { BikePacket } from "../src/lib/bike";
-import { bestRide, FREE_RIDE, recordedRide, RideRun, rideLeft, rideLine, rideSchedule, targetWatts, zoneOf } from "../src/lib/ride";
+import { bestRide, FREE_RIDE, musicPlan, recordedRide, RideRun, rideLeft, rideLine, rideSchedule, targetWatts, zoneOf } from "../src/lib/ride";
 import type { RideConfig } from "../src/lib/ride";
 import { seedTemplates } from "../src/lib/seed";
 import { allVoiceLines } from "../src/lib/voice-clips";
@@ -232,3 +232,48 @@ describe("rides", () => {
   });
 });
 
+
+describe("adaptive music plan", () => {
+  const adaptive = seedTemplates().find((t) => t.id === "tpl-ride-sit-stand-accelerate");
+  const segs = adaptive?.ride?.segments ?? [];
+
+  test("books every change of the ride ahead, at its block boundary", () => {
+    const plan = musicPlan(segs, 0, 1_000_000, false);
+    expect(plan.level).toBe(1);
+    // Warm-up and the first Seated are both 1: the first change is Standing.
+    expect(plan.changes[0]).toEqual({ at: 1_000_000 + 320_000, level: 2 });
+    expect(plan.changes[1]).toEqual({ at: 1_000_000 + 340_000, level: 3 });
+    expect(plan.changes[2]).toEqual({ at: 1_000_000 + 360_000, level: 1 });
+    // 10 rounds × 3 changes, the last Accelerate → cool-down included.
+    expect(plan.changes).toHaveLength(30);
+    expect(plan.changes.at(-1)).toEqual({ at: 1_000_000 + 900_000, level: 1 });
+  });
+
+  test("from mid-ride, starts at the current block's level", () => {
+    const idx = segs.findIndex((s) => s.label === "Accelerate");
+    const plan = musicPlan(segs, idx, 0, false);
+    expect(plan.level).toBe(3);
+    expect(plan.changes[0]).toEqual({ at: 20_000, level: 1 });
+  });
+
+  test("paused: hold the level, book nothing", () => {
+    expect(musicPlan(segs, 2, 0, true)).toEqual({ level: 2, changes: [] });
+  });
+
+  test("a ride without intensities never changes the track", () => {
+    const tabata = seedTemplates().find((t) => t.id === "tpl-ride-tabata")?.ride?.segments ?? [];
+    expect(musicPlan(tabata, 0, 0, false)).toEqual({ level: 0, changes: [] });
+  });
+
+  test("stops at a kcal block, whose end is unknowable", () => {
+    const plan = musicPlan(
+      [
+        { label: "A", ftp: [50, 60], seconds: 20, intensity: 1 },
+        { label: "B", ftp: [90, 100], kcal: 20, intensity: 3 },
+        { label: "C", ftp: [50, 60], seconds: 20, intensity: 1 },
+      ],
+      0, 0, false,
+    );
+    expect(plan.changes).toEqual([{ at: 20_000, level: 3 }]);
+  });
+});

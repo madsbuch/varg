@@ -194,7 +194,17 @@ export interface RideSegment {
    * and a paired strap.
    */
   hrZone?: number | undefined;
+  /**
+   * How hard the battle track drives in this block: 1 held back (muffled),
+   * 2 full groove, 3 everything with a build into it. Adaptive rides set it
+   * on every block; the player books each change on the audio clock ahead
+   * of time. Without it the track plays as recorded.
+   */
+  intensity?: Intensity | undefined;
 }
+
+/** Battle-track intensity of a ride block; see RideSegment.intensity. */
+export type Intensity = 1 | 2 | 3;
 
 /** A ride on the indoor bike, run by the ride player against live bike data. */
 export interface RidePlan {

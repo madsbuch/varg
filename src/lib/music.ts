@@ -657,6 +657,20 @@ export const TRACK_SECONDS = 360;
  * playback is not aligned to the workout clock. Untimed workouts (logged
  * sessions) get nothing.
  */
+/**
+ * Adaptive rides shape the track live (filters, builds, drops: see
+ * track.ts), so the source must stay full the whole way: a quiet breakdown
+ * in the mix would land on a hard block and fight the player.
+ */
+const ADAPTIVE_LINE =
+  " Dense, full mix throughout: punchy kick and bass in every section, no " +
+  "breakdowns, no quiet intro.";
+
+/** True when a ride drives its track's intensity block by block. */
+export function isAdaptive(tpl: { ride?: { segments: { intensity?: unknown }[] } | undefined }): boolean {
+  return tpl.ride?.segments.some((s) => s.intensity !== undefined) ?? false;
+}
+
 function timingLine(interval?: IntervalPlan): string {
   if (!interval) return "";
   const cycle = interval.work + interval.rest;
@@ -679,12 +693,14 @@ export function buildStyle(
   workoutName: string,
   profile: MusicProfile,
   interval?: IntervalPlan,
+  adaptive = false,
 ): string {
   const head =
     `Instrumental workout mix, steady ${profile.bpm} BPM, no vocals. ` +
     `Long DJ arrangement, many evolving sections, no early ending or ` +
     `fade-out.` +
-    timingLine(interval);
+    timingLine(interval) +
+    (adaptive ? ADAPTIVE_LINE : "");
   const tail =
     ` For "${workoutName}": ${profile.theme}. Style: ${profile.style}.`;
   const full = head + tail;
@@ -703,8 +719,8 @@ async function requestTrack(
   profile: MusicProfile,
   settings: MusicSettings,
 ): Promise<PendingTask> {
-  const interval = seedTemplates().find((t) => t.id === key)?.interval;
-  const style = buildStyle(workoutName, profile, interval);
+  const tpl = seedTemplates().find((t) => t.id === key);
+  const style = buildStyle(workoutName, profile, tpl?.interval, tpl ? isAdaptive(tpl) : false);
 
   musicLog(`Requesting "${workoutName}" (Suno ${settings.model}) from kie.ai…`);
   let taskId: string;
