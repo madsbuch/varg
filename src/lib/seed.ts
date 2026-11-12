@@ -586,15 +586,14 @@ export function seedTemplates(): Template[] {
         "blocks: held back seated, full standing, and a build that drops " +
         "as you accelerate.",
       scheme:
-        "5 min warm-up · 10 × (20 s seated @ 75–85 % FTP / 20 s standing @ 90–105 % FTP, 60–75 rpm / " +
+        "10 × (20 s seated @ 75–85 % FTP / 20 s standing @ 90–105 % FTP, 60–75 rpm / " +
         "20 s accelerate @ 110–130 % FTP, 105–120 rpm) · 5 min cool-down",
       level: "intermediate",
       exerciseIds: [EX.spinBike],
-      // 300 + 10 × (20 + 20 + 20) + 300 = 1200 s (20:00). At 144 BPM a
+      // 10 × (20 + 20 + 20) + 300 = 900 s (15:00). At 144 BPM a
       // 20 s block is exactly 12 bars, so every music change is on a downbeat.
       ride: {
         segments: [
-          { label: "Warm-up", ftp: [50, 65], seconds: 300, cadence: [85, 95], intensity: 1 },
           ...Array.from({ length: 10 }, () => [
             { label: "Seated", ftp: [75, 85] as [number, number], seconds: 20, cadence: [85, 95] as [number, number], intensity: 1 as const },
             { label: "Standing", ftp: [90, 105] as [number, number], seconds: 20, cadence: [60, 75] as [number, number], intensity: 2 as const },

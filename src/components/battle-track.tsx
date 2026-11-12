@@ -24,6 +24,11 @@ export interface BattleTrack {
    * that arrives later.
    */
   setMusicPlan: (plan: MusicPlan) => void;
+  /**
+   * The track plays, but not through the cue context: no ducking and no
+   * intensity. An adaptive ride must say so rather than play flat.
+   */
+  unrouted: boolean;
 }
 
 export function useBattleTrack(
@@ -63,6 +68,7 @@ export function useBattleTrack(
   // Route the track through the cue context: ducking, a crossfaded loop
   // seam, and playback that is not subject to the media autoplay policy.
   const channelRef = useRef<TrackChannel | null>(null);
+  const [unrouted, setUnrouted] = useState(false);
   const planRef = useRef<MusicPlan | null>(null);
   const applyPlan = useCallback(() => {
     const plan = planRef.current;
@@ -82,6 +88,7 @@ export function useBattleTrack(
     if (!a || !trackUrl) return;
     const channel = createTrackChannel(a);
     channelRef.current = channel;
+    setUnrouted(channel === null);
     applyPlan();
     if (channel) setCueDucker((hold) => { channel.duck(hold); });
     return () => {
@@ -161,7 +168,7 @@ export function useBattleTrack(
   }, []);
   const onPlay = useCallback(() => { setMusicBlocked(false); }, []);
 
-  if (!trackUrl) return { musicButton: null, audioElement: null, setMusicPlan };
+  if (!trackUrl) return { musicButton: null, audioElement: null, setMusicPlan, unrouted: false };
   return {
     musicButton: (
       <button
@@ -190,6 +197,7 @@ export function useBattleTrack(
       />
     ),
     setMusicPlan,
+    unrouted,
   };
 }
 

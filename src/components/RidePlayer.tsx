@@ -34,7 +34,7 @@ import type { RideConfig, SegmentResult } from "../lib/ride";
 import { EX } from "../lib/seed";
 import { loadVoiceOn, saveVoiceOn, speak } from "../lib/voice";
 import { clipBlob, playClip, prepareClips } from "../lib/voice-clips";
-import { IconCheck, IconClose, IconSkipBack, IconSkipNext, IconVoice } from "./icons";
+import { IconCheck, IconClose, IconMusic, IconSkipBack, IconSkipNext, IconVoice } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
 import { HrLine, useHeartRate } from "./HeartRate";
 import type { HrLive } from "./HeartRate";
@@ -392,6 +392,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
   // Adaptive rides: book every intensity change of the timed blocks ahead
   // on the audio clock, rebooked on a new block, a pause or a skip.
   const { setMusicPlan } = track;
+  const adaptive = config.segments.some((x) => x.intensity !== undefined);
   useEffect(() => {
     if (done) return;
     const r = run.current;
@@ -652,6 +653,12 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         <button className="check" onClick={openConfirmStop} aria-label="Stop"><IconClose /></button>
       </div>
       <HrLine hr={hr} />
+      {track.unrouted && adaptive && (
+        <div className="hr-line bad" role="alert">
+          <IconMusic />
+          <span className="hr-line-text">Music not adaptive</span>
+        </div>
+      )}
       <div className="ride-total">
         <div className="ride-total-row">
           <span className="ride-total-label">Total left</span>
