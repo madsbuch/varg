@@ -324,7 +324,7 @@ export class AdaptiveMixer {
    * it. A booking already under way starts where the ride clock says it
    * would be, so a resume picks up mid-song in time.
    */
-  book(bookings: Booking[], paused: boolean): void {
+  book(bookings: Booking[], paused: boolean, firstAt?: number): void {
     const now = this.ctx.currentTime;
     if (paused) {
       for (const p of this.playing) this.cut(p, now);
@@ -384,11 +384,14 @@ export class AdaptiveMixer {
       src.connect(hp).connect(trim).connect(gain).connect(this.bus);
       const one = this.ctxTime(b.at); // its bar 1
       const p: Playing = { songId: b.songId, at: b.at, until: b.until, fadeOut: fadeOutOf(b), src, hp, gain };
-      // After another song: start XF_S before the one, under it. With none
-      // before (the ride's first, during the lead-in): start now, so the
-      // countdown has music too.
-      const follows = wanted.some((x) => x !== b && x.until !== null && Math.abs(x.until - b.at) < SAME_MS);
-      const start = Math.max(now + 0.05, follows ? one - XF_S : -Infinity);
+      // Every song comes in over the 3-2-1 before its block and not a
+      // moment sooner. The one exception is the ride's first stretch
+      // (`firstAt`, the plan's first block), which starts now so the
+      // lead-in has music. "No song before it" is not that test: while
+      // songs still load, every later block lacks one, and each of them
+      // started at once and played on top of the rest.
+      const leadIn = firstAt !== undefined && Math.abs(b.at - firstAt) < SAME_MS;
+      const start = Math.max(now + 0.05, leadIn ? -Infinity : one - XF_S);
       // Where in the buffer to start, so bar 1 (the buffer at `pre`) plays
       // at `one`: in the real lead-up when it reaches back far enough,
       // else wrapped round the loop (a long lead-in), or into the loop
@@ -401,14 +404,15 @@ export class AdaptiveMixer {
       const g = gain.gain, f = hp.frequency;
       g.setValueAtTime(0, start);
       let inEnd: number;
-      if (follows && one - start > 0.05) {
-        // Under the outgoing song: highs first, the low end on the one.
+      if (!leadIn && one - start > 0.05) {
+        // Over the 3-2-1, under the outgoing song (or out of silence, if
+        // its song is not loaded): highs first, the low end on the one.
         f.setValueAtTime(HP_HOLD, start);
         f.setValueAtTime(HP_HOLD, one);
         f.exponentialRampToValueAtTime(HP_OPEN, one + SWAP_S);
         powerRamp(g, start, one, 0, 1);
         inEnd = one;
-      } else if (!follows && one - start > XF_S + INTRO_FADE_S) {
+      } else if (leadIn && one - start > XF_S + INTRO_FADE_S) {
         // The lead-in: full song from the countdown's start, then the kick
         // and bass cut for the 3-2-1 and dropped on the one.
         f.setValueAtTime(HP_OPEN, start);
