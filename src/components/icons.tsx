@@ -1,5 +1,5 @@
 import type { SVGProps } from "react";
-import { WOLF_EYES, WOLF_HEAD, WOLF_LINES, WOLF_NOSE } from "../lib/wolf-mark";
+import { WOLF_EYES, WOLF_GEM, WOLF_HEAD, WOLF_LINES, WOLF_NOSE } from "../lib/wolf-mark";
 
 type P = SVGProps<SVGSVGElement>;
 
@@ -153,8 +153,8 @@ export const IconTarget = (p: P) => (
 
 /**
  * Varg wolf-head mark. Varg is Old Norse for "wolf". The geometry lives in
- * lib/wolf-mark.ts, shared with the app icon; the eyes take the bronze of
- * the runes beside it in the header.
+ * lib/wolf-mark.ts, shared with the app icon; the eyes and brow gem take
+ * the bronze of the runes beside it in the header.
  */
 export const Mark = (p: P) => (
   <svg viewBox="0 0 48 48" fill="none" {...p}>
@@ -164,6 +164,7 @@ export const Mark = (p: P) => (
       <path key={d} d={d} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     ))}
     <path d={WOLF_EYES} fill="var(--gold)" stroke="var(--gold)" strokeWidth="1" strokeLinejoin="round" />
+    <path d={WOLF_GEM} fill="var(--gold)" />
     <path d={WOLF_NOSE} fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
   </svg>
 );
