@@ -1282,7 +1282,7 @@ input.invalid,
   text-align: center;
 }
 .ride-now .wod-stepbar { margin: 4px 0 6px; }
-.ride-now .wod-time { font-size: min(76px, 9.5vh); }
+.ride-now .wod-time { font-size: min(110px, 11vh); }
 .ride-now .ride-watts { font-size: min(64px, 7.5vh); }
 .ride-now .ride-power { margin-top: 2px; }
 .ride-note { font-size: 12px; color: var(--muted); text-align: center; }
@@ -1292,7 +1292,7 @@ input.invalid,
 .ride-fit.none { color: var(--faint); }
 
 .ride-deck {
-  flex: 0 1 220px;
+  flex: 0 1 310px;
   min-height: 140px;
   display: flex;
   flex-direction: column;
@@ -1408,8 +1408,37 @@ input.invalid,
 }
 .ride-zones li.ride-zones-ftp { justify-content: center; font-size: 12px; }
 
+/* The Ride page: the live reading on top, the numbers under it. */
+.ride-main {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ride-main .ride-grid { height: auto; flex: 1; }
+.ride-reading {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.ride-reading .ride-power { margin-top: 0; }
+.ride-reading .ride-watts { font-size: min(52px, 6.5vh); }
+.ride-reading-side {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.ride-reading-side .ride-fit { font-size: 18px; text-align: left; }
+.ride-reading-side .ride-target { font-size: 13px; text-align: left; }
+
 @media (max-height: 760px) {
-  .ride-deck { flex-basis: 180px; }
+  .ride-deck { flex-basis: 260px; }
   .ride-grid { gap: 6px 8px; }
   .ride-stat strong { font-size: 22px; }
   .ride-total-time { font-size: 26px; }
