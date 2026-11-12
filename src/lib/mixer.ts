@@ -43,7 +43,23 @@ export interface SongLoop {
    * a peak song's build into its drop, not the loop's end wrapped round.
    */
   pre: number;
+  /** Loudness trim: the loop to its intensity's level (LEVEL_DB). */
+  trim: number;
 }
+
+/**
+ * The level (mean dB full scale) each intensity's songs play at. Suno
+ * masters close to full scale, and a ride crosses two songs at once: at
+ * their own level they clipped (a hot render peaked at 2.2× full scale).
+ * Every song is brought to its intensity's level instead, with headroom,
+ * a step apart so Accelerate still lifts.
+ */
+const LEVEL_DB: Record<1 | 2 | 3, number> = { 1: -22, 2: -20.5, 3: -19 };
+/** Most a quiet song is raised, and a hot one lowered (dB). */
+const TRIM_LIMIT_DB = 12;
+
+/** The limiter's threshold (dB full scale) at the end of the music chain. */
+const LIMIT_DB = -6;
 
 /** Track time kept before each loop for the crossfade's lead-up. */
 const PRE_ROLL_S = 4;
@@ -168,7 +184,16 @@ export async function prepareSong(ctx: BaseAudioContext, blob: Blob, song: Song,
       dst[length - 1 - i] = (dst[length - 1 - i] ?? 0) * (i / fade);
     }
   }
-  return { song, buffer, rate: song.bpm / loop.bpm, loop, pre: head / sr };
+  // Its loudness over the loop, to bring it to its intensity's level.
+  let sum = 0, count = 0;
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const d = buffer.getChannelData(c);
+    for (let i = head; i < d.length; i++) sum += (d[i] ?? 0) ** 2;
+    count += d.length - head;
+  }
+  const levelDb = 10 * Math.log10(sum / Math.max(1, count) + 1e-12);
+  const trimDb = Math.max(-TRIM_LIMIT_DB, Math.min(TRIM_LIMIT_DB, LEVEL_DB[song.intensity] - levelDb));
+  return { song, buffer, rate: song.bpm / loop.bpm, loop, pre: head / sr, trim: 10 ** (trimDb / 20) };
 }
 
 /** A song booked for a stretch of the ride, in wall-clock time. */
@@ -243,7 +268,15 @@ export class AdaptiveMixer {
     this.master = ctx.createGain();
     this.duckGain = ctx.createGain();
     this.bus = ctx.createGain();
-    this.bus.connect(this.duckGain).connect(this.master).connect(ctx.destination);
+    // Last in line, a limiter: whatever two songs add up to in a
+    // crossfade, the music never clips.
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = LIMIT_DB;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.002;
+    limiter.release.value = 0.2;
+    this.bus.connect(this.duckGain).connect(this.master).connect(limiter).connect(ctx.destination);
   }
 
   add(song: SongLoop): void {
@@ -346,7 +379,9 @@ export class AdaptiveMixer {
       hp.Q.value = 0.7;
       const gain = this.ctx.createGain();
       gain.gain.value = 0;
-      src.connect(hp).connect(gain).connect(this.bus);
+      const trim = this.ctx.createGain();
+      trim.gain.value = song.trim;
+      src.connect(hp).connect(trim).connect(gain).connect(this.bus);
       const one = this.ctxTime(b.at); // its bar 1
       const p: Playing = { songId: b.songId, at: b.at, until: b.until, fadeOut: fadeOutOf(b), src, hp, gain };
       // After another song: start XF_S before the one, under it. With none

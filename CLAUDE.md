@@ -100,7 +100,10 @@ should shape what you build:
    countdown and no longer: the incoming song plays its own lead-up (a
    peak song's build) under the outgoing one with its low end held back
    by a high-pass, and drops its kick and bass on the one, so two kicks
-   never clash. The ride's first song starts with the 10 s lead-in, its
+   never clash. Suno masters close to full scale and a crossfade sums two
+   songs, so every song is trimmed to its intensity's level (`LEVEL_DB`,
+   Peak a step above Low) and a limiter ends the music chain: never let
+   the music play at the song's own level. The ride's first song starts with the 10 s lead-in, its
    bar 1 on Go, kick and bass cut for the 3-2-1 and dropped on Go. When
    the loop rules change, bump `LOOP_RULES` in `song-loops.ts`: songs are
    analysed again in the background. Every
