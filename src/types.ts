@@ -121,16 +121,11 @@ export interface MusicProfile {
   style: string; // genre / instrumentation tags
   theme: string; // mood and story of the workout
   /**
-   * Adaptive rides: a full style per intensity layer, used instead of
-   * `style`. Each must stand on its own, or Suno writes three versions of
-   * one groove and the mix is only accents.
+   * Adaptive rides: the songs (src/lib/songs.ts ids) each intensity draws
+   * on. The ride rotates through them block by block, so every round does
+   * not replay the same loops.
    */
-  layers?: Record<Intensity, string> | undefined;
-  /**
-   * Adaptive rides: a layer's own tempo where it differs from `bpm` (a
-   * faster peak). Every timed block must be whole bars at every tempo.
-   */
-  layerBpm?: Partial<Record<Intensity, number>> | undefined;
+  mix?: Record<Intensity, string[]> | undefined;
 }
 
 /** Interval prescription for circuit templates that run guided. */

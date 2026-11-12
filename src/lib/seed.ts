@@ -582,17 +582,17 @@ export function seedTemplates(): Template[] {
       branch: "Spin bike",
       description:
         "Ten one-minute rounds: 20 seconds seated, 20 standing, 20 " +
-        "accelerating, no rest between. The music mixes three tracks on " +
-        "one beat, block by block: low seated, mid standing, peak " +
-        "accelerating.",
+        "accelerating, no rest between. The music follows the blocks, " +
+        "mixing a different song each round: jazz and deep grooves seated, " +
+        "house standing, choirs and hard techno accelerating.",
       scheme:
         "10 × (20 s seated @ 75–85 % FTP / 20 s standing @ 90–105 % FTP, 60–75 rpm / " +
         "20 s accelerate @ 110–130 % FTP, 105–120 rpm) · 5 min cool-down",
       level: "intermediate",
       exerciseIds: [EX.spinBike],
       // 10 × (20 + 20 + 20) + 300 = 900 s (15:00). A 20 s block is exactly
-      // 12 bars at 144 BPM and 13 at the peak's 156, so every change, either
-      // tempo, lands on a downbeat of both.
+      // 12 bars at 144 BPM and 13 at the peaks' 156, so every change lands
+      // on a downbeat of both songs.
       ride: {
         segments: [
           ...Array.from({ length: 10 }, () => [
@@ -605,19 +605,14 @@ export function seedTemplates(): Template[] {
       },
       music: {
         bpm: 144,
-        // Accelerate needs extra tempo: the peak layer runs at 156.
-        layerBpm: { 3: 156 },
         style: "driving tech house, punchy kick, rolling bassline, no vocals",
         theme: "Sit, stand, accelerate, a minute at a time, the music lifting with every block",
-        // Three tracks, mixed by the block: they must sound unlike each
-        // other, not like one groove with accents.
-        layers: {
-          1: "minimal deep tech house, sparse and hypnotic, steady deep kick, deep sub bass, " +
-            "quiet shakers, dark filtered pads, no claps, no lead, no risers",
-          2: "driving tech house groove, rolling bassline, claps on 2 and 4, open hi-hats, " +
-            "percussive synth stabs, bouncy and confident",
-          3: "peak-time hard techno drop, distorted pounding kick, huge rumbling bass, " +
-            "screaming supersaw lead, crash cymbals, rave stabs, euphoric and explosive",
+        // Rotated round by round from the song collection. The peaks run at
+        // 156 BPM: Accelerate wants the extra tempo.
+        mix: {
+          1: ["low-jazz-house", "low-deep-minimal", "low-dub-techno"],
+          2: ["mid-tech-house", "mid-disco-house", "mid-melodic-techno"],
+          3: ["peak-choir-come-on", "peak-hard-techno", "peak-rave-push"],
         },
       },
     },

@@ -237,34 +237,44 @@ describe("adaptive music plan", () => {
   const adaptive = seedTemplates().find((t) => t.id === "tpl-ride-sit-stand-accelerate");
   const segs = adaptive?.ride?.segments ?? [];
 
-  test("books every change of the ride ahead, at its block boundary", () => {
+  test("books every stretch ahead, numbered per intensity for the rotation", () => {
     const plan = musicPlan(segs, 0, 1_000_000, 0, false);
-    expect(plan.level).toBe(1);
-    // It opens Seated (1): the first change is Standing.
-    expect(plan.changes[0]).toEqual({ at: 1_000_000 + 20_000, level: 2 });
-    expect(plan.changes[1]).toEqual({ at: 1_000_000 + 40_000, level: 3 });
-    expect(plan.changes[2]).toEqual({ at: 1_000_000 + 60_000, level: 1 });
-    // 10 rounds × 3 changes, the last Accelerate → cool-down included.
-    expect(plan.changes).toHaveLength(30);
-    expect(plan.changes.at(-1)).toEqual({ at: 1_000_000 + 600_000, level: 1 });
+    expect(plan.blocks[0]).toEqual({ level: 1, n: 0, at: 1_000_000, until: 1_020_000 });
+    expect(plan.blocks[1]).toEqual({ level: 2, n: 0, at: 1_020_000, until: 1_040_000 });
+    expect(plan.blocks[2]).toEqual({ level: 3, n: 0, at: 1_040_000, until: 1_060_000 });
+    // Round two: each intensity's second song.
+    expect(plan.blocks[3]).toEqual({ level: 1, n: 1, at: 1_060_000, until: 1_080_000 });
+    // 30 round blocks and the cool-down, which follows Accelerate (level 1).
+    expect(plan.blocks).toHaveLength(31);
+    expect(plan.blocks.at(-1)).toEqual({ level: 1, n: 10, at: 1_600_000, until: 1_900_000 });
   });
 
-  test("from mid-ride, starts at the current block's level", () => {
+  test("from mid-ride: the current block first, at its own start", () => {
     const idx = segs.findIndex((s) => s.label === "Accelerate");
-    // Third block: it started 40 s into the ride.
     const plan = musicPlan(segs, idx, 5_000, 40, false);
-    expect(plan.level).toBe(3);
+    expect(plan.blocks[0]).toEqual({ level: 3, n: 0, at: 45_000, until: 65_000 });
     expect(plan.origin).toBe(5_000);
-    expect(plan.changes[0]).toEqual({ at: 5_000 + 60_000, level: 1 });
   });
 
-  test("paused: hold the level, book nothing", () => {
-    expect(musicPlan(segs, 1, 0, 20, true)).toEqual({ origin: 0, paused: true, level: 2, changes: [] });
+  test("consecutive blocks at one intensity are one song", () => {
+    const plan = musicPlan(
+      [
+        { label: "A", ftp: [50, 60], seconds: 20, intensity: 1 },
+        { label: "B", ftp: [50, 60], seconds: 30, intensity: 1 },
+        { label: "C", ftp: [90, 100], seconds: 20, intensity: 3 },
+      ],
+      1, 0, 20, false,
+    );
+    // In B, the stretch began with A at 0.
+    expect(plan.blocks).toEqual([
+      { level: 1, n: 0, at: 0, until: 50_000 },
+      { level: 3, n: 0, at: 50_000, until: 70_000 },
+    ]);
   });
 
-  test("a ride without intensities never changes the track", () => {
+  test("a ride without intensities has no music plan", () => {
     const tabata = seedTemplates().find((t) => t.id === "tpl-ride-tabata")?.ride?.segments ?? [];
-    expect(musicPlan(tabata, 0, 0, 0, false)).toEqual({ origin: 0, paused: false, level: 0, changes: [] });
+    expect(musicPlan(tabata, 0, 0, 0, false).blocks).toEqual([]);
   });
 
   test("stops at a kcal block, whose end is unknowable", () => {
@@ -276,6 +286,9 @@ describe("adaptive music plan", () => {
       ],
       0, 0, 0, false,
     );
-    expect(plan.changes).toEqual([{ at: 20_000, level: 3 }]);
+    expect(plan.blocks).toEqual([
+      { level: 1, n: 0, at: 0, until: 20_000 },
+      { level: 3, n: 0, at: 20_000, until: null },
+    ]);
   });
 });

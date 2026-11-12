@@ -389,12 +389,14 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
     setStopped(true);
   };
 
-  // An adaptive ride mixes its three layer tracks block by block; any
+  // An adaptive ride mixes songs from the collection block by block; any
   // other ride plays its one track under the cues.
   const adaptive = config.segments.some((x) => x.intensity !== undefined);
-  const [profile] = useState(() => musicProfileFor(config.templateId));
+  const [mix] = useState(() => (adaptive ? musicProfileFor(config.templateId).mix : undefined));
+  // Where this ride starts in each intensity's rotation: rides differ.
+  const [seed] = useState(() => Math.floor(Date.now() / 1000) % 997);
   const single = useBattleTrack(adaptive ? undefined : config.templateId, paused, done);
-  const mixed = useAdaptiveTrack(adaptive ? config.templateId : undefined, profile, done);
+  const mixed = useAdaptiveTrack(mix, seed, done);
   const musicButton = adaptive ? mixed.musicButton : single.musicButton;
   useWorkoutWakeLock(done);
   // Hand the mixer every move of the clock and the blocks: it books the

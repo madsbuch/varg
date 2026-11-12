@@ -2,7 +2,7 @@ import type { Exercise, Template } from "../types";
 import { libraryFor } from "../lib/library";
 import { LEVEL_LABEL } from "../lib/catalog";
 import { BattleTrack } from "./BattleTrack";
-import { isAdaptive, LAYER_NAMES, LAYERS, layerKey } from "../lib/music";
+import { INTENSITY_NAMES, songById, songKey } from "../lib/songs";
 import ExerciseAnim from "./ExerciseAnim";
 import { Sheet } from "./ui";
 
@@ -52,10 +52,19 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
         </p>}
       </div>
 
-      {isAdaptive(template)
-        ? LAYERS.map((l) => (
-          <BattleTrack key={l} cacheKey={layerKey(template.id, l)} workoutName={`${template.name} · ${LAYER_NAMES[l]}`} profile={{ ...template.music, style: template.music.layers?.[l] ?? template.music.style }} label={`Battle track · ${LAYER_NAMES[l]}`} />
-        ))
+      {template.music.mix
+        ? ([1, 2, 3] as const).flatMap((l) => (template.music.mix?.[l] ?? []).map((id) => {
+          const song = songById(id);
+          return song ? (
+            <BattleTrack
+              key={id}
+              cacheKey={songKey(id)}
+              workoutName={song.name}
+              profile={{ bpm: song.bpm, style: song.style, theme: "" }}
+              label={`${INTENSITY_NAMES[l]} · ${song.name}`}
+            />
+          ) : null;
+        }))
         : <BattleTrack cacheKey={template.id} workoutName={template.name} profile={template.music} />}
 
       <div className="section-label">{plan ? "Stations in each round" : forTime ? "Movements" : flow ? "Poses" : "Exercise sequence"}</div>

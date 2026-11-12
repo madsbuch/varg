@@ -427,21 +427,35 @@ export function rideSchedule(
 }
 
 /**
- * The adaptive music from block `idx` on: the layer to play now, and the
- * wall-clock moment of every later change, as far ahead as the timed
- * blocks reach. The mixer books all of it on the audio clock at once, so
- * changes land on time even while the WebView is frozen; a kcal block's
- * end is unknowable, so the plan stops there and is rebooked when it ends.
+ * One stretch of an adaptive ride's music: consecutive blocks at the same
+ * intensity, played as one song. `n` counts the earlier stretches at this
+ * intensity since the ride began, so the mixer rotates songs by it: round
+ * one's seated song, round two's, and so on.
+ */
+export interface MusicBlock {
+  level: Intensity;
+  n: number;
+  /** Wall-clock start. */
+  at: number;
+  /** Wall-clock end; null when it ends on kcal (unknowable ahead). */
+  until: number | null;
+}
+
+/**
+ * The adaptive music from block `idx` on: the stretch playing now and
+ * every later one, as far ahead as the timed blocks reach. The mixer books
+ * all of it on the audio clock at once, so songs change on time even while
+ * the WebView is frozen; the plan stops at a kcal block and is rebooked
+ * when it ends.
  *
- * `origin` is the wall-clock moment of ride time 0. The music's position is
- * a function of ride time alone, so a pause, a resume or a skip can never
- * leave it out of step with the blocks.
+ * `origin` is the wall-clock moment of ride time 0 and `segmentStart` the
+ * ride time the current block began. Times are a function of the ride
+ * clock alone, so a pause, a resume or a skip rebooks cleanly.
  */
 export interface MusicPlan {
   origin: number;
   paused: boolean;
-  level: Intensity | 0;
-  changes: { at: number; level: Intensity | 0 }[];
+  blocks: MusicBlock[];
 }
 
 export function musicPlan(
@@ -451,18 +465,51 @@ export function musicPlan(
   segmentStart: number,
   paused: boolean,
 ): MusicPlan {
-  const level = segments[idx]?.intensity ?? 0;
-  const out: MusicPlan = { origin, paused, level, changes: [] };
-  if (paused) return out;
-  let at = origin + segmentStart * 1000;
-  let prev = level;
-  for (let i = idx; i < segments.length - 1; i++) {
-    const seconds = segments[i]?.seconds;
-    if (seconds === undefined) break;
+  // Stretches of consecutive same-intensity blocks, numbered per intensity.
+  const groups: { level: Intensity; n: number; from: number; to: number }[] = [];
+  const count: Record<number, number> = {};
+  segments.forEach((sg, i) => {
+    const level = sg.intensity;
+    if (level === undefined) return;
+    const last = groups[groups.length - 1];
+    if (last?.level === level && last.to === i - 1) {
+      last.to = i;
+      return;
+    }
+    const n = count[level] ?? 0;
+    count[level] = n + 1;
+    groups.push({ level, n, from: i, to: i });
+  });
+  const out: MusicPlan = { origin, paused, blocks: [] };
+  const gi = groups.findIndex((g) => g.from <= idx && idx <= g.to);
+  if (gi < 0) return out;
+  // The current stretch began at its first block: back up over earlier
+  // blocks of it (timed; a kcal one leaves the start at this block).
+  let start = segmentStart;
+  const cur = groups[gi];
+  if (cur) {
+    let back = 0;
+    for (let i = cur.from; i < idx; i++) {
+      const s = segments[i]?.seconds;
+      if (s === undefined) { back = 0; break; }
+      back += s;
+    }
+    start -= back;
+  }
+  let at = origin + start * 1000;
+  for (let g = gi; g < groups.length; g++) {
+    const grp = groups[g];
+    if (!grp) break;
+    let seconds = 0;
+    let timed = true;
+    for (let i = grp.from; i <= grp.to; i++) {
+      const s = segments[i]?.seconds;
+      if (s === undefined) { timed = false; break; }
+      seconds += s;
+    }
+    out.blocks.push({ level: grp.level, n: grp.n, at, until: timed ? at + seconds * 1000 : null });
+    if (!timed) break;
     at += seconds * 1000;
-    const next = segments[i + 1]?.intensity ?? 0;
-    if (next !== prev) out.changes.push({ at, level: next });
-    prev = next;
   }
   return out;
 }

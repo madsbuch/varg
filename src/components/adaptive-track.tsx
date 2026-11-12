@@ -1,30 +1,90 @@
 /**
- * The adaptive ride's music: its three layer tracks, mixed by the ride
+ * The adaptive ride's music: songs from the collection, mixed by the ride
  * (src/lib/mixer.ts). The ride player hands every move of its clock and
- * blocks to `setPlan`; this hook owns loading, the mixer and the button.
+ * blocks to `setPlan`; this hook loads the songs, picks one for each
+ * stretch and owns the mute button.
  *
- * Loading is loud. No layers at all means no music, like any workout
- * whose track is not composed yet; anything partial or unmixable is a
- * `problem` the player shows in red, never flat or off-beat music.
+ * Rotation: a template's `music.mix` lists songs per intensity, and the
+ * n-th stretch at an intensity plays song (n + seed) of its list. `seed`
+ * differs per ride, so no two rides open on the same songs.
+ *
+ * Songs load one at a time, in the order the ride first needs them, and
+ * join the mix as they arrive; a stretch whose song is not ready plays the
+ * next ready one at its intensity. A song's loop is found once and kept
+ * (localStorage, keyed by the composed track), so later rides only decode.
+ *
+ * Loud, never flat: missing or refused songs are a `problem` the player
+ * shows in red, while the songs that work keep playing.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAudioContext, setCueDucker } from "../lib/beep";
-import { AdaptiveMixer, LayerError, prepareLayer } from "../lib/mixer";
-import type { Layer } from "../lib/mixer";
-import { getCachedTrack, LAYER_NAMES, layerBpm, LAYERS, layerKey, musicLog } from "../lib/music";
-import type { MusicProfile } from "../types";
-import type { MusicPlan } from "../lib/ride";
+import type { Loop } from "../lib/beatgrid";
+import { AdaptiveMixer, LayerError, prepareSong } from "../lib/mixer";
+import type { Booking } from "../lib/mixer";
+import { getCachedTrack, loadMusicSettings, musicLog } from "../lib/music";
+import type { MusicBlock, MusicPlan } from "../lib/ride";
+import { songById, songKey } from "../lib/songs";
+import type { Intensity } from "../types";
 import { IconMusic } from "./icons";
 
 export interface AdaptiveTrack {
   musicButton: React.ReactNode;
   /** Where the ride is: call on every block change, skip, pause and resume. */
   setPlan: (plan: MusicPlan) => void;
-  /** Short label for the red line, while the music cannot follow the ride. */
+  /** Short label for the red line, while some of the music cannot play. */
   problem: string | null;
 }
 
-export function useAdaptiveTrack(templateId: string | undefined, profile: MusicProfile, done: boolean): AdaptiveTrack {
+type Mix = Record<Intensity, string[]>;
+
+/** The song for a stretch: its turn in the rotation, else the next ready one. */
+export function songFor(mix: Mix, block: MusicBlock, seed: number, ready: (id: string) => boolean): string | undefined {
+  const list = mix[block.level];
+  for (let i = 0; i < list.length; i++) {
+    const id = list[(block.n + seed + i) % list.length];
+    if (id !== undefined && ready(id)) return id;
+  }
+  return undefined;
+}
+
+/** Every song of the mix, in the order a ride with `seed` first plays them. */
+function loadOrder(mix: Mix, seed: number): string[] {
+  const out: string[] = [];
+  const longest = Math.max(mix[1].length, mix[2].length, mix[3].length);
+  for (let k = 0; k < longest; k++) {
+    for (const l of [1, 2, 3] as const) {
+      const list = mix[l];
+      const id = list[(k + seed) % list.length];
+      if (id !== undefined && !out.includes(id)) out.push(id);
+    }
+  }
+  return out;
+}
+
+const LOOPS_KEY = "varg.mixer.loops.v1";
+
+/** Loops found on earlier rides, by song id, valid for one composed track. */
+function knownLoop(songId: string, createdAt: string): Loop | undefined {
+  try {
+    const all = JSON.parse(localStorage.getItem(LOOPS_KEY) ?? "{}") as Record<string, { createdAt: string; loop: Loop } | undefined>;
+    const hit = all[songId];
+    return hit?.createdAt === createdAt ? hit.loop : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function keepLoop(songId: string, createdAt: string, loop: Loop): void {
+  try {
+    const all = JSON.parse(localStorage.getItem(LOOPS_KEY) ?? "{}") as Record<string, unknown>;
+    all[songId] = { createdAt, loop };
+    localStorage.setItem(LOOPS_KEY, JSON.stringify(all));
+  } catch {
+    // A full localStorage only costs the analysis again next ride.
+  }
+}
+
+export function useAdaptiveTrack(mix: Mix | undefined, seed: number, done: boolean): AdaptiveTrack {
   const mixerRef = useRef<AdaptiveMixer | null>(null);
   const planRef = useRef<MusicPlan | null>(null);
   const [ready, setReady] = useState(false);
@@ -34,65 +94,80 @@ export function useAdaptiveTrack(templateId: string | undefined, profile: MusicP
 
   const apply = useCallback(() => {
     const m = mixerRef.current, plan = planRef.current;
-    if (!m || !plan) return;
-    m.play(plan.origin, plan.paused || doneRef.current);
-    m.mix(plan.level, plan.changes);
-  }, []);
+    if (!m || !plan || !mix) return;
+    const bookings: Booking[] = [];
+    for (const b of plan.blocks) {
+      const songId = songFor(mix, b, seed, (id) => m.has(id));
+      if (songId) bookings.push({ songId, at: b.at, until: b.until });
+    }
+    m.book(bookings, plan.paused || doneRef.current);
+  }, [mix, seed]);
 
   useEffect(() => {
-    if (!templateId) return;
+    if (!mix) return;
     // Read through a function: TypeScript would narrow a plain flag across
     // the awaits and call the later checks unnecessary.
     const life = { alive: true };
     const alive = () => life.alive;
-    let mixer: AdaptiveMixer | null = null;
+    const ctx = getAudioContext();
+    if (!ctx) {
+      // Reported from a microtask: a synchronous setState in an effect
+      // re-renders in a cascade.
+      queueMicrotask(() => { if (alive()) setProblem("Music · no audio"); });
+      return () => { life.alive = false; };
+    }
+    const mixer = new AdaptiveMixer(ctx);
+    mixerRef.current = mixer;
+    setCueDucker((hold) => { mixer.duck(hold); });
     void (async () => {
-      const ctx = getAudioContext();
-      if (!ctx) {
-        setProblem("Music · no audio");
-        return;
-      }
-      const blobs = await Promise.all(LAYERS.map((l) => getCachedTrack(layerKey(templateId, l)).catch(() => undefined)));
-      const have = blobs.filter(Boolean).length;
-      if (!alive() || have === 0) return;
-      if (have < LAYERS.length) {
-        setProblem(`Music · ${String(have)} of ${String(LAYERS.length)} tracks`);
-        return;
-      }
-      const layers: Layer[] = [];
-      for (const [i, l] of LAYERS.entries()) {
-        const blob = blobs[i]?.blob;
-        if (!blob) return;
+      const order = loadOrder(mix, seed);
+      const refused: string[] = [];
+      let missing = 0;
+      for (const id of order) {
+        const song = songById(id);
+        if (!song) continue;
+        const cached = await getCachedTrack(songKey(id)).catch(() => undefined);
+        if (!alive()) return;
+        if (!cached) {
+          missing++;
+          continue;
+        }
         try {
           // One at a time: a decoded track is large until its loop is cut.
-          const layer = await prepareLayer(ctx, blob, l, LAYER_NAMES[l], layerBpm(profile, l));
-          layers.push(layer);
+          const known = knownLoop(id, cached.createdAt);
+          const prepared = await prepareSong(ctx, cached.blob, song, known);
+          if (!alive()) return;
+          if (!known) keepLoop(id, cached.createdAt, prepared.loop);
+          mixer.add(prepared);
+          setReady(true);
+          apply();
           musicLog(
-            `Mixer: ${LAYER_NAMES[l]} at ${layer.loop.bpm.toFixed(2)} BPM → ${String(layer.bpm)} (×${layer.rate.toFixed(4)}), ` +
-            `${String(layer.bars)}-bar loop from ${layer.loop.start.toFixed(2)} s, ±${layer.loop.jitterMs.toFixed(1)} ms, ${(layer.loop.coverage * 100).toFixed(0)} % of beats hit, longest gap ${String(layer.loop.longestGap)}.`,
+            `Mixer: ${song.name} at ${prepared.loop.bpm.toFixed(2)} BPM → ${String(song.bpm)} (×${prepared.rate.toFixed(4)}), ` +
+            `${String(prepared.loop.bars)}-bar loop from ${prepared.loop.start.toFixed(2)} s, ±${prepared.loop.jitterMs.toFixed(1)} ms, ` +
+            `${(prepared.loop.coverage * 100).toFixed(0)} % of beats hit${known ? " (known loop)" : ""}.`,
           );
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           musicLog(`Mixer refused ${msg}${e instanceof LayerError ? ` (${e.detail})` : ""}.`);
-          if (alive()) setProblem(`Music · ${msg}`);
-          return;
+          refused.push(msg);
         }
-        if (!alive()) return;
       }
-      mixer = new AdaptiveMixer(ctx, layers);
-      mixerRef.current = mixer;
-      const m = mixer;
-      setCueDucker((hold) => { m.duck(hold); });
-      setReady(true);
-      apply();
+      if (!alive()) return;
+      // Nothing composed and no key: no music, like any workout without a track.
+      if (missing === order.length && !loadMusicSettings().apiKey) return;
+      if (refused.length) {
+        setProblem(`Music · ${refused[0] ?? ""}${refused.length > 1 ? ` +${String(refused.length - 1)}` : ""}`);
+      } else if (missing) {
+        setProblem(`Music · ${String(order.length - missing)} of ${String(order.length)} songs`);
+      }
     })();
     return () => {
       life.alive = false;
       setCueDucker(null);
-      mixer?.dispose();
+      mixer.dispose();
       mixerRef.current = null;
     };
-  }, [templateId, profile, apply]);
+  }, [mix, seed, apply]);
 
   useEffect(() => {
     doneRef.current = done;

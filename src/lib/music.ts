@@ -13,6 +13,8 @@
 
 import type { Intensity, IntervalPlan, MusicProfile } from "../types";
 import { seedTemplates } from "./seed";
+import { INTENSITY_NAMES, SONGS, songForKey, songKey } from "./songs";
+import type { Song } from "./songs";
 import { formatSeconds } from "./units";
 import { errorText, httpFetch } from "./http";
 import { KieError, audioResults, createTask, download, getTask } from "./kie";
@@ -109,11 +111,15 @@ export interface WorkoutMusic {
 export function workoutMusicList(): WorkoutMusic[] {
   const overrides = loadProfileOverrides();
   const base = [
-    ...seedTemplates().flatMap((t) =>
-      isAdaptive(t)
-        ? LAYERS.map((l) => ({ key: layerKey(t.id, l), name: `${t.name} · ${LAYER_NAMES[l]}`, music: t.music }))
-        : [{ key: t.id, name: t.name, music: t.music }],
-    ),
+    // An adaptive ride plays the song collection, not a track of its own.
+    ...seedTemplates()
+      .filter((t) => !isAdaptive(t))
+      .map((t) => ({ key: t.id, name: t.name, music: t.music })),
+    ...SONGS.map((s) => ({
+      key: songKey(s.id),
+      name: `Song · ${s.name} (${INTENSITY_NAMES[s.intensity]})`,
+      music: { bpm: s.bpm, style: s.style, theme: "" },
+    })),
     { key: "freestyle", name: "Freestyle session", music: FREESTYLE_PROFILE },
   ];
   return base.map((w) => {
@@ -661,59 +667,42 @@ export const TRACK_SECONDS = 360;
  * playback is not aligned to the workout clock. Untimed workouts (logged
  * sessions) get nothing.
  */
-/* ---------------------------- Adaptive layers ---------------------------- */
-// An adaptive ride has no single track. It has one per intensity, composed
-// in the same style, tempo and key, and the ride player mixes between them
-// block by block (src/lib/mixer.ts). Each layer is cached and composed like
-// any workout track, under its own key.
+/* ------------------------------ Song collection ---------------------------- */
+// An adaptive ride has no track of its own. It draws on the shared song
+// collection (src/lib/songs.ts), and the ride player mixes the songs
+// block by block (src/lib/mixer.ts). Each song is composed and cached once,
+// under its own key, like any workout track.
 
 /** True when a ride drives its music's intensity block by block. */
 export function isAdaptive(tpl: { ride?: { segments: { intensity?: unknown }[] } | undefined }): boolean {
   return tpl.ride?.segments.some((s) => s.intensity !== undefined) ?? false;
 }
 
-export const LAYERS: readonly Intensity[] = [1, 2, 3];
-export const LAYER_NAMES: Record<Intensity, string> = { 1: "Low", 2: "Mid", 3: "Peak" };
-
-/** Cache key of one layer of an adaptive ride. */
-export function layerKey(templateId: string, level: Intensity): string {
-  return `${templateId}#${String(level)}`;
-}
-
-function parseLayerKey(key: string): { templateId: string; level?: Intensity } {
-  const [templateId = key, l] = key.split("#");
-  const n = Number(l);
-  return n === 1 || n === 2 || n === 3 ? { templateId, level: n } : { templateId };
-}
-
 /**
- * Layers are loops, not songs: the mixer cuts up to 32 bars from each, so
- * two minutes is plenty and keeps three decoded layers small on the phone.
+ * Songs are loops, not full tracks: the mixer plays up to 16 bars of each
+ * per block, so two minutes is plenty to find its loudest steady section.
  */
-export const LAYER_SECONDS = 120;
+export const SONG_SECONDS = 120;
 
-const LAYER_ENERGY: Record<Intensity, string> = {
+const SONG_ENERGY: Record<Intensity, string> = {
   1: "Energy: low, restrained and sparse the whole way.",
   2: "Energy: medium, a full driving groove the whole way.",
   3: "Energy: maximum, the peak drop the whole way: explosive, nothing held back.",
 };
 
 /**
- * The style for one layer. What the mixer needs comes first and is never
+ * The Suno style for a song. What the mixer needs comes first and is never
  * trimmed: one steady tempo, a kick on every beat (the beat grid is found
- * from it), one key so layers can cross, and no intro, breakdown or fade.
+ * from it), one key across the collection so songs cross in tune, and no
+ * intro, breakdown or fade.
  */
-/** The tempo a layer is composed and played at. */
-export function layerBpm(profile: MusicProfile, level: Intensity): number {
-  return profile.layerBpm?.[level] ?? profile.bpm;
-}
-
-export function buildLayerStyle(profile: MusicProfile, level: Intensity): string {
+export function buildSongStyle(song: Song): string {
+  const voice = song.lyrics ? "Sung vocals as written" : "Instrumental, no vocals";
   const head =
-    `Instrumental electronic workout loop, constant ${String(layerBpm(profile, level))} BPM, strict 4/4, ` +
-    `four-on-the-floor kick on every beat, A minor, no vocals. Starts on the first beat ` +
-    `with no intro; no breakdowns, no tempo changes, no fade-out. ${LAYER_ENERGY[level]}`;
-  const full = `${head} Style: ${profile.layers?.[level] ?? profile.style}.`;
+    `${voice}. Electronic workout track, constant ${String(song.bpm)} BPM, strict 4/4, ` +
+    `four-on-the-floor kick on every beat, A minor. Starts on the first beat ` +
+    `with no intro; no breakdowns, no tempo changes, no fade-out. ${SONG_ENERGY[song.intensity]}`;
+  const full = `${head} Style: ${song.style}.`;
   return full.length <= STYLE_LIMIT ? full : full.slice(0, STYLE_LIMIT - 1).trimEnd() + "…";
 }
 
@@ -763,26 +752,27 @@ async function requestTrack(
   profile: MusicProfile,
   settings: MusicSettings,
 ): Promise<PendingTask> {
-  const { templateId, level } = parseLayerKey(key);
-  const tpl = seedTemplates().find((t) => t.id === templateId);
-  const style = level
-    ? buildLayerStyle(profile, level)
-    : buildStyle(workoutName, profile, tpl?.interval);
+  const song = songForKey(key);
+  const tpl = seedTemplates().find((t) => t.id === key);
+  const style = song ? buildSongStyle(song) : buildStyle(workoutName, profile, tpl?.interval);
+  // In custom mode `prompt` is sung: only a song with lyrics sends one.
+  const lyrics = song?.lyrics;
 
   musicLog(`Requesting "${workoutName}" (Suno ${settings.model}) from kie.ai…`);
   let taskId: string;
   try {
     taskId = await createTask(settings.apiKey, "ai-music-api/generate", {
-      // Custom mode: the only mode that takes `duration`. No `prompt` —
-      // here it would be sung as lyrics.
+      // Custom mode: the only mode that takes `duration`. Its `prompt` is
+      // sung as lyrics, so it goes only with a song that has words.
       custom_mode: true,
-      instrumental: true,
+      instrumental: !lyrics,
+      ...(lyrics ? { prompt: lyrics } : {}),
       model: settings.model,
       title: workoutName.slice(0, TITLE_LIMIT),
       style,
-      negative_tags: "vocals, singing, rap, spoken word, choir",
+      negative_tags: lyrics ? "rap, spoken word, ballad, slow" : "vocals, singing, rap, spoken word, choir",
       // Always sent: without it the model picks its own, short, length.
-      duration: level ? LAYER_SECONDS : TRACK_SECONDS,
+      duration: song ? SONG_SECONDS : TRACK_SECONDS,
     });
   } catch (e) {
     musicLog(`Request for "${workoutName}" rejected: ${errorText(e)}`);

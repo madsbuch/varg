@@ -266,13 +266,14 @@ export function findLoop(
   mono: Float32Array,
   sampleRate: number,
   expectedBpm: number,
+  maxBars = 48,
 ): { loop: Loop | null; bpm: number; jitterMs: number; coverage: number; longestGap: number } {
   const whole = analyzeBeats(mono, sampleRate, expectedBpm);
   const duration = mono.length / sampleRate;
   const barS = 240 / whole.bpm;
   let closest = { bpm: whole.bpm, jitterMs: whole.jitterMs, coverage: whole.coverage, longestGap: whole.longestGap };
   const found: Loop[] = [];
-  for (const bars of LOOP_BARS) {
+  for (const bars of LOOP_BARS.filter((b) => b <= maxBars)) {
     // One spare bar, so the first downbeat (within a bar) still leaves
     // `bars` whole bars inside the section.
     const len = (bars + 1) * barS;

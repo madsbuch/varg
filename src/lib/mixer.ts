@@ -1,37 +1,34 @@
 /**
- * The adaptive mixer: three Suno tracks, one per intensity, played as one
- * piece of music that follows the ride.
+ * The adaptive mixer: songs from the collection (src/lib/songs.ts), each
+ * playing the stretch of the ride it is booked for, as one continuous set.
  *
- * Each layer is decoded, its real tempo and first downbeat found
- * (beatgrid.ts), and a loop of whole bars cut from it. Every loop is then
- * played at the rate that makes its bars exactly its layer's tempo: the
- * workout's, or a faster one for the peak. Every grid starts at ride time
- * 0 and every block is whole bars at every tempo, so three tracks Suno
- * composed separately meet on the one at every block change. All three play
- * all the time; the mix is only which one is up. A block change crossfades
- * onto its layer over one beat, ending on the beat.
+ * Each song is decoded, its real tempo and downbeat found (beatgrid.ts),
+ * and its loudest steady section cut as a loop of whole bars, played at
+ * the rate that makes its bars exactly the song's tempo. A stretch of the
+ * ride starts its song at bar 1 of that loop, on the stretch's first
+ * beat; the song before fades out over its last beat. Every timed block is
+ * whole bars at every song's tempo (smoke test), so changes land on the
+ * one even when the tempo changes (a faster peak).
  *
- * The music's position is a function of ride time alone: ride time 0 is
- * bar 1 of every loop. A pause stops the sources and a resume restarts
- * them where ride time says, so nothing a rider does can push the music
- * out of step with the blocks. Changes are booked ahead on the audio
- * clock, where they still happen while the WebView is frozen.
+ * Bookings are wall-clock times from the ride clock, scheduled ahead on
+ * the audio clock, so songs change on time while the WebView is frozen.
+ * A rebook keeps what is already playing as booked: a block change does
+ * not restart its own song. A pause stops everything; a resume or a skip
+ * books again from the new ride clock.
  *
- * Every way this can fail is thrown as a short label for the ride
- * player's red line, never swallowed into flat music.
+ * Every way a song can fail is a short label for the player's red line,
+ * never off-beat music.
  */
-import type { Intensity } from "../types";
 import { findLoop } from "./beatgrid";
 import type { Loop } from "./beatgrid";
+import type { Song } from "./songs";
 
-export interface Layer {
-  level: Intensity;
+/** A song ready to mix: its loop and how to play it. */
+export interface SongLoop {
+  song: Song;
   buffer: AudioBuffer;
-  /** The tempo this layer plays at: the ride's, or its own (a faster peak). */
-  bpm: number;
-  /** Playback rate that brings the track's section to `bpm`. */
+  /** Playback rate that brings the loop's section to the song's tempo. */
   rate: number;
-  bars: number;
   loop: Loop;
 }
 
@@ -41,8 +38,13 @@ const ANALYSIS_RATE = 22050;
 const MAX_STRETCH = 0.06;
 /** Seam fades, against clicks where the loop wraps. */
 const SEAM_FADE_S = 0.003;
+/**
+ * Longest loop cut per song. A block plays from bar 1, and a 20 s block is
+ * 12-13 bars; 16 keeps a dozen decoded songs within a phone's memory.
+ */
+export const SONG_LOOP_BARS = 16;
 
-/** A layer the mixer refuses: a short label for the player, numbers for the log. */
+/** A song the mixer refuses: a short label for the player, numbers for the log. */
 export class LayerError extends Error {
   readonly detail: string;
   constructor(label: string, detail: string) {
@@ -68,36 +70,39 @@ function analysisMono(buf: AudioBuffer): { mono: Float32Array; rate: number } {
 }
 
 /**
- * Decode one layer, find its grid and cut its loop. Throws a short label
- * ("Mid: no steady beat") when the track cannot be mixed in time.
+ * Decode a song and cut its loop. `known` is a loop found on an earlier
+ * ride for this very track: then only the cut is done, not the analysis.
+ * Throws a LayerError ("Jazz house: no steady beat") when the song cannot
+ * be mixed in time.
  */
-export async function prepareLayer(
-  ctx: BaseAudioContext,
-  blob: Blob,
-  level: Intensity,
-  name: string,
-  bpm: number,
-): Promise<Layer> {
+export async function prepareSong(ctx: BaseAudioContext, blob: Blob, song: Song, known?: Loop): Promise<SongLoop> {
   let decoded: AudioBuffer;
   try {
     decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
   } catch {
-    throw new LayerError(`${name}: can't decode`, "decodeAudioData refused it");
+    throw new LayerError(`${song.name}: can't decode`, "decodeAudioData refused it");
   }
-  const { mono, rate } = analysisMono(decoded);
-  const found = findLoop(mono, rate, bpm);
-  const loop = found.loop;
+  let loop = known;
   if (!loop) {
-    throw new LayerError(`${name}: no steady beat`, `${found.bpm.toFixed(2)} BPM; best section ${(found.coverage * 100).toFixed(0)} % of beats hit, longest gap ${String(found.longestGap)} beats, ±${found.jitterMs.toFixed(1)} ms`);
+    const { mono, rate } = analysisMono(decoded);
+    const found = findLoop(mono, rate, song.bpm, SONG_LOOP_BARS);
+    if (!found.loop) {
+      throw new LayerError(
+        `${song.name}: no steady beat`,
+        `${found.bpm.toFixed(2)} BPM; best section ${(found.coverage * 100).toFixed(0)} % of beats hit, ` +
+        `longest gap ${String(found.longestGap)} beats, ±${found.jitterMs.toFixed(1)} ms`,
+      );
+    }
+    loop = found.loop;
   }
-  if (Math.abs(loop.bpm / bpm - 1) > MAX_STRETCH) {
-    throw new LayerError(`${name}: tempo off`, `${loop.bpm.toFixed(2)} BPM against ${String(bpm)}`);
+  if (Math.abs(loop.bpm / song.bpm - 1) > MAX_STRETCH) {
+    throw new LayerError(`${song.name}: tempo off`, `${loop.bpm.toFixed(2)} BPM against ${String(song.bpm)}`);
   }
 
   // Copy just the loop, so the rest of the decoded track can be freed.
   const sr = decoded.sampleRate;
   const from = Math.round(loop.start * sr);
-  const length = Math.round(((loop.bars * 240) / loop.bpm) * sr);
+  const length = Math.min(decoded.length - from, Math.round(((loop.bars * 240) / loop.bpm) * sr));
   const buffer = ctx.createBuffer(decoded.numberOfChannels, length, sr);
   const fade = Math.round(SEAM_FADE_S * sr);
   for (let c = 0; c < decoded.numberOfChannels; c++) {
@@ -109,40 +114,57 @@ export async function prepareLayer(
       dst[length - 1 - i] = (dst[length - 1 - i] ?? 0) * (i / fade);
     }
   }
-  return { level, buffer, bpm, rate: bpm / loop.bpm, bars: loop.bars, loop };
+  return { song, buffer, rate: song.bpm / loop.bpm, loop };
+}
+
+/** A song booked for a stretch of the ride, in wall-clock time. */
+export interface Booking {
+  songId: string;
+  at: number;
+  /** Null: ends on kcal, unknowable ahead; rebooked when it ends. */
+  until: number | null;
+}
+
+interface Playing {
+  songId: string;
+  at: number;
+  until: number | null;
+  src: AudioBufferSourceNode;
+  gain: GainNode;
 }
 
 /** How far the music drops under a cue. */
 const DUCK_LEVEL = 0.22;
 const DUCK_RAMP_S = 0.06;
+/** A stretch's song comes in on its first beat with this short fade. */
+const ATTACK_S = 0.02;
+/** Fade for anything cut short: a skip, a pause, a stop. */
+const CUT_S = 0.06;
+/** Bookings this close (ms) are the same booking, rebooked. */
+const SAME_MS = 50;
 
 export class AdaptiveMixer {
   private readonly ctx: AudioContext;
-  private readonly layers: Layer[];
-  private readonly gains = new Map<Intensity, GainNode>();
+  private readonly songs = new Map<string, SongLoop>();
+  private readonly bus: GainNode;
   private readonly duckGain: GainNode;
   private readonly master: GainNode;
-  private sources: AudioBufferSourceNode[] = [];
-  private origin: number | null = null;
+  private playing: Playing[] = [];
 
-  constructor(ctx: AudioContext, layers: Layer[]) {
+  constructor(ctx: AudioContext) {
     this.ctx = ctx;
-    this.layers = layers;
     this.master = ctx.createGain();
     this.duckGain = ctx.createGain();
-    this.duckGain.connect(this.master).connect(ctx.destination);
-    for (const l of layers) {
-      const g = ctx.createGain();
-      g.gain.value = 0;
-      g.connect(this.duckGain);
-      this.gains.set(l.level, g);
-    }
+    this.bus = ctx.createGain();
+    this.bus.connect(this.duckGain).connect(this.master).connect(ctx.destination);
   }
 
-  /** Seconds per beat of the layer at `level`; the slowest layer's for silence. */
-  private beatOf(level: Intensity | 0): number {
-    const l = this.layers.find((x) => x.level === level);
-    return 60 / (l?.bpm ?? Math.min(...this.layers.map((x) => x.bpm)));
+  add(song: SongLoop): void {
+    this.songs.set(song.song.id, song);
+  }
+
+  has(songId: string): boolean {
+    return this.songs.has(songId);
   }
 
   /** Context time of a wall-clock moment. */
@@ -150,97 +172,95 @@ export class AdaptiveMixer {
     return this.ctx.currentTime + (wall - Date.now()) / 1000;
   }
 
-  private stopSources(): void {
-    for (const s of this.sources) {
-      try { s.stop(); } catch { /* never started */ }
-      s.disconnect();
-    }
-    this.sources = [];
+  private cut(p: Playing, now: number): void {
+    const g = p.gain.gain;
+    const v = g.value;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(v, now);
+    g.linearRampToValueAtTime(0, now + CUT_S);
+    p.src.onended = () => { p.src.disconnect(); p.gain.disconnect(); };
+    p.src.stop(now + CUT_S + 0.01);
+  }
+
+  /** The gain envelope of a booking: in from `inAt` over `inFor`, out over its last beat. */
+  private envelope(p: Playing, song: SongLoop, inAt: number, inFor: number): void {
+    const now = this.ctx.currentTime;
+    const g = p.gain.gain;
+    const v = g.value;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(v, now);
+    const start = Math.max(now, inAt);
+    if (start > now) g.setValueAtTime(v, start);
+    g.linearRampToValueAtTime(1, start + inFor);
+    if (p.until === null) return;
+    const end = this.ctxTime(p.until);
+    const beat = 60 / song.song.bpm;
+    const fadeFrom = Math.max(start + inFor, end - beat);
+    g.setValueAtTime(1, fadeFrom);
+    g.linearRampToValueAtTime(0, Math.max(fadeFrom + 0.01, end));
+    p.src.onended = () => { p.src.disconnect(); p.gain.disconnect(); };
+    p.src.stop(Math.max(fadeFrom + 0.02, end + 0.02));
   }
 
   /**
-   * Follow the ride: `origin` is the wall-clock moment of ride time 0.
-   * Restarts the loops only when the origin moved (start, resume) — a
-   * block change or a skip leaves them running and only rebooks the mix.
+   * Play these bookings from now on. Bookings already playing or scheduled
+   * stay (their end is updated); bookings no longer wanted are cut; new
+   * ones are scheduled. A booking already under way starts where the ride
+   * clock says it would be, so a resume picks up mid-song in time.
    */
-  play(origin: number, paused: boolean): void {
+  book(bookings: Booking[], paused: boolean): void {
+    const now = this.ctx.currentTime;
     if (paused) {
-      this.stopSources();
-      this.origin = null;
+      for (const p of this.playing) this.cut(p, now);
+      this.playing = [];
       return;
     }
-    if (this.origin !== null && Math.abs(this.origin - origin) < 2 && this.sources.length) return;
-    this.stopSources();
-    this.origin = origin;
-    const when = this.ctx.currentTime + 0.05;
-    const t = when - this.ctxTime(origin); // ride time at `when`; negative in the lead-in
-    for (const l of this.layers) {
-      const g = this.gains.get(l.level);
-      if (!g) continue;
-      const src = this.ctx.createBufferSource();
-      src.buffer = l.buffer;
-      src.loop = true;
-      src.playbackRate.value = l.rate;
-      src.connect(g);
-      // Bar 1 of every loop is ride time 0: wrap ride time into the loop.
-      const loop = (l.bars * 240) / l.bpm;
-      const pos = ((t % loop) + loop) % loop;
-      src.start(when, pos * l.rate);
-      this.sources.push(src);
-    }
-  }
-
-  /**
-   * Put `level` up and book every later change. Every change lands on a
-   * beat of the ride's grid: a timed block always ends on one, and after a
-   * skip the switch waits for the next beat rather than cut across one.
-   * Each is a crossfade over the beat before it.
-   */
-  mix(level: Intensity | 0, changes: { at: number; level: Intensity | 0 }[]): void {
-    const now = this.ctx.currentTime;
-    const origin = this.origin === null ? null : this.ctxTime(this.origin);
-    // Each layer keeps its own grid from ride time 0. A change lands on a
-    // beat of the layer coming in, crossfading over that layer's beat. A
-    // timed block ends on a downbeat of every layer (the smoke test holds
-    // every tempo to whole bars per block), so tempos meet on the one.
-    const snap = (t: number, beat: number) =>
-      origin === null ? t : origin + Math.ceil((t - origin) / beat - 1e-6) * beat;
-    // Hold every gain where it is now: reading first, because cancelling a
-    // ramp in flight snaps the value back to where the ramp began.
-    const held = new Map<Intensity, number>();
-    for (const [l, g] of this.gains) {
-      const v = g.gain.value;
-      held.set(l, v);
-      g.gain.cancelScheduledValues(now);
-      g.gain.setValueAtTime(v, now);
-    }
-    // Onto `level` by its next beat (at once while paused: no grid running).
-    const firstBeat = this.beatOf(level);
-    const first = origin === null ? now + 0.15 : snap(now + 0.05, firstBeat);
-    const firstStart = Math.max(now, first - firstBeat);
-    for (const [l, g] of this.gains) {
-      const target = l === level ? 1 : 0;
-      if (Math.abs((held.get(l) ?? 0) - target) < 1e-3) continue;
-      g.gain.setValueAtTime(held.get(l) ?? 0, firstStart);
-      g.gain.linearRampToValueAtTime(target, first);
-    }
-    if (origin === null) return;
-    let prev = level;
-    let free = first;
-    for (const c of changes) {
-      if (c.level === prev) continue;
-      const beat = this.beatOf(c.level);
-      const at = snap(Math.max(this.ctxTime(c.at), free + beat + 0.01), beat);
-      const start = at - beat;
-      for (const [l, g] of this.gains) {
-        const before = l === prev ? 1 : 0, after = l === c.level ? 1 : 0;
-        if (before === after) continue;
-        g.gain.setValueAtTime(before, start);
-        g.gain.linearRampToValueAtTime(after, at);
+    const wallNow = Date.now();
+    const keep: Playing[] = [];
+    const wanted = bookings.filter((b) => this.songs.has(b.songId) && (b.until === null || b.until > wallNow + 20));
+    for (const p of this.playing) {
+      const b = wanted.find((x) => x.songId === p.songId && Math.abs(x.at - p.at) < SAME_MS);
+      if (!b) {
+        this.cut(p, now);
+        continue;
       }
-      free = at;
-      prev = c.level;
+      if (b.until !== p.until) {
+        // A skip or a back moved its end: re-shape the fade, keep the song.
+        p.until = b.until;
+        const song = this.songs.get(p.songId);
+        if (song) this.envelope(p, song, now, 0.01);
+      }
+      keep.push(p);
     }
+    for (const b of wanted) {
+      if (keep.some((p) => p.songId === b.songId && Math.abs(b.at - p.at) < SAME_MS)) continue;
+      const song = this.songs.get(b.songId);
+      if (!song) continue;
+      const src = this.ctx.createBufferSource();
+      src.buffer = song.buffer;
+      src.loop = true;
+      src.playbackRate.value = song.rate;
+      const gain = this.ctx.createGain();
+      gain.gain.value = 0;
+      src.connect(gain).connect(this.bus);
+      const at = this.ctxTime(b.at);
+      const p: Playing = { songId: b.songId, at: b.at, until: b.until, src, gain };
+      if (at >= now + 0.02) {
+        // Ahead: bar 1 of the loop on the stretch's first beat.
+        src.start(at, 0);
+        this.envelope(p, song, at, ATTACK_S);
+      } else {
+        // Under way (a resume, a song that just loaded): join where the
+        // ride clock says the song is.
+        const t0 = now + 0.05;
+        const loopSeconds = (song.loop.bars * 240) / song.song.bpm;
+        const into = (((t0 - at) % loopSeconds) + loopSeconds) % loopSeconds;
+        src.start(t0, into * song.rate);
+        this.envelope(p, song, t0, 0.1);
+      }
+      keep.push(p);
+    }
+    this.playing = keep;
   }
 
   /** Pull the music down under a cue for `hold` seconds, then restore. */
@@ -262,7 +282,9 @@ export class AdaptiveMixer {
   }
 
   dispose(): void {
-    this.stopSources();
+    const now = this.ctx.currentTime;
+    for (const p of this.playing) this.cut(p, now);
+    this.playing = [];
     this.master.disconnect();
   }
 }
