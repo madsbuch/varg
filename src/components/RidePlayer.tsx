@@ -40,8 +40,8 @@ import { useAdaptiveTrack } from "./adaptive-track";
 import { loadMixChoice, resolveMix } from "../lib/music-choice";
 import { INTENSITY_NAMES } from "../lib/songs";
 import { musicProfileFor } from "../lib/music";
-import { HrLine, useHeartRate } from "./HeartRate";
-import type { HrLive } from "./HeartRate";
+import { useHeartRate } from "./HeartRate";
+import { Slot, TopTitle } from "./TopBar";
 import { HR_ZONE_NAMES, hrZoneOf, hrZoneRange, loadHrZones } from "../lib/hr";
 
 const LEAD_IN = 10;
@@ -577,11 +577,11 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
     return (
       <div className="wod ride">
         <div className="wod-top">
-          <span className="chip">{config.title}</span>
-          {musicButton}
+          <TopTitle hr={hr} title={config.title} />
+          <Slot>{null}</Slot>
+          <Slot>{musicButton}</Slot>
           <button className="check" onClick={openConfirmStop} aria-label="Stop"><IconClose /></button>
         </div>
-        <HrLine hr={hr} />
         {bikeLines}
 
         {/* Top half: the clock since the start. */}
@@ -600,7 +600,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
                   fit={zone ? "in" : null}
                   reading={<><span className="ride-watts">{view.live ? Math.round(view.power) : 0}</span><span className="ride-unit">W</span></>}
                   verdict={zone ? `Zone ${String(zone.zone)} · ${zone.name}` : "No power"}
-                  target={hrText(hr).replace(/^ · /, "")}
+                  target=""
                 />
                 {!saved && <div className="ride-note">No bike · clock only</div>}
               <div className="ride-grid">
@@ -662,7 +662,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
   return (
     <div className={`wod ride ${ready ? "resting" : ""}`}>
       <div className="wod-top">
-        <span className="chip">{config.title}</span>
+        <TopTitle hr={hr} title={config.title} />
         <button
           className={`check music ${voiceOn ? "on" : ""}`}
           aria-label={voiceOn ? "Stop the spoken cues" : "Speak the cues"}
@@ -670,10 +670,9 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         >
           <IconVoice />
         </button>
-        {musicButton}
+        <Slot>{musicButton}</Slot>
         <button className="check" onClick={openConfirmStop} aria-label="Stop"><IconClose /></button>
       </div>
-      <HrLine hr={hr} />
       {musicProblem && (
         <div className="hr-line bad" role="alert">
           <IconMusic />
@@ -721,7 +720,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
                   fit={f}
                   reading={<><span className="ride-watts">{view.live ? Math.round(view.power) : 0}</span><span className="ride-unit">W</span></>}
                   verdict={f === "in" ? "On target" : f === "below" ? "Push" : f === "above" ? "Ease off" : "No power"}
-                  target={`${String(target[0])}–${String(target[1])} W${seg.cadence ? ` · ${String(seg.cadence[0])}–${String(seg.cadence[1])} rpm` : ""}${hrText(hr)}`}
+                  target={`${String(target[0])}–${String(target[1])} W${seg.cadence ? ` · ${String(seg.cadence[0])}–${String(seg.cadence[1])} rpm` : ""}`}
                 />
               )}
               {!saved && !ready && (
@@ -845,13 +844,6 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
       )}
     </div>
   );
-}
-
-/** The live heart rate appended to a ride's target line: " · ♥ 125 Z2". */
-function hrText(hr: HrLive): string {
-  if (!hr.paired || hr.problem) return "";
-  if (hr.bpm === null) return " · ♥ …";
-  return ` · ♥ ${String(hr.bpm)}${hr.zone ? ` Z${String(hr.zone)}` : ""}`;
 }
 
 /**
