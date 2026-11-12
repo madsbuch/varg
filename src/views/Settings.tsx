@@ -25,6 +25,8 @@ import {
   type TrackFailure,
   type WorkoutMusic,
 } from "../lib/music";
+import { SETS } from "../lib/songs";
+import { MusicLibrary } from "../components/MusicLibrary";
 import { parseDecimal } from "../lib/units";
 import type { VoiceRole } from "../lib/wod";
 import { loadFtp, saveFtp, targetWatts } from "../lib/ride";
@@ -57,18 +59,20 @@ import { IconCheck, IconMusic } from "../components/icons";
 export default function Settings() {
   const [settings, setSettings] = useState(loadMusicSettings);
   const [status, setStatus] = useState<EnsureStatus | null>(null);
-  const [workouts, setWorkouts] = useState<WorkoutMusic[]>(workoutMusicList);
+  // Songs live in the music library; this list is the workouts' own tracks.
+  const [workouts, setWorkouts] = useState<WorkoutMusic[]>(() => workoutMusicList().filter((w) => !w.key.startsWith("song:")));
   const [cached, setCached] = useState<ReadonlySet<string>>(new Set());
   const [failures, setFailures] = useState<Record<string, TrackFailure>>(
     loadTrackFailures,
   );
   const [editing, setEditing] = useState<WorkoutMusic | null>(null);
+  const [library, setLibrary] = useState(false);
 
   useEffect(() => onEnsureStatus(setStatus), []);
 
   const refresh = useCallback(() => {
     void (async () => {
-      const list = workoutMusicList();
+      const list = workoutMusicList().filter((w) => !w.key.startsWith("song:"));
       const have = new Set<string>();
       for (const w of list) {
         if (await getCachedTrack(w.key)) have.add(w.key);
@@ -154,8 +158,17 @@ export default function Settings() {
 
       <ComposerStatus status={status} />
 
+      <div className="section-label">Music library</div>
+      <button className="list-item" onClick={() => { setLibrary(true); }}>
+        <div>
+          <div className="title">Songs for adaptive rides</div>
+          <div className="sub">{SETS.map((s) => s.name).join(" · ")} · play, check, make your own</div>
+        </div>
+        <span className="chip">Open</span>
+      </button>
+
       <div className="section-label">
-        Battle tracks · {cached.size}/{workouts.length} ready
+        Battle tracks · {workouts.filter((w) => cached.has(w.key)).length}/{workouts.length} ready
       </div>
       {workouts.map((w) => {
         const ready = cached.has(w.key);
@@ -197,6 +210,8 @@ export default function Settings() {
       })}
 
       <ComposerLog />
+
+      {library && <MusicLibrary onClose={() => { setLibrary(false); }} />}
 
       {editing && (
         <WorkoutMusicSheet

@@ -582,9 +582,9 @@ export function seedTemplates(): Template[] {
       branch: "Spin bike",
       description:
         "Ten one-minute rounds: 20 seconds seated, 20 standing, 20 " +
-        "accelerating, no rest between. The music follows the blocks, " +
-        "mixing a different song each round: jazz and deep grooves seated, " +
-        "house standing, choirs and hard techno accelerating.",
+        "accelerating, no rest between. The music follows the blocks: one " +
+        "song set, low seated, mid standing, its peak accelerating, a " +
+        "different song each round.",
       scheme:
         "10 × (20 s seated @ 75–85 % FTP / 20 s standing @ 90–105 % FTP, 60–75 rpm / " +
         "20 s accelerate @ 110–130 % FTP, 105–120 rpm) · 5 min cool-down",
@@ -607,13 +607,9 @@ export function seedTemplates(): Template[] {
         bpm: 144,
         style: "driving tech house, punchy kick, rolling bassline, no vocals",
         theme: "Sit, stand, accelerate, a minute at a time, the music lifting with every block",
-        // Rotated round by round from the song collection. The peaks run at
-        // 156 BPM: Accelerate wants the extra tempo.
-        mix: {
-          1: ["low-jazz-house", "low-deep-minimal", "low-dub-techno"],
-          2: ["mid-tech-house", "mid-disco-house", "mid-melodic-techno"],
-          3: ["peak-choir-come-on", "peak-hard-techno", "peak-rave-push"],
-        },
+        // One song set for the whole ride (the owner can pick another on
+        // the workout's page); its peaks run at 156 BPM for Accelerate.
+        set: "techno",
       },
     },
     {

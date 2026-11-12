@@ -20,7 +20,7 @@ import * as t from "../src/db/schema";
 import { EX, seedExercises, seedTemplates } from "../src/lib/seed";
 import { hasLibraryEntry, libraryFor } from "../src/lib/library";
 import { buildSongStyle, buildStyle, STYLE_LIMIT } from "../src/lib/music";
-import { SONGS, songById } from "../src/lib/songs";
+import { BUILT_IN_SONGS, INTENSITY_NAMES, SETS, setById } from "../src/lib/songs";
 import { lengthBucket } from "../src/lib/catalog";
 import * as prsModule from "../src/lib/prs";
 import { estimate1RM } from "../src/lib/units";
@@ -582,31 +582,22 @@ for (const probe of METRIC_PROBES) {
     // it. And every timed block must be whole bars at the track's tempo,
     // or the changes drift off the downbeat.
     if (r.segments.some((sg) => sg.intensity !== undefined)) {
-      // It plays the song collection: every intensity needs songs, each of
-      // that intensity, and each must exist.
-      const mix = tpl.music.mix;
-      assert(mix !== undefined, `${where}: an adaptive ride needs music.mix (songs per intensity)`);
-      const mixSongs = mix ? [...mix[1], ...mix[2], ...mix[3]] : [];
-      for (const l of [1, 2, 3] as const) {
-        const used = r.segments.some((sg) => sg.intensity === l);
-        const list = mix?.[l] ?? [];
-        assert(!used || list.length > 0, `${where}: intensity ${String(l)} is ridden but music.mix has no songs for it`);
-        for (const id of list) {
-          const song = songById(id);
-          assert(song !== undefined, `${where}: music.mix names song "${id}", which is not in SONGS`);
-          assert(song?.intensity === l, `${where}: song "${id}" is listed at intensity ${String(l)} but is intensity ${String(song?.intensity)}`);
-        }
-      }
+      // It plays one song set: its default must exist. The owner can pick
+      // any set for it on the workout's page, so the tempo check below
+      // holds every set's tempos.
+      assert(tpl.music.set !== undefined && setById(tpl.music.set) !== undefined, `${where}: an adaptive ride needs music.set, one of ${SETS.map((x) => x.id).join(", ")}`);
       r.segments.forEach((sg, i) => {
         const at = `${where} segment ${i + 1} ("${sg.label}")`;
         assert(sg.intensity === 1 || sg.intensity === 2 || sg.intensity === 3, `${at}: an adaptive ride sets intensity 1-3 on every block`);
         if (sg.seconds !== undefined) {
-          // Every song's tempo, so a change between tempos meets on the one.
-          for (const id of mixSongs) {
-            const song = songById(id);
-            if (!song) continue;
-            const bars = (sg.seconds * song.bpm) / 240;
-            assert(Number.isInteger(bars), `${at}: ${sg.seconds} s at ${song.bpm} BPM (${song.name}) is ${bars.toFixed(2)} bars; pick tempos that make it whole bars`);
+          // Every set's tempo at every intensity, so a change between
+          // tempos meets on the one whichever set the owner picks.
+          for (const set of SETS) {
+            for (const l of [1, 2, 3] as const) {
+              const bpm = set.bpm[l];
+              const bars = (sg.seconds * bpm) / 240;
+              assert(Number.isInteger(bars), `${at}: ${sg.seconds} s at ${bpm} BPM (${set.name} ${INTENSITY_NAMES[l]}) is ${bars.toFixed(2)} bars; pick tempos that make it whole bars`);
+            }
           }
         }
       });
@@ -644,14 +635,24 @@ for (const tpl of seedTemplates()) {
   }
 }
 
-// The song collection: permanent unique ids, a tempo, a style that fits
-// the gateway untrimmed, and lyrics only in Suno's sectioned format.
+// The song library: permanent unique ids, every song in a set at that
+// set's tempo for its intensity, a style that fits the gateway untrimmed,
+// lyrics only in Suno's sectioned format, and every set able to play every
+// intensity from its built-in songs alone.
 {
   const ids = new Set<string>();
-  for (const song of SONGS) {
+  for (const set of SETS) {
+    for (const l of [1, 2, 3] as const) {
+      assert(BUILT_IN_SONGS.some((x) => x.set === set.id && x.intensity === l), `set "${set.name}": no built-in ${INTENSITY_NAMES[l]} song`);
+    }
+  }
+  for (const song of BUILT_IN_SONGS) {
     assert(!ids.has(song.id), `song "${song.id}": duplicate id`);
     ids.add(song.id);
-    assert(Number.isInteger(song.bpm) && song.bpm >= 80 && song.bpm <= 200, `song "${song.id}": bpm must be 80-200`);
+    assert(!song.id.startsWith("user-"), `song "${song.id}": built-in ids must not look like the owner's (user-…)`);
+    const set = setById(song.set);
+    assert(set !== undefined, `song "${song.id}": no set "${song.set}"`);
+    assert(song.bpm === set?.bpm[song.intensity], `song "${song.id}": bpm ${song.bpm} is not its set's ${String(set?.bpm[song.intensity])}`);
     const style = buildSongStyle(song);
     assert(!style.endsWith("…") && style.length <= STYLE_LIMIT, `song "${song.id}": style is truncated to ${STYLE_LIMIT} chars`);
     if (song.lyrics !== undefined) {

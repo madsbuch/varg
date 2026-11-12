@@ -2,7 +2,7 @@ import type { Exercise, Template } from "../types";
 import { libraryFor } from "../lib/library";
 import { LEVEL_LABEL } from "../lib/catalog";
 import { BattleTrack } from "./BattleTrack";
-import { INTENSITY_NAMES, songById, songKey } from "../lib/songs";
+import { MusicPicker } from "./MusicPicker";
 import ExerciseAnim from "./ExerciseAnim";
 import { Sheet } from "./ui";
 
@@ -52,20 +52,12 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
         </p>}
       </div>
 
-      {template.music.mix
-        ? ([1, 2, 3] as const).flatMap((l) => (template.music.mix?.[l] ?? []).map((id) => {
-          const song = songById(id);
-          return song ? (
-            <BattleTrack
-              key={id}
-              cacheKey={songKey(id)}
-              workoutName={song.name}
-              profile={{ bpm: song.bpm, style: song.style, theme: "" }}
-              label={`${INTENSITY_NAMES[l]} · ${song.name}`}
-              songId={id}
-            />
-          ) : null;
-        }))
+      {template.music.set && template.ride
+        ? <MusicPicker
+            templateId={template.id}
+            defaultSet={template.music.set}
+            used={([1, 2, 3] as const).filter((l) => template.ride?.segments.some((sg) => sg.intensity === l))}
+          />
         : <BattleTrack cacheKey={template.id} workoutName={template.name} profile={template.music} />}
 
       <div className="section-label">{plan ? "Stations in each round" : forTime ? "Movements" : flow ? "Poses" : "Exercise sequence"}</div>

@@ -4,9 +4,10 @@
  * blocks to `setPlan`; this hook loads the songs, picks one for each
  * stretch and owns the mute button.
  *
- * Rotation: a template's `music.mix` lists songs per intensity, and the
- * n-th stretch at an intensity plays song (n + seed) of its list. `seed`
- * differs per ride, so no two rides open on the same songs.
+ * Rotation: the ride's songs per intensity (the owner's choice, resolved
+ * by music-choice.ts), and the n-th stretch at an intensity plays song
+ * (n + seed) of its list. `seed` differs per ride, so no two rides open on
+ * the same songs.
  *
  * Songs load one at a time, in the order the ride first needs them, and
  * join the mix as they arrive; a stretch whose song is not ready plays the

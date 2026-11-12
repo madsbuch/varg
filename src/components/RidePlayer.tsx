@@ -37,6 +37,8 @@ import { clipBlob, playClip, prepareClips } from "../lib/voice-clips";
 import { IconCheck, IconClose, IconMusic, IconSkipBack, IconSkipNext, IconVoice } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
 import { useAdaptiveTrack } from "./adaptive-track";
+import { loadMixChoice, resolveMix } from "../lib/music-choice";
+import { INTENSITY_NAMES } from "../lib/songs";
 import { musicProfileFor } from "../lib/music";
 import { HrLine, useHeartRate } from "./HeartRate";
 import type { HrLive } from "./HeartRate";
@@ -392,11 +394,18 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
   // An adaptive ride mixes songs from the collection block by block; any
   // other ride plays its one track under the cues.
   const adaptive = config.segments.some((x) => x.intensity !== undefined);
-  const [mix] = useState(() => (adaptive ? musicProfileFor(config.templateId).mix : undefined));
-  // Where this ride starts in each intensity's rotation: rides differ.
+  // Where this ride starts in each intensity's rotation (and which set a
+  // shuffle plays): rides differ.
   const [seed] = useState(() => Math.floor(Date.now() / 1000) % 997);
+  // The owner's music choice for this workout, fixed for the ride.
+  const [mix] = useState(() =>
+    adaptive ? resolveMix(loadMixChoice(config.templateId, musicProfileFor(config.templateId).set ?? "techno"), seed).mix : undefined);
   const single = useBattleTrack(adaptive ? undefined : config.templateId, paused, done);
   const mixed = useAdaptiveTrack(mix, seed, done);
+  // A custom choice can leave an intensity the ride uses without songs:
+  // its blocks would be silent, so say so.
+  const gap = mix ? ([1, 2, 3] as const).filter((l) => config.segments.some((sg) => sg.intensity === l) && mix[l].length === 0) : [];
+  const musicProblem = mixed.problem ?? (gap.length ? `Music · no ${gap.map((l) => INTENSITY_NAMES[l]).join(" or ")} songs` : null);
   const musicButton = adaptive ? mixed.musicButton : single.musicButton;
   useWorkoutWakeLock(done);
   // Hand the mixer every move of the clock and the blocks: it books the
@@ -662,10 +671,10 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         <button className="check" onClick={openConfirmStop} aria-label="Stop"><IconClose /></button>
       </div>
       <HrLine hr={hr} />
-      {mixed.problem && (
+      {musicProblem && (
         <div className="hr-line bad" role="alert">
           <IconMusic />
-          <span className="hr-line-text">{mixed.problem}</span>
+          <span className="hr-line-text">{musicProblem}</span>
         </div>
       )}
       <div className="ride-total">

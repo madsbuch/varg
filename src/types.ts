@@ -121,11 +121,10 @@ export interface MusicProfile {
   style: string; // genre / instrumentation tags
   theme: string; // mood and story of the workout
   /**
-   * Adaptive rides: the songs (src/lib/songs.ts ids) each intensity draws
-   * on. The ride rotates through them block by block, so every round does
-   * not replay the same loops.
+   * Adaptive rides: the song set (src/lib/songs.ts) played unless the
+   * owner picks another on the workout's page (music-choice.ts).
    */
-  mix?: Record<Intensity, string[]> | undefined;
+  set?: "techno" | "jazz-house" | "anthems" | undefined;
 }
 
 /** Interval prescription for circuit templates that run guided. */

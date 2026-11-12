@@ -13,7 +13,7 @@
 
 import type { Intensity, IntervalPlan, MusicProfile } from "../types";
 import { seedTemplates } from "./seed";
-import { INTENSITY_NAMES, SONGS, songForKey, songKey } from "./songs";
+import { allSongs, INTENSITY_NAMES, LIBRARY_KEY, setById, songForKey, songKey } from "./songs";
 import type { Song } from "./songs";
 import { formatSeconds } from "./units";
 import { errorText, httpFetch } from "./http";
@@ -115,9 +115,9 @@ export function workoutMusicList(): WorkoutMusic[] {
     ...seedTemplates()
       .filter((t) => !isAdaptive(t))
       .map((t) => ({ key: t.id, name: t.name, music: t.music })),
-    ...SONGS.map((s) => ({
+    ...allSongs().map((s) => ({
       key: songKey(s.id),
-      name: `Song · ${s.name} (${INTENSITY_NAMES[s.intensity]})`,
+      name: `${setById(s.set)?.name ?? s.set} · ${s.name} (${INTENSITY_NAMES[s.intensity]})`,
       music: { bpm: s.bpm, style: s.style, theme: "" },
     })),
     { key: "freestyle", name: "Freestyle session", music: FREESTYLE_PROFILE },
@@ -709,7 +709,7 @@ export function buildSongStyle(song: Song): string {
   const voice = song.lyrics ? "Sung vocals as written" : "Instrumental, no vocals";
   const head =
     `${voice}. Electronic workout track, constant ${String(song.bpm)} BPM, strict 4/4, ` +
-    `four-on-the-floor kick on every beat, A minor. Starts on the first beat ` +
+    `four-on-the-floor kick on every beat, ${LIBRARY_KEY}. Starts on the first beat ` +
     `with no intro; no breakdowns, no tempo changes, no fade-out. ${SONG_ENERGY[song.intensity]}`;
   const full = `${head} Style: ${song.style}.`;
   return full.length <= STYLE_LIMIT ? full : full.slice(0, STYLE_LIMIT - 1).trimEnd() + "…";

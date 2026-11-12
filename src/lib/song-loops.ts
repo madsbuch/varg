@@ -15,7 +15,7 @@
 import type { Loop } from "./beatgrid";
 import { analyzeTrack, LayerError } from "./mixer";
 import { getCachedTrack, musicLog, onTrackCached } from "./music";
-import { SONGS, songForKey, songKey } from "./songs";
+import { allSongs, songById, songForKey, songKey } from "./songs";
 
 const KEY = "varg.songs.meta.v1";
 export const BEAT_MODEL = "Beat This! small0";
@@ -94,7 +94,7 @@ export function analyzeSong(songId: string, blob: Blob, createdAt: string): Prom
 }
 
 async function run(songId: string, blob: Blob, createdAt: string): Promise<SongMeta> {
-  const song = SONGS.find((s) => s.id === songId);
+  const song = songById(songId);
   if (!song) throw new Error(`no song ${songId}`);
   // An offline context decodes without a user gesture or a running clock.
   const ctx = new OfflineAudioContext(2, 1, 44100);
@@ -138,7 +138,7 @@ export async function ensureSongLoops(): Promise<void> {
   if (sweeping) return;
   sweeping = true;
   try {
-    for (const song of SONGS) {
+    for (const song of allSongs()) {
       const track = await getCachedTrack(songKey(song.id)).catch(() => undefined);
       if (!track || songMeta(song.id, track.createdAt)) continue;
       await analyzeSong(song.id, track.blob, track.createdAt);
