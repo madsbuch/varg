@@ -94,7 +94,10 @@ should shape what you build:
    the Beat model note below) finds each song's beats and downbeats once
    it is composed (`song-loops.ts`), the loudest steady 16 bars from a
    downbeat become its loop (`beatgrid.ts`), and the mixer (`mixer.ts`)
-   starts each stretch's song on bar 1 at the block's first beat. Every
+   lands each stretch's song with bar 1 on the block's first beat,
+   crossfading DJ-style: it starts two bars early under the song before
+   on an equal-power curve with its low end held back by a high-pass,
+   and drops its kick and bass on the one, so two kicks never clash. Every
    timed block must be whole bars at every set's tempos (20 s → a
    multiple of 12 BPM), since any set can be picked for any adaptive
    ride. A song the beat model cannot loop is a red line in the player,

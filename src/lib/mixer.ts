@@ -6,8 +6,9 @@
  * (beat-this.ts), its loudest steady section chosen as a loop of whole
  * bars from a downbeat (beatgrid.ts), played at
  * the rate that makes its bars exactly the song's tempo. A stretch of the
- * ride starts its song at bar 1 of that loop, on the stretch's first
- * beat; the song before fades out over its last beat. Every timed block is
+ * ride plays its song with bar 1 of that loop on the stretch's first beat,
+ * crossfading DJ-style: the song comes in two bars early under the one
+ * before, its low end held back, and drops its kick and bass on the one. Every timed block is
  * whole bars at every song's tempo (smoke test), so changes land on the
  * one even when the tempo changes (a faster peak).
  *
@@ -163,19 +164,45 @@ interface Playing {
   songId: string;
   at: number;
   until: number | null;
+  /** Seconds before `until` its fade-out starts: the next song's crossfade. */
+  fadeOut: number;
   src: AudioBufferSourceNode;
+  /** Holds the low end back while the song comes in under the one before. */
+  hp: BiquadFilterNode;
   gain: GainNode;
 }
 
 /** How far the music drops under a cue. */
 const DUCK_LEVEL = 0.22;
 const DUCK_RAMP_S = 0.06;
-/** A stretch's song comes in on its first beat with this short fade. */
-const ATTACK_S = 0.02;
 /** Fade for anything cut short: a skip, a pause, a stop. */
 const CUT_S = 0.06;
 /** Bookings this close (ms) are the same booking, rebooked. */
 const SAME_MS = 50;
+/** Bars the incoming song plays under the outgoing one before its bar 1. */
+const XF_BARS = 2;
+/**
+ * The incoming song's high-pass during the crossfade: its kick and bass
+ * wait (so two kicks never clash, even across a tempo change) and drop in
+ * on the one, as a DJ swaps the bass.
+ */
+const HP_HOLD = 300;
+const HP_OPEN = 10;
+const SWAP_S = 0.03;
+
+/**
+ * An equal-power move of `p` from `from` to `to` over [t0, t1], as linear
+ * segments (setValueCurveAtTime throws on any overlap with a rebook).
+ */
+function powerRamp(p: AudioParam, t0: number, t1: number, from: number, to: number): void {
+  const n = 8;
+  const up = to > from;
+  for (let i = 1; i <= n; i++) {
+    const x = i / n;
+    const shape = up ? Math.sin((x * Math.PI) / 2) : 1 - Math.cos((x * Math.PI) / 2);
+    p.linearRampToValueAtTime(from + (to - from) * shape, t0 + (t1 - t0) * x);
+  }
+}
 
 export class AdaptiveMixer {
   private readonly ctx: AudioContext;
@@ -212,35 +239,31 @@ export class AdaptiveMixer {
     g.cancelScheduledValues(now);
     g.setValueAtTime(v, now);
     g.linearRampToValueAtTime(0, now + CUT_S);
-    p.src.onended = () => { p.src.disconnect(); p.gain.disconnect(); };
+    p.src.onended = () => { p.src.disconnect(); p.hp.disconnect(); p.gain.disconnect(); };
     p.src.stop(now + CUT_S + 0.01);
   }
 
-  /** The gain envelope of a booking: in from `inAt` over `inFor`, out over its last beat. */
-  private envelope(p: Playing, song: SongLoop, inAt: number, inFor: number): void {
-    const now = this.ctx.currentTime;
-    const g = p.gain.gain;
-    const v = g.value;
-    g.cancelScheduledValues(now);
-    g.setValueAtTime(v, now);
-    const start = Math.max(now, inAt);
-    if (start > now) g.setValueAtTime(v, start);
-    g.linearRampToValueAtTime(1, start + inFor);
+  /** Schedule the fade-out into the next song (or the end), from `from` on. */
+  private fadeOut(p: Playing, from: number, level: number): void {
     if (p.until === null) return;
     const end = this.ctxTime(p.until);
-    const beat = 60 / song.song.bpm;
-    const fadeFrom = Math.max(start + inFor, end - beat);
-    g.setValueAtTime(1, fadeFrom);
-    g.linearRampToValueAtTime(0, Math.max(fadeFrom + 0.01, end));
-    p.src.onended = () => { p.src.disconnect(); p.gain.disconnect(); };
-    p.src.stop(Math.max(fadeFrom + 0.02, end + 0.02));
+    const start = Math.max(from, end - p.fadeOut);
+    const g = p.gain.gain;
+    g.setValueAtTime(level, start);
+    powerRamp(g, start, Math.max(start + 0.01, end), level, 0);
+    p.src.onended = () => { p.src.disconnect(); p.hp.disconnect(); p.gain.disconnect(); };
+    p.src.stop(Math.max(start + 0.02, end + 0.02));
   }
 
   /**
    * Play these bookings from now on. Bookings already playing or scheduled
    * stay (their end is updated); bookings no longer wanted are cut; new
-   * ones are scheduled. A booking already under way starts where the ride
-   * clock says it would be, so a resume picks up mid-song in time.
+   * ones are scheduled. Back-to-back bookings crossfade: the incoming song
+   * starts XF_BARS bars early, timed so its bar 1 lands on the change,
+   * comes in on an equal-power curve with its low end held back, and drops
+   * its kick and bass on the one while the outgoing song fades out under
+   * it. A booking already under way starts where the ride clock says it
+   * would be, so a resume picks up mid-song in time.
    */
   book(bookings: Booking[], paused: boolean): void {
     const now = this.ctx.currentTime;
@@ -250,19 +273,33 @@ export class AdaptiveMixer {
       return;
     }
     const wallNow = Date.now();
-    const keep: Playing[] = [];
     const wanted = bookings.filter((b) => this.songs.has(b.songId) && (b.until === null || b.until > wallNow + 20));
+    // How long each booking fades out: the next song's crossfade when one
+    // follows straight on, else one beat of its own.
+    const fadeOutOf = (b: Booking): number => {
+      const next = wanted.find((x) => b.until !== null && Math.abs(x.at - b.until) < SAME_MS);
+      const nextSong = next ? this.songs.get(next.songId) : undefined;
+      if (nextSong) return (XF_BARS * 240) / nextSong.song.bpm;
+      return 60 / (this.songs.get(b.songId)?.song.bpm ?? 144);
+    };
+    const keep: Playing[] = [];
     for (const p of this.playing) {
       const b = wanted.find((x) => x.songId === p.songId && Math.abs(x.at - p.at) < SAME_MS);
       if (!b) {
         this.cut(p, now);
         continue;
       }
-      if (b.until !== p.until) {
-        // A skip or a back moved its end: re-shape the fade, keep the song.
+      const fade = fadeOutOf(b);
+      if (b.until !== p.until || Math.abs(fade - p.fadeOut) > 0.001) {
+        // A skip or a back moved its end, or the next song changed:
+        // re-shape the fade-out, keep the song.
         p.until = b.until;
-        const song = this.songs.get(p.songId);
-        if (song) this.envelope(p, song, now, 0.01);
+        p.fadeOut = fade;
+        const g = p.gain.gain;
+        const v = g.value;
+        g.cancelScheduledValues(now);
+        g.setValueAtTime(v, now);
+        this.fadeOut(p, now, v > 0.01 ? v : 1);
       }
       keep.push(p);
     }
@@ -274,24 +311,37 @@ export class AdaptiveMixer {
       src.buffer = song.buffer;
       src.loop = true;
       src.playbackRate.value = song.rate;
+      const hp = this.ctx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.Q.value = 0.7;
       const gain = this.ctx.createGain();
       gain.gain.value = 0;
-      src.connect(gain).connect(this.bus);
-      const at = this.ctxTime(b.at);
-      const p: Playing = { songId: b.songId, at: b.at, until: b.until, src, gain };
-      if (at >= now + 0.02) {
-        // Ahead: bar 1 of the loop on the stretch's first beat.
-        src.start(at, 0);
-        this.envelope(p, song, at, ATTACK_S);
+      src.connect(hp).connect(gain).connect(this.bus);
+      const one = this.ctxTime(b.at); // its bar 1
+      const p: Playing = { songId: b.songId, at: b.at, until: b.until, fadeOut: fadeOutOf(b), src, hp, gain };
+      // Start XF_BARS bars before the one, or as early as now allows.
+      const lead = (XF_BARS * 240) / song.song.bpm;
+      const start = Math.max(now + 0.05, one - lead);
+      const loopSeconds = (song.loop.bars * 240) / song.song.bpm;
+      const into = (((start - one) % loopSeconds) + loopSeconds) % loopSeconds;
+      src.start(start, into * song.rate);
+      const g = gain.gain, f = hp.frequency;
+      g.setValueAtTime(0, start);
+      let inEnd: number;
+      if (one - start > 0.05) {
+        // Under the outgoing song: highs first, the low end on the one.
+        f.setValueAtTime(HP_HOLD, start);
+        f.setValueAtTime(HP_HOLD, one);
+        f.exponentialRampToValueAtTime(HP_OPEN, one + SWAP_S);
+        powerRamp(g, start, one, 0, 1);
+        inEnd = one;
       } else {
-        // Under way (a resume, a song that just loaded): join where the
-        // ride clock says the song is.
-        const t0 = now + 0.05;
-        const loopSeconds = (song.loop.bars * 240) / song.song.bpm;
-        const into = (((t0 - at) % loopSeconds) + loopSeconds) % loopSeconds;
-        src.start(t0, into * song.rate);
-        this.envelope(p, song, t0, 0.1);
+        // Under way (a resume, a skip, a song that just loaded): straight in.
+        f.setValueAtTime(HP_OPEN, start);
+        powerRamp(g, start, start + 0.1, 0, 1);
+        inEnd = start + 0.1;
       }
+      this.fadeOut(p, inEnd, 1);
       keep.push(p);
     }
     this.playing = keep;
