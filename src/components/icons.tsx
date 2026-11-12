@@ -1,4 +1,5 @@
 import type { SVGProps } from "react";
+import { WOLF_EYES, WOLF_HEAD, WOLF_LINES, WOLF_NOSE } from "../lib/wolf-mark";
 
 type P = SVGProps<SVGSVGElement>;
 
@@ -151,38 +152,19 @@ export const IconTarget = (p: P) => (
 );
 
 /**
- * Varg wolf-head mark. Varg is Old Norse for "wolf" — the mark is a
- * front-facing, angular wolf head: ears, brow, cheeks, muzzle.
+ * Varg wolf-head mark. Varg is Old Norse for "wolf". The geometry lives in
+ * lib/wolf-mark.ts, shared with the app icon; the eyes take the bronze of
+ * the runes beside it in the header.
  */
 export const Mark = (p: P) => (
   <svg viewBox="0 0 48 48" fill="none" {...p}>
-    {/* head silhouette */}
-    <path
-      d="M12 4 L18 12 L24 10 L30 12 L36 4 L38 16 L40 25 L32 37 L24 45 L16 37 L8 25 L10 16 Z"
-      fill="currentColor"
-      opacity="0.15"
-    />
-    <path
-      d="M12 4 L18 12 L24 10 L30 12 L36 4 L38 16 L40 25 L32 37 L24 45 L16 37 L8 25 L10 16 Z"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinejoin="round"
-    />
-    {/* eyes — angular slits */}
-    <path
-      d="M15 22 L21 25 M33 22 L27 25"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-    />
-    {/* nose */}
-    <path
-      d="M21 33 L27 33 L24 37 Z"
-      fill="currentColor"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinejoin="round"
-    />
+    <path d={WOLF_HEAD} fill="currentColor" opacity="0.15" />
+    <path d={WOLF_HEAD} stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    {WOLF_LINES.map((d) => (
+      <path key={d} d={d} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    ))}
+    <path d={WOLF_EYES} fill="var(--gold)" stroke="var(--gold)" strokeWidth="1" strokeLinejoin="round" />
+    <path d={WOLF_NOSE} fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
   </svg>
 );
 

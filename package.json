@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && eslint src && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "icons": "bun run scripts/make-icon.ts && tauri icon assets/icon.png",
+    "icons": "bun run scripts/make-icon.ts && tauri icon assets/icon.png && bun run scripts/make-icon.ts --adaptive",
     "db:generate": "drizzle-kit generate",
     "db:smoke": "bun run scripts/db-smoke.ts",
     "android:init": "tauri android init",
