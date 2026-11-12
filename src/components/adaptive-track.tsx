@@ -10,18 +10,18 @@
  *
  * Songs load one at a time, in the order the ride first needs them, and
  * join the mix as they arrive; a stretch whose song is not ready plays the
- * next ready one at its intensity. A song's loop is found once and kept
- * (localStorage, keyed by the composed track), so later rides only decode.
+ * next ready one at its intensity. A song's loop is found by the beat
+ * model once, when it is composed (song-loops.ts), so a ride only decodes.
  *
  * Loud, never flat: missing or refused songs are a `problem` the player
  * shows in red, while the songs that work keep playing.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAudioContext, setCueDucker } from "../lib/beep";
-import type { Loop } from "../lib/beatgrid";
 import { AdaptiveMixer, LayerError, prepareSong } from "../lib/mixer";
 import type { Booking } from "../lib/mixer";
 import { getCachedTrack, loadMusicSettings, musicLog } from "../lib/music";
+import { analyzeSong, songLoop } from "../lib/song-loops";
 import type { MusicBlock, MusicPlan } from "../lib/ride";
 import { songById, songKey } from "../lib/songs";
 import type { Intensity } from "../types";
@@ -59,29 +59,6 @@ function loadOrder(mix: Mix, seed: number): string[] {
     }
   }
   return out;
-}
-
-const LOOPS_KEY = "varg.mixer.loops.v1";
-
-/** Loops found on earlier rides, by song id, valid for one composed track. */
-function knownLoop(songId: string, createdAt: string): Loop | undefined {
-  try {
-    const all = JSON.parse(localStorage.getItem(LOOPS_KEY) ?? "{}") as Record<string, { createdAt: string; loop: Loop } | undefined>;
-    const hit = all[songId];
-    return hit?.createdAt === createdAt ? hit.loop : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function keepLoop(songId: string, createdAt: string, loop: Loop): void {
-  try {
-    const all = JSON.parse(localStorage.getItem(LOOPS_KEY) ?? "{}") as Record<string, unknown>;
-    all[songId] = { createdAt, loop };
-    localStorage.setItem(LOOPS_KEY, JSON.stringify(all));
-  } catch {
-    // A full localStorage only costs the analysis again next ride.
-  }
 }
 
 export function useAdaptiveTrack(mix: Mix | undefined, seed: number, done: boolean): AdaptiveTrack {
@@ -133,22 +110,20 @@ export function useAdaptiveTrack(mix: Mix | undefined, seed: number, done: boole
           continue;
         }
         try {
-          // One at a time: a decoded track is large until its loop is cut.
-          const known = knownLoop(id, cached.createdAt);
-          const prepared = await prepareSong(ctx, cached.blob, song, known);
+          // The beat model's result for this track, found when it was
+          // composed; a song it has not seen yet is analysed now (slow).
+          const kept = songLoop(id, cached.createdAt) ?? (await analyzeSong(id, cached.blob, cached.createdAt));
           if (!alive()) return;
-          if (!known) keepLoop(id, cached.createdAt, prepared.loop);
+          if ("refused" in kept) throw new LayerError(kept.refused, kept.detail);
+          // One at a time: a decoded track is large until its loop is cut.
+          const prepared = await prepareSong(ctx, cached.blob, song, kept.loop);
+          if (!alive()) return;
           mixer.add(prepared);
           setReady(true);
           apply();
-          musicLog(
-            `Mixer: ${song.name} at ${prepared.loop.bpm.toFixed(2)} BPM → ${String(song.bpm)} (×${prepared.rate.toFixed(4)}), ` +
-            `${String(prepared.loop.bars)}-bar loop from ${prepared.loop.start.toFixed(2)} s, ±${prepared.loop.jitterMs.toFixed(1)} ms, ` +
-            `${(prepared.loop.coverage * 100).toFixed(0)} % of beats hit${known ? " (known loop)" : ""}.`,
-          );
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
-          musicLog(`Mixer refused ${msg}${e instanceof LayerError ? ` (${e.detail})` : ""}.`);
+          musicLog(`Mixer refused ${msg}${e instanceof LayerError && e.detail ? ` (${e.detail})` : ""}.`);
           refused.push(msg);
         }
       }

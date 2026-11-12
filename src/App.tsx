@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "./lib/app-context";
 import { installBackButton, useBackHandler } from "./lib/back";
 import { ensureAllTracks } from "./lib/music";
+import { ensureSongLoops } from "./lib/song-loops";
 import { ensureVoiceClips } from "./lib/voice-clips";
 import { syncGarmin } from "./lib/garmin";
 import { scrollContentTop } from "./lib/scroll";
@@ -137,13 +138,16 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    void ensureAllTracks();
+    // Songs get their loop found by the beat model once composed: those on
+    // the phone now, then any the composer brings in.
+    const tracks = () => { void ensureSongLoops().then(() => ensureAllTracks()).then(() => ensureSongLoops()); };
+    tracks();
     // Garmin too (no-op without a key, throttled to every 15 minutes):
     // readiness is about this morning, so it refreshes on every return.
     void syncGarmin();
     const resume = () => {
       if (document.visibilityState !== "visible") return;
-      void ensureAllTracks();
+      tracks();
       void syncGarmin();
     };
     document.addEventListener("visibilitychange", resume);

@@ -78,17 +78,21 @@ should shape what you build:
    lags), and its scheme says "heart-rate zone N". Such a ride refuses to
    start without zones or a paired strap. Any kcal segment makes it a race (`race: true`), scored by
    total time. A ride whose music should follow the effort sets `intensity`
-   (1 low, 2 mid, 3 peak) on every segment. It then gets three Suno
-   tracks instead of one (`layerKey`, composed like any track), and the
-   ride player mixes them (`mixer.ts`): each track's real tempo and
-   downbeat are found on the phone (`beatgrid.ts`), a loop of whole bars
-   is cut and stretched to `music.bpm`, and the music's position is a
-   function of ride time, so pause and skip cannot desync it. Each layer
-   gets its own style (`music.layers`, required) and may get its own tempo
-   (`music.layerBpm`, a faster peak). Every tempo must make every timed
-   block whole bars (20 s → a multiple of 12 BPM), so changes land on a
-   downbeat of both tracks. A track the mixer cannot
-   put on the beat is a red line in the player, never off-beat music.
+   (1 low, 2 mid, 3 peak) on every segment and `music.mix`: song ids per
+   intensity from the shared collection in
+   [`src/lib/songs.ts`](src/lib/songs.ts). Songs are authored there like
+   templates (permanent ids, a tempo, a Suno style, optional lyrics),
+   composed once and reused by every adaptive ride; the n-th stretch at
+   an intensity plays the n-th song of its list, offset per ride. A
+   neural beat tracker (Beat This!, bundled as ONNX, see the Beat model
+   note below) finds each song's beats and downbeats once it is composed
+   (`song-loops.ts`), the loudest steady 16 bars from a downbeat become
+   its loop (`beatgrid.ts`), and the mixer (`mixer.ts`) starts each
+   stretch's song on bar 1 at the block's first beat. Every timed block
+   must be whole bars at every listed song's tempo (20 s → a multiple of
+   12 BPM), so changes land on the one even across tempos. A song the
+   beat model cannot loop is a red line in the player, never off-beat
+   music.
 4. Run `bun run build && bun run db:smoke`. The smoke test is the only
    reviewer this content gets. It asserts that every built-in exercise has its
    own animation, that no template references an exercise that does
@@ -242,6 +246,18 @@ joints and makes limbs shrink in the intermediate frames.
   kie.ai and cached; `allVoiceLines()` derives them from the player's own
   steps via `configForTemplate`, so new content is voiced automatically. Do
   not hand-maintain a line list.
+- **Beat model.** Adaptive music finds beats with Beat This! (JKU Linz,
+  MIT), its small checkpoint exported to ONNX
+  (`src/assets/beat-this/`) and run by onnxruntime-web, bundled, single
+  threaded (the WebView is not cross-origin isolated). The network only
+  knows its training input: [`src/lib/melspec.ts`](src/lib/melspec.ts)
+  must stay identical to torchaudio's log-mel, and
+  `scripts/melspec.test.ts` checks it and the peak picking against the
+  Python package value by value (`scripts/fixtures/beat-this-ref.json`).
+  It costs seconds per song on a phone, so it runs when a song is
+  composed, not at the ride; only the loudest 30 s window is read unless
+  nothing there is steady. It needs real music: a bare synthetic click
+  track can come back with almost no beats.
 - **Migrations.** Schema changes are `bun run db:generate`, then commit the
   generated SQL in `/drizzle`. Never hand-edit an applied migration.
 - **Metric only.** Kilograms and metres, always. No unit toggle.

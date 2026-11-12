@@ -4,6 +4,7 @@ import type { BikePacket } from "../src/lib/bike";
 import { bestRide, FREE_RIDE, musicPlan, recordedRide, RideRun, rideLeft, rideLine, rideSchedule, targetWatts, zoneOf } from "../src/lib/ride";
 import type { RideConfig } from "../src/lib/ride";
 import { seedTemplates } from "../src/lib/seed";
+import { songFor } from "../src/components/adaptive-track";
 import { allVoiceLines } from "../src/lib/voice-clips";
 
 // FTMS Indoor Bike Data: flags 0x0144 (speed present since bit 0 is clear,
@@ -290,5 +291,20 @@ describe("adaptive music plan", () => {
       { level: 1, n: 0, at: 0, until: 20_000 },
       { level: 3, n: 0, at: 20_000, until: null },
     ]);
+  });
+});
+
+describe("song rotation", () => {
+  const mix = { 1: ["a", "b", "c"], 2: ["m"], 3: ["x", "y"] } as const;
+  const m = { 1: [...mix[1]], 2: [...mix[2]], 3: [...mix[3]] };
+  const block = (level: 1 | 2 | 3, n: number) => ({ level, n, at: 0, until: null });
+  test("the n-th stretch at an intensity plays its n-th song, offset by the ride's seed", () => {
+    expect([0, 1, 2, 3].map((n) => songFor(m, block(1, n), 0, () => true))).toEqual(["a", "b", "c", "a"]);
+    expect([0, 1, 2].map((n) => songFor(m, block(1, n), 1, () => true))).toEqual(["b", "c", "a"]);
+    expect([0, 1, 2].map((n) => songFor(m, block(3, n), 0, () => true))).toEqual(["x", "y", "x"]);
+  });
+  test("a song not ready yet: the next ready one at that intensity", () => {
+    expect(songFor(m, block(1, 0), 0, (id) => id !== "a")).toBe("b");
+    expect(songFor(m, block(2, 0), 0, () => false)).toBeUndefined();
   });
 });

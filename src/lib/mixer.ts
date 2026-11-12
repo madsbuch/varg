@@ -2,8 +2,9 @@
  * The adaptive mixer: songs from the collection (src/lib/songs.ts), each
  * playing the stretch of the ride it is booked for, as one continuous set.
  *
- * Each song is decoded, its real tempo and downbeat found (beatgrid.ts),
- * and its loudest steady section cut as a loop of whole bars, played at
+ * Each song's beats and downbeats are found by a neural network
+ * (beat-this.ts), its loudest steady section chosen as a loop of whole
+ * bars from a downbeat (beatgrid.ts), played at
  * the rate that makes its bars exactly the song's tempo. A stretch of the
  * ride starts its song at bar 1 of that loop, on the stretch's first
  * beat; the song before fades out over its last beat. Every timed block is
@@ -19,8 +20,10 @@
  * Every way a song can fail is a short label for the player's red line,
  * never off-beat music.
  */
-import { findLoop } from "./beatgrid";
+import { BORDER, beatThis, CHUNK } from "./beat-this";
+import { loopFromBeats, loudestWindow, MAX_STRETCH } from "./beatgrid";
 import type { Loop } from "./beatgrid";
+import { FPS, SAMPLE_RATE } from "./melspec";
 import type { Song } from "./songs";
 
 /** A song ready to mix: its loop and how to play it. */
@@ -32,10 +35,6 @@ export interface SongLoop {
   loop: Loop;
 }
 
-/** Analysis runs on a mono copy at about this rate: plenty for a beat. */
-const ANALYSIS_RATE = 22050;
-/** How far Suno's tempo may sit from the request before it is refused. */
-const MAX_STRETCH = 0.06;
 /** Seam fades, against clicks where the loop wraps. */
 const SEAM_FADE_S = 0.003;
 /**
@@ -53,51 +52,71 @@ export class LayerError extends Error {
   }
 }
 
-/** Mono, decimated to about ANALYSIS_RATE, for the beat analysis. */
-function analysisMono(buf: AudioBuffer): { mono: Float32Array; rate: number } {
-  const step = Math.max(1, Math.round(buf.sampleRate / ANALYSIS_RATE));
-  const n = Math.floor(buf.length / step);
-  const mono = new Float32Array(n);
-  for (let c = 0; c < buf.numberOfChannels; c++) {
-    const data = buf.getChannelData(c);
-    for (let i = 0; i < n; i++) {
-      let s = 0;
-      for (let j = 0; j < step; j++) s += data[i * step + j] ?? 0;
-      mono[i] = (mono[i] ?? 0) + s / step / buf.numberOfChannels;
-    }
+async function decode(ctx: BaseAudioContext, blob: Blob, song: Song): Promise<AudioBuffer> {
+  try {
+    return await ctx.decodeAudioData(await blob.arrayBuffer());
+  } catch {
+    throw new LayerError(`${song.name}: can't decode`, "decodeAudioData refused it");
   }
-  return { mono, rate: buf.sampleRate / step };
+}
+
+/** Mono at the network's 22050 Hz, by the browser's own resampler. */
+async function networkMono(decoded: AudioBuffer): Promise<Float32Array> {
+  const off = new OfflineAudioContext(1, Math.ceil(decoded.duration * SAMPLE_RATE), SAMPLE_RATE);
+  const src = off.createBufferSource();
+  src.buffer = decoded;
+  src.connect(off.destination); // a stereo source down-mixes to (L + R) / 2
+  src.start();
+  return (await off.startRendering()).getChannelData(0);
 }
 
 /**
- * Decode a song and cut its loop. `known` is a loop found on an earlier
- * ride for this very track: then only the cut is done, not the analysis.
+ * Find a song's loop: the network's beats and downbeats (beat-this.ts),
+ * then the loudest steady section starting on a downbeat (beatgrid.ts).
+ * Seconds of work on a phone, so it runs once per composed track, as soon
+ * as the track is downloaded (song-loops.ts), and the result is kept.
+ */
+export async function findSongLoop(ctx: BaseAudioContext, blob: Blob, song: Song): Promise<Loop> {
+  const decoded = await decode(ctx, blob, song);
+  const mono = await networkMono(decoded);
+  const beatsIn = async (from: number, to: number) => {
+    try {
+      const a = Math.round(from * SAMPLE_RATE), b = Math.round(to * SAMPLE_RATE);
+      const found = await beatThis(mono.subarray(a, b));
+      const shift = (t: number) => Math.round((t + a / SAMPLE_RATE) * 1e4) / 1e4;
+      return { beats: found.beats.map(shift), downbeats: found.downbeats.map(shift) };
+    } catch (e) {
+      throw new LayerError(`${song.name}: beat model failed`, e instanceof Error ? e.message : String(e));
+    }
+  };
+  // The network costs seconds per 30 s on a phone. The loop it is after is
+  // the loudest steady section, so it looks at the loudest window first:
+  // one model chunk, which holds 16 bars down to 72 BPM. Only if nothing
+  // there is steady does it read the whole track.
+  const window = (CHUNK - 2 * BORDER) / FPS;
+  const from = loudestWindow(mono, SAMPLE_RATE, window);
+  const first = await beatsIn(from, from + window);
+  let result = loopFromBeats(first.beats, first.downbeats, mono, SAMPLE_RATE, song.bpm, SONG_LOOP_BARS);
+  if (!result.loop) {
+    const whole = await beatsIn(0, mono.length / SAMPLE_RATE);
+    result = loopFromBeats(whole.beats, whole.downbeats, mono, SAMPLE_RATE, song.bpm, SONG_LOOP_BARS);
+  }
+  if (!result.loop) throw new LayerError(`${song.name}: no steady beat`, result.why);
+  return result.loop;
+}
+
+/**
+ * Decode a song and cut its loop. `known` is the loop found for this very
+ * track (song-loops.ts); without one it is found now, which takes seconds.
  * Throws a LayerError ("Jazz house: no steady beat") when the song cannot
  * be mixed in time.
  */
 export async function prepareSong(ctx: BaseAudioContext, blob: Blob, song: Song, known?: Loop): Promise<SongLoop> {
-  let decoded: AudioBuffer;
-  try {
-    decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
-  } catch {
-    throw new LayerError(`${song.name}: can't decode`, "decodeAudioData refused it");
-  }
-  let loop = known;
-  if (!loop) {
-    const { mono, rate } = analysisMono(decoded);
-    const found = findLoop(mono, rate, song.bpm, SONG_LOOP_BARS);
-    if (!found.loop) {
-      throw new LayerError(
-        `${song.name}: no steady beat`,
-        `${found.bpm.toFixed(2)} BPM; best section ${(found.coverage * 100).toFixed(0)} % of beats hit, ` +
-        `longest gap ${String(found.longestGap)} beats, ±${found.jitterMs.toFixed(1)} ms`,
-      );
-    }
-    loop = found.loop;
-  }
+  const loop = known ?? (await findSongLoop(ctx, blob, song));
   if (Math.abs(loop.bpm / song.bpm - 1) > MAX_STRETCH) {
     throw new LayerError(`${song.name}: tempo off`, `${loop.bpm.toFixed(2)} BPM against ${String(song.bpm)}`);
   }
+  const decoded = await decode(ctx, blob, song);
 
   // Copy just the loop, so the rest of the decoded track can be freed.
   const sr = decoded.sampleRate;

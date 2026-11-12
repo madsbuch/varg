@@ -18,6 +18,7 @@ import {
   type EnsureStatus,
 } from "../lib/music";
 import { ConfirmSheet } from "./ui";
+import { ensureSongLoops } from "../lib/song-loops";
 
 export function BattleTrack({
   cacheKey,
@@ -91,6 +92,8 @@ export function BattleTrack({
       setTrack(
         await generateTrack(cacheKey, workoutName, profile, settings, () => undefined),
       );
+      // A song: the beat model finds its new loop now, not mid-ride.
+      void ensureSongLoops();
     } catch (e) {
       if (previous) {
         await putCachedTrack(previous);
