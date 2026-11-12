@@ -28,7 +28,8 @@ import { formatSeconds } from "../lib/units";
 import ExerciseAnim from "./ExerciseAnim";
 import { IconCheck, IconClose } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
-import { HrBadge, HrLine, useHeartRate } from "./HeartRate";
+import { useHeartRate } from "./HeartRate";
+import { Slot, TopTitle } from "./TopBar";
 import type { GpsStatus } from "../lib/gps";
 import { formatPace, gpsAvailable, loadGpsEnabled, runStatus, startRun, stopRun } from "../lib/gps";
 
@@ -399,16 +400,13 @@ export default function ForTimePlayer({
   return (
     <div className={`wod ${ready ? "resting" : ""}`}>
       <div className="wod-top">
-        <span className="chip">
-          {config.title} · Stage {stageIdx + 1}/{stages.length}
-        </span>
-        {track.musicButton}
+        <TopTitle hr={hr} title={`${config.title} · Stage ${String(stageIdx + 1)}/${String(stages.length)}`} />
+        <Slot>{null}</Slot>
+        <Slot>{track.musicButton}</Slot>
         <button className="check" onClick={openConfirmStop} aria-label="Stop">
           <IconClose />
         </button>
       </div>
-
-      <HrLine hr={hr} />
 
       <div className="wod-progress" aria-hidden>
         <div style={{ width: `${String((marks.length / stages.length) * 100)}%` }} />
@@ -417,7 +415,6 @@ export default function ForTimePlayer({
       <div className="wod-center">
         <div className="wod-phase-row">
           <div className="wod-phase">{ready ? "Get ready" : paused ? "Paused" : "For time"}</div>
-          <HrBadge hr={hr} />
         </div>
         <div className="wod-time">
           {ready ? formatSeconds(readyRemain) : formatSeconds(work)}

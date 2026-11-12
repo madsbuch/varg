@@ -28,7 +28,8 @@ import { cueLine, playClip, prepareClips, voiceConfigured } from "../lib/voice-c
 import ExerciseAnim from "./ExerciseAnim";
 import { IconCheck, IconClose, IconVoice } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
-import { HrBadge, HrLine, useHeartRate } from "./HeartRate";
+import { useHeartRate } from "./HeartRate";
+import { Slot, TopTitle } from "./TopBar";
 import { formatSeconds } from "../lib/units";
 
 /** The workout's position on the wall clock. */
@@ -428,16 +429,16 @@ export default function WodPlayer({
   return (
     <div className={`wod ${resting ? "resting" : ""}`}>
       <div className="wod-top">
-        <span className="chip">
-          {config.title ? `${config.title} · ` : ""}
-          {config.sequence
+        <TopTitle
+          hr={hr}
+          title={`${config.title ? `${config.title} · ` : ""}${config.sequence
             ? `Pose ${String(step.round)}/${String(config.sequence.length)}`
-            : `Round ${String(step.round)}/${String(config.rounds)}`}
-        </span>
+            : `Round ${String(step.round)}/${String(config.rounds)}`}`}
+        />
         <span className="chip">
           {formatSeconds(workElapsed)} / {formatSeconds(workTotal)}
         </span>
-        {voiced && (
+        <Slot>{voiced && (
           <button
             className={`check music ${voiceOn ? "on" : ""}`}
             aria-label={voiceOn ? "Stop the spoken cues" : "Speak the cues"}
@@ -450,14 +451,12 @@ export default function WodPlayer({
           >
             <IconVoice />
           </button>
-        )}
-        {track.musicButton}
+        )}</Slot>
+        <Slot>{track.musicButton}</Slot>
         <button className="check" onClick={openConfirmStop} aria-label="Stop">
           <IconClose />
         </button>
       </div>
-
-      <HrLine hr={hr} />
 
       <div className="wod-progress" aria-hidden>
         <div style={{ width: `${String((workElapsed / workTotal) * 100)}%` }} />
@@ -468,7 +467,6 @@ export default function WodPlayer({
           <div className="wod-phase">
             {flow && step.kind === "work" ? "Hold" : flow && step.kind === "rest" ? "Move to" : PHASE_LABEL[step.kind]}
           </div>
-          <HrBadge hr={hr} />
         </div>
         <div className={`wod-time ${remain <= 3 ? "urgent" : ""}`}>
           {formatSeconds(remain)}

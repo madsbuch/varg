@@ -870,24 +870,54 @@ input.invalid,
   font-variant-numeric: tabular-nums;
 }
 
-/* `.chip` is `white-space: nowrap`, so its automatic min-width is the full
-   text width and it refuses to shrink. Template names come from seed.ts and
-   nothing bounds their length: at 360 dp "Kredsløbstræning · Round 1/5"
-   pushed Stop — the only exit from a running WOD — clean off the right edge.
-   The title chip is the one elastic element here; the clock and the buttons
-   keep their intrinsic size. `display: block` so the overflow ellipsises
-   instead of clipping mid-glyph (an anonymous flex item ignores
-   text-overflow). */
-.wod-top .chip:first-child {
-  display: block;
-  min-width: 3.5em;
+/* The title block is the one elastic element: template names come from
+   seed.ts and nothing bounds their length (at 360 dp "Kredsløbstræning ·
+   Round 1/5" once pushed Stop off the edge), so it ellipsises and every
+   other chip and button keeps its intrinsic size. */
+.wod-top .chip {
+  flex: 0 0 auto;
+}
+.wod-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+.wod-title-text {
+  max-width: 100%;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-.wod-top .chip + .chip {
-  flex: 0 0 auto;
+/* The heart rate under the title: small, accent when live, red when wrong. */
+.hr-tag {
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
+.hr-tag svg { flex: 0 0 auto; width: 12px; height: 12px; }
+.hr-tag.live { color: var(--accent); }
+.hr-tag strong { font-size: 16px; font-weight: 800; line-height: 1.1; }
+.hr-tag small { font-size: 11px; font-weight: 700; }
+.hr-tag.bad { color: var(--danger); }
+.hr-tag.bad svg:last-child { width: 14px; height: 14px; }
+.hr-tag-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* An absent button keeps its place, so the others never shift. */
+.wod-top .check.slot { visibility: hidden; }
 
 .wod-top .check {
   flex: 0 0 34px;
@@ -1863,27 +1893,10 @@ textarea {
   .ride-deck .ride-page:has(.ride-zones.compact) { padding-top: 6px; padding-bottom: 6px; }
 }
 
-/* The phase label stays centred; the heart-rate badge sits at the row's
-   right edge, out of its way, and the row is no taller than the label. */
+/* The phase label, centred. */
 .wod-phase-row {
   position: relative;
   align-self: stretch;
   display: flex;
   justify-content: center;
 }
-.hr-badge {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  font-size: 13px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-.hr-badge svg { width: 12px; height: 12px; align-self: center; }
-.hr-badge.live { color: var(--accent); }
-.hr-badge strong { font-size: 18px; font-weight: 800; }
-.hr-badge small { font-size: 11px; font-weight: 700; }

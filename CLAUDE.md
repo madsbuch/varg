@@ -221,6 +221,11 @@ joints and makes limbs shrink in the intermediate frames.
   the cues on a schedule the player sends (`rideSchedule`). On return the
   player replays the packets one by one through `RideRun`. Cues sound once:
   the service only while Varg is off screen, the app only while on it.
+  The ride's music is Web Audio in the WebView, every song change booked
+  ahead on the audio clock; wry pauses the WebView with the activity, which
+  stops its media, so while the ride service runs `BikePlugin.onPause`
+  resumes the WebView again (posted, so it lands after wry's pause) and
+  `stopRide` pauses it if Varg is still off screen.
 - **Garmin.** [`src/lib/garmin.ts`](src/lib/garmin.ts) talks to the Garmin
   Connect Personal API with the owner's key: read-only, no server. FTP is
   not in the profile; it comes from the newest ride's `functionalThresholdPower`.
@@ -248,11 +253,14 @@ joints and makes limbs shrink in the intermediate frames.
   a guided workout opens `HrConnectSheet` (live bpm, then start with or
   without it) and a ride's connect sheet carries a `StrapCard`; a
   heart-rate ride cannot start until the strap reads. Every player shows
-  the live heart rate whenever a strap is connected — a badge on the phase
-  row (`HrBadge`), or on a ride's target line — and never in the top bar,
-  which has no room at phone width. No skin contact, nothing coming in, a
-  dropout or a failed service is a red `HrLine` under the top bar, shown
-  only while it is wrong — never a held last number. Check every player at
+  the heart rate in the top bar, small, under the workout's name
+  (`TopTitle` in [`src/components/TopBar.tsx`](src/components/TopBar.tsx)):
+  the live bpm and zone, or — no skin contact, nothing coming in, a
+  dropout, a failed service — what is wrong in red, tappable to retry,
+  shown only while it is wrong and never a held last number. The top
+  bar's buttons sit in fixed slots, voice · music · close: one a workout
+  lacks (no voice lines, music not ready) stays as an invisible `Slot`,
+  so Stop never moves. Check every player at
   360×640 and at the owner's phone (about 459×948) after touching this. The session stores the summary as JSON in
   `sessions.heart_rate`. Garmin Connect is the owner's source of truth
   for history: a session whose overlapping watch activity has heart rate

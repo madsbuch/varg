@@ -3,10 +3,10 @@
  * starts, a foreground service keeps it recording with the phone locked,
  * and the session is saved with its average, maximum and trace.
  *
- * `useHeartRate` does all of that for one player. `HrLine` sits under the
- * player's top bar: the live bpm and zone, or, in red, whatever is wrong —
- * strap lost, no skin contact, nothing coming in, no permission — never a
- * quiet dash. `StrapPicker` pairs a strap (Settings). `StrapCard` connects the
+ * `useHeartRate` does all of that for one player. `TopTitle` (TopBar.tsx)
+ * shows it under the workout's name in the top bar: the live bpm and zone,
+ * or, in red, whatever is wrong — strap lost, no skin contact, nothing
+ * coming in, no permission — never a quiet dash. `StrapPicker` pairs a strap (Settings). `StrapCard` connects the
  * paired strap and shows it live before a workout starts, the way the bike's
  * pre-ride step does — inside `HrConnectSheet` for guided workouts and
  * inside the ride's connect sheet. `HeartRateCard` shows a
@@ -145,43 +145,6 @@ export function useHeartRate(title: string, done: boolean, enabled: boolean): Hr
   return { paired: strap !== null, bpm, zone, problem: setupError ?? problem, status, retry, attach, pull, at };
 }
 
-const Heart = () => (
-  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden>
-    <path d="M12 21s-7.5-4.6-9.5-9.6C1.2 8 3.3 4.5 6.8 4.5c2.1 0 3.6 1.1 5.2 3 1.6-1.9 3.1-3 5.2-3 3.5 0 5.6 3.5 4.3 6.9C19.5 16.4 12 21 12 21z" />
-  </svg>
-);
-
-/**
- * What is wrong with the heart rate: one red line under the top bar, shown
- * only while something is wrong, so a working strap costs the layout
- * nothing. The live value is an `HrBadge` on a row that is there anyway.
- */
-export function HrLine({ hr }: { hr: HrLive }) {
-  if (!hr.paired || !hr.problem) return null;
-  return (
-    <div className="hr-line bad" role="alert">
-      <Heart />
-      <span className="hr-line-text">{hr.problem}</span>
-      <button className="btn sm ghost" onClick={hr.retry}>Retry</button>
-    </div>
-  );
-}
-
-/**
- * The live heart rate as a small badge: placed on the phase row of the
- * interval and for-time players, so it takes no height of its own (the
- * exercise figure is what would give it up). Nothing while HrLine shows a
- * problem, or without a strap.
- */
-export function HrBadge({ hr }: { hr: HrLive }) {
-  if (!hr.paired || hr.problem) return null;
-  return (
-    <span className={`hr-badge ${hr.bpm !== null ? "live" : ""}`} aria-label="Heart rate">
-      <Heart />
-      {hr.bpm !== null ? <><strong>{hr.bpm}</strong>{hr.zone ? <small>Z{hr.zone}</small> : null}</> : "…"}
-    </span>
-  );
-}
 
 interface Paired { address: string; name: string }
 

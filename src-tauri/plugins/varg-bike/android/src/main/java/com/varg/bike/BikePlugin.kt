@@ -16,6 +16,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
 import android.util.Base64
+import android.webkit.WebView
 import androidx.core.content.ContextCompat
 import app.tauri.PermissionState
 import app.tauri.annotation.Command
@@ -75,6 +76,12 @@ class CueAudioArgs {
 class BikePlugin(private val activity: Activity) : Plugin(activity) {
     private val main = Handler(Looper.getMainLooper())
     private val found = LinkedHashMap<String, JSObject>()
+    private var webView: WebView? = null
+
+    override fun load(webView: WebView) {
+        super.load(webView)
+        this.webView = webView
+    }
 
     // The ride service speaks only while Varg is off screen.
     override fun onResume() {
@@ -82,9 +89,22 @@ class BikePlugin(private val activity: Activity) : Plugin(activity) {
         BikeLink.appVisible = true
     }
 
+    /**
+     * Off screen during a ride, the music keeps playing. Wry pauses the
+     * WebView whenever the activity pauses (another app, the screen off),
+     * and a paused WebView stops its media: the ride's music is Web Audio
+     * in it, every song change already booked on the audio clock, so all
+     * it needs is a WebView that is not paused. The undo is posted to the
+     * main thread: Android runs an activity's whole pause (wry's
+     * mWebView.onPause() included) as one message, so the posted resume
+     * lands after it, whichever lifecycle hook delivered this callback.
+     * stopRide pauses the WebView again if Varg is still off screen. Only
+     * during a ride, so nothing else keeps working in the background.
+     */
     override fun onPause() {
         super.onPause()
         BikeLink.appVisible = false
+        main.post { if (!BikeLink.appVisible && RideService.running) webView?.onResume() }
     }
 
     private fun adapter(): BluetoothAdapter? =
@@ -282,6 +302,8 @@ class BikePlugin(private val activity: Activity) : Plugin(activity) {
         if (RideService.running) {
             activity.startService(Intent(activity, RideService::class.java).setAction(RideService.ACTION_STOP))
         }
+        // The ride kept the WebView running off screen; back to normal.
+        if (!BikeLink.appVisible) main.post { webView?.onPause() }
         invoke.resolve()
     }
 }
