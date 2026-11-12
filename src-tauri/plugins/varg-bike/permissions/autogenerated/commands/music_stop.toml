@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-music-stop"
+description = "Enables the music_stop command without any pre-configured scope."
+commands.allow = ["music_stop"]
+
+[[permission]]
+identifier = "deny-music-stop"
+description = "Denies the music_stop command without any pre-configured scope."
+commands.deny = ["music_stop"]

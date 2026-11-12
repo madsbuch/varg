@@ -292,6 +292,46 @@ export async function stopRideService(): Promise<void> {
   if (bikeAvailable()) await call("stop_ride");
 }
 
+/* ------------------------- Native music (MusicEngine.kt) ---------------------- */
+// The ride's music, played by the app's native side so it carries on with
+// another app in front: songs once per composed track, then the score.
+
+/** Is this song's track (key: which composed track and loop) already there? */
+export async function nativeMusicHas(id: string, key: string): Promise<boolean> {
+  return (await call<{ has: boolean }>("music_has", { id, key })).has;
+}
+
+/** Hand over a song's cut audio: 16-bit little-endian PCM, interleaved. */
+export async function nativeMusicSong(id: string, key: string, buffer: AudioBuffer): Promise<void> {
+  const ch = buffer.numberOfChannels, n = buffer.length;
+  const pcm = new Int16Array(n * ch);
+  for (let c = 0; c < ch; c++) {
+    const d = buffer.getChannelData(c);
+    for (let i = 0; i < n; i++) pcm[i * ch + c] = Math.max(-32768, Math.min(32767, Math.round((d[i] ?? 0) * 32767)));
+  }
+  const bytes = new Uint8Array(pcm.buffer);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  await call("music_song", { id, key, sampleRate: buffer.sampleRate, channels: ch, b64: btoa(bin) });
+}
+
+/** The score to play from now on; the native side's output error, if any. */
+export async function nativeMusicScore(score: unknown): Promise<string | null> {
+  return (await call<{ error?: string | null }>("music_score", { score: JSON.stringify(score) })).error ?? null;
+}
+
+export async function nativeMusicDuck(hold: number): Promise<void> {
+  await call("music_duck", { hold });
+}
+
+export async function nativeMusicMute(muted: boolean): Promise<void> {
+  await call("music_mute", { muted });
+}
+
+export async function nativeMusicStop(): Promise<void> {
+  await call("music_stop");
+}
+
 export async function readBike(): Promise<BikeRead> {
   if (!bikeAvailable()) return simulator.read();
   return call<BikeRead>("read");

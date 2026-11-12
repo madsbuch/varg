@@ -76,10 +76,51 @@ async fn stop_ride<R: Runtime>(app: tauri::AppHandle<R>) -> Result<Value, String
     call(&app, "stopRide", Value::Null)
 }
 
+// The ride's music, played natively (MusicEngine.kt) so it carries on off
+// screen: songs once per composed track, then the score (src/lib/score.ts).
+
+#[tauri::command]
+async fn music_has<R: Runtime>(app: tauri::AppHandle<R>, id: String, key: String) -> Result<Value, String> {
+    call(&app, "musicHas", serde_json::json!({ "id": id, "key": key }))
+}
+
+#[tauri::command]
+async fn music_song<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    id: String,
+    key: String,
+    sample_rate: u32,
+    channels: u32,
+    b64: String,
+) -> Result<Value, String> {
+    call(&app, "musicSong", serde_json::json!({ "id": id, "key": key, "sampleRate": sample_rate, "channels": channels, "b64": b64 }))
+}
+
+#[tauri::command]
+async fn music_score<R: Runtime>(app: tauri::AppHandle<R>, score: String) -> Result<Value, String> {
+    call(&app, "musicScore", serde_json::json!({ "score": score }))
+}
+
+#[tauri::command]
+async fn music_duck<R: Runtime>(app: tauri::AppHandle<R>, hold: f64) -> Result<Value, String> {
+    call(&app, "musicDuck", serde_json::json!({ "hold": hold }))
+}
+
+#[tauri::command]
+async fn music_mute<R: Runtime>(app: tauri::AppHandle<R>, muted: bool) -> Result<Value, String> {
+    call(&app, "musicMute", serde_json::json!({ "muted": muted }))
+}
+
+#[tauri::command]
+async fn music_stop<R: Runtime>(app: tauri::AppHandle<R>) -> Result<Value, String> {
+    call(&app, "musicStop", Value::Null)
+}
+
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("varg-bike")
         .invoke_handler(tauri::generate_handler![
-            ensure_permissions, scan, connect, disconnect, read, start_ride, schedule, cue_audio, stop_ride
+            ensure_permissions, scan, connect, disconnect, read, start_ride, schedule, cue_audio, stop_ride,
+            music_has, music_song, music_score, music_duck, music_mute, music_stop
         ])
         .setup(|_app, _api| {
             #[cfg(target_os = "android")]

@@ -199,7 +199,8 @@ joints and makes limbs shrink in the intermediate frames.
   render. Put the impure read in an event handler or an effect and pass the
   value in.
 - **Audio.** The countdown cues and the battle track share one
-  `AudioContext`, unlocked from the Start tap. Music ducks under cues and its
+  `AudioContext`, unlocked from the Start tap (an adaptive ride in the
+  Android app plays its music natively instead; see The bike). Music ducks under cues and its
   loop seam is crossfaded, because generated tracks are always shorter than
   the workout. See [`src/lib/track.ts`](src/lib/track.ts).
 - **GPS.** Run tracking lives in native code
@@ -221,11 +222,21 @@ joints and makes limbs shrink in the intermediate frames.
   the cues on a schedule the player sends (`rideSchedule`). On return the
   player replays the packets one by one through `RideRun`. Cues sound once:
   the service only while Varg is off screen, the app only while on it.
-  The ride's music is Web Audio in the WebView, every song change booked
-  ahead on the audio clock; wry pauses the WebView with the activity, which
-  stops its media, so while the ride service runs `BikePlugin.onPause`
-  resumes the WebView again (posted, so it lands after wry's pause) and
-  `stopRide` pauses it if Varg is still off screen.
+  Whether Varg is on screen comes from Android's own activity callbacks
+  (`BikePlugin`): Tauri's plugin onPause/onResume did not arrive reliably
+  and the coach went silent off screen. In the Android app the ride's
+  music is played natively, not by the WebView, which kept playing off
+  screen but stopped switching songs: the app computes the score
+  ([`src/lib/score.ts`](src/lib/score.ts): every voice, its start, buffer
+  offset, rate, gain and high-pass curves, in wall-clock time; tested) and
+  `MusicEngine` renders it with `MusicMixer` into an AudioTrack, its clock
+  held to the wall clock by the track's timestamps. A voice's place in
+  its song is a pure function of the clock, so a new score replaces the
+  old without a seam. Songs go over once per composed track (16-bit PCM of
+  the cut lead-up and loop, cached natively). `MusicMixer` is plain
+  Kotlin, tested on the JVM (`src/test`, including the app's own score as a
+  fixture that `scripts/score.test.ts` keeps current); the browser mixer
+  plays the same score in the web build. Service cues duck the music.
 - **Garmin.** [`src/lib/garmin.ts`](src/lib/garmin.ts) talks to the Garmin
   Connect Personal API with the owner's key: read-only, no server. FTP is
   not in the profile; it comes from the newest ride's `functionalThresholdPower`.
@@ -297,6 +308,8 @@ joints and makes limbs shrink in the intermediate frames.
 ## Checks
 
 ```bash
+# Kotlin (plugins' JVM tests): after `tauri android init`, in src-tauri/gen/android
+#   ./gradlew :tauri-plugin-varg-bike:testReleaseUnitTest
 bun run build      # tsc --noEmit && eslint src && vite build
 bun run db:smoke   # migrations (applied twice) + CRUD + built-in content guards
 bun run test       # recording semantics + animation geometry and choreography

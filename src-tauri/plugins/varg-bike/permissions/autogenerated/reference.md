@@ -1,6 +1,6 @@
 ## Default Permission
 
-Indoor bike link: Bluetooth permission, scan, connect, disconnect, read measurements, and the ride's background service.
+Indoor bike link: Bluetooth permission, scan, connect, disconnect, read measurements, the ride's background service and its native music player.
 
 #### This default permission set includes the following:
 
@@ -13,6 +13,12 @@ Indoor bike link: Bluetooth permission, scan, connect, disconnect, read measurem
 - `allow-schedule`
 - `allow-cue-audio`
 - `allow-stop-ride`
+- `allow-music-has`
+- `allow-music-song`
+- `allow-music-score`
+- `allow-music-duck`
+- `allow-music-mute`
+- `allow-music-stop`
 
 ## Permission Table
 
@@ -123,6 +129,162 @@ Enables the ensure_permissions command without any pre-configured scope.
 <td>
 
 Denies the ensure_permissions command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:allow-music-duck`
+
+</td>
+<td>
+
+Enables the music_duck command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:deny-music-duck`
+
+</td>
+<td>
+
+Denies the music_duck command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:allow-music-has`
+
+</td>
+<td>
+
+Enables the music_has command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:deny-music-has`
+
+</td>
+<td>
+
+Denies the music_has command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:allow-music-mute`
+
+</td>
+<td>
+
+Enables the music_mute command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:deny-music-mute`
+
+</td>
+<td>
+
+Denies the music_mute command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:allow-music-score`
+
+</td>
+<td>
+
+Enables the music_score command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:deny-music-score`
+
+</td>
+<td>
+
+Denies the music_score command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:allow-music-song`
+
+</td>
+<td>
+
+Enables the music_song command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:deny-music-song`
+
+</td>
+<td>
+
+Denies the music_song command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:allow-music-stop`
+
+</td>
+<td>
+
+Enables the music_stop command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`varg-bike:deny-music-stop`
+
+</td>
+<td>
+
+Denies the music_stop command without any pre-configured scope.
 
 </td>
 </tr>

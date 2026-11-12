@@ -343,6 +343,78 @@
           "markdownDescription": "Denies the ensure_permissions command without any pre-configured scope."
         },
         {
+          "description": "Enables the music_duck command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-music-duck",
+          "markdownDescription": "Enables the music_duck command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the music_duck command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-music-duck",
+          "markdownDescription": "Denies the music_duck command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the music_has command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-music-has",
+          "markdownDescription": "Enables the music_has command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the music_has command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-music-has",
+          "markdownDescription": "Denies the music_has command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the music_mute command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-music-mute",
+          "markdownDescription": "Enables the music_mute command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the music_mute command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-music-mute",
+          "markdownDescription": "Denies the music_mute command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the music_score command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-music-score",
+          "markdownDescription": "Enables the music_score command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the music_score command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-music-score",
+          "markdownDescription": "Denies the music_score command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the music_song command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-music-song",
+          "markdownDescription": "Enables the music_song command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the music_song command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-music-song",
+          "markdownDescription": "Denies the music_song command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the music_stop command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-music-stop",
+          "markdownDescription": "Enables the music_stop command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the music_stop command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-music-stop",
+          "markdownDescription": "Denies the music_stop command without any pre-configured scope."
+        },
+        {
           "description": "Enables the read command without any pre-configured scope.",
           "type": "string",
           "const": "allow-read",
@@ -403,10 +475,10 @@
           "markdownDescription": "Denies the stop_ride command without any pre-configured scope."
         },
         {
-          "description": "Indoor bike link: Bluetooth permission, scan, connect, disconnect, read measurements, and the ride's background service.\n#### This default permission set includes:\n\n- `allow-ensure-permissions`\n- `allow-scan`\n- `allow-connect`\n- `allow-disconnect`\n- `allow-read`\n- `allow-start-ride`\n- `allow-schedule`\n- `allow-cue-audio`\n- `allow-stop-ride`",
+          "description": "Indoor bike link: Bluetooth permission, scan, connect, disconnect, read measurements, the ride's background service and its native music player.\n#### This default permission set includes:\n\n- `allow-ensure-permissions`\n- `allow-scan`\n- `allow-connect`\n- `allow-disconnect`\n- `allow-read`\n- `allow-start-ride`\n- `allow-schedule`\n- `allow-cue-audio`\n- `allow-stop-ride`\n- `allow-music-has`\n- `allow-music-song`\n- `allow-music-score`\n- `allow-music-duck`\n- `allow-music-mute`\n- `allow-music-stop`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Indoor bike link: Bluetooth permission, scan, connect, disconnect, read measurements, and the ride's background service.\n#### This default permission set includes:\n\n- `allow-ensure-permissions`\n- `allow-scan`\n- `allow-connect`\n- `allow-disconnect`\n- `allow-read`\n- `allow-start-ride`\n- `allow-schedule`\n- `allow-cue-audio`\n- `allow-stop-ride`"
+          "markdownDescription": "Indoor bike link: Bluetooth permission, scan, connect, disconnect, read measurements, the ride's background service and its native music player.\n#### This default permission set includes:\n\n- `allow-ensure-permissions`\n- `allow-scan`\n- `allow-connect`\n- `allow-disconnect`\n- `allow-read`\n- `allow-start-ride`\n- `allow-schedule`\n- `allow-cue-audio`\n- `allow-stop-ride`\n- `allow-music-has`\n- `allow-music-song`\n- `allow-music-score`\n- `allow-music-duck`\n- `allow-music-mute`\n- `allow-music-stop`"
         }
       ]
     }

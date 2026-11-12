@@ -24,4 +24,16 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation(project(":tauri-android"))
+    // MusicMixer is plain Kotlin: its rendering is tested on the JVM.
+    testImplementation("junit:junit:4.13.2")
+    // The real org.json, so the fixture test parses scores as the app does.
+    testImplementation("org.json:json:20231013")
+}
+
+android {
+    testOptions {
+        // Android stubs return defaults instead of throwing; the tests use
+        // only MusicMixer and MusicEngine.parse, with the real org.json.
+        unitTests.isReturnDefaultValues = true
+    }
 }

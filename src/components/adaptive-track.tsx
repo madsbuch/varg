@@ -20,9 +20,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAudioContext, setCueDucker } from "../lib/beep";
 import { AdaptiveMixer, LayerError, prepareSong } from "../lib/mixer";
+import { NativeMusic } from "../lib/native-music";
+import { bikeAvailable } from "../lib/bike";
 import type { Booking } from "../lib/mixer";
 import { getCachedTrack, loadMusicSettings, musicLog } from "../lib/music";
-import { analyzeSong, songMeta } from "../lib/song-loops";
+import { analyzeSong, LOOP_RULES, songMeta } from "../lib/song-loops";
 import type { MusicBlock, MusicPlan } from "../lib/ride";
 import { songById, songKey } from "../lib/songs";
 import type { Intensity } from "../types";
@@ -63,7 +65,7 @@ function loadOrder(mix: Mix, seed: number): string[] {
 }
 
 export function useAdaptiveTrack(mix: Mix | undefined, seed: number, done: boolean): AdaptiveTrack {
-  const mixerRef = useRef<AdaptiveMixer | null>(null);
+  const mixerRef = useRef<AdaptiveMixer | NativeMusic | null>(null);
   const planRef = useRef<MusicPlan | null>(null);
   const [ready, setReady] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -88,14 +90,20 @@ export function useAdaptiveTrack(mix: Mix | undefined, seed: number, done: boole
     // the awaits and call the later checks unnecessary.
     const life = { alive: true };
     const alive = () => life.alive;
-    const ctx = getAudioContext();
+    // In the Android app the native player renders the music, so it keeps
+    // switching songs with another app in front; the browser mixer is for
+    // the web build. Songs are decoded and cut here either way.
+    const native = bikeAvailable();
+    const ctx: BaseAudioContext | null = native ? new OfflineAudioContext(2, 1, 48000) : getAudioContext();
     if (!ctx) {
       // Reported from a microtask: a synchronous setState in an effect
       // re-renders in a cascade.
       queueMicrotask(() => { if (alive()) setProblem("Music · no audio"); });
       return () => { life.alive = false; };
     }
-    const mixer = new AdaptiveMixer(ctx);
+    const mixer = native
+      ? new NativeMusic((msg) => { if (alive()) setProblem(`Music · ${msg}`); })
+      : new AdaptiveMixer(ctx as AudioContext);
     mixerRef.current = mixer;
     setCueDucker((hold) => { mixer.duck(hold); });
     void (async () => {
@@ -120,7 +128,9 @@ export function useAdaptiveTrack(mix: Mix | undefined, seed: number, done: boole
           // One at a time: a decoded track is large until its loop is cut.
           const prepared = await prepareSong(ctx, cached.blob, song, meta.loop);
           if (!alive()) return;
-          mixer.add(prepared);
+          if (mixer instanceof NativeMusic) await mixer.add(prepared, `${cached.createdAt}|${String(LOOP_RULES)}`);
+          else mixer.add(prepared);
+          if (!alive()) return;
           setReady(true);
           apply();
         } catch (e) {

@@ -102,6 +102,7 @@ class RideService : Service() {
 
     private fun stopEverything() {
         running = false
+        MusicEngine.stop()
         main.removeCallbacksAndMessages(null)
         player?.release()
         player = null
@@ -136,8 +137,15 @@ class RideService : Service() {
 
     private fun fire(text: String, beep: String) {
         if (BikeLink.appVisible) return // the app speaks for itself on screen
-        if (beep.isNotEmpty()) tone(beep)
-        if (text.isNotEmpty()) say(text)
+        // The music steps back under the cue, as it does in the app.
+        if (beep.isNotEmpty()) {
+            MusicEngine.duck(if (beep == "tick") 0.25 else 0.6)
+            tone(beep)
+        }
+        if (text.isNotEmpty()) {
+            MusicEngine.duck(text.split(" ").size * 0.4 + 0.8)
+            say(text)
+        }
     }
 
     private fun tone(kind: String) {

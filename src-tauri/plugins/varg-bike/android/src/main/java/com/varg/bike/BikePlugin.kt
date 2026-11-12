@@ -16,6 +16,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
 import android.util.Base64
+import android.app.Application
+import android.os.Bundle
 import android.webkit.WebView
 import androidx.core.content.ContextCompat
 import app.tauri.PermissionState
@@ -53,6 +55,30 @@ class ScheduleArgs {
 }
 
 @InvokeArg
+class SongArgs {
+    var id: String = ""
+    var key: String = ""
+    var sampleRate: Int = 48000
+    var channels: Int = 2
+    var b64: String = ""
+}
+
+@InvokeArg
+class ScoreArgs {
+    var score: String = "{}"
+}
+
+@InvokeArg
+class DuckArgs {
+    var hold: Double = 1.0
+}
+
+@InvokeArg
+class MuteArgs {
+    var muted: Boolean = false
+}
+
+@InvokeArg
 class CueAudioArgs {
     var text: String = ""
     var b64: String = ""
@@ -76,35 +102,32 @@ class CueAudioArgs {
 class BikePlugin(private val activity: Activity) : Plugin(activity) {
     private val main = Handler(Looper.getMainLooper())
     private val found = LinkedHashMap<String, JSObject>()
-    private var webView: WebView? = null
+    // Varg on screen or not, from Android itself: the service speaks the
+    // cues only while it is off screen. Tauri's plugin onPause/onResume
+    // were not delivered reliably, and the coach went silent off screen.
+    private val visibility = object : Application.ActivityLifecycleCallbacks {
+        override fun onActivityResumed(a: Activity) { if (a === activity) BikeLink.appVisible = true }
+        override fun onActivityPaused(a: Activity) { if (a === activity) BikeLink.appVisible = false }
+        override fun onActivityCreated(a: Activity, b: Bundle?) {}
+        override fun onActivityStarted(a: Activity) {}
+        override fun onActivityStopped(a: Activity) {}
+        override fun onActivitySaveInstanceState(a: Activity, b: Bundle) {}
+        override fun onActivityDestroyed(a: Activity) {}
+    }
 
     override fun load(webView: WebView) {
         super.load(webView)
-        this.webView = webView
+        activity.application.registerActivityLifecycleCallbacks(visibility)
     }
 
-    // The ride service speaks only while Varg is off screen.
     override fun onResume() {
         super.onResume()
         BikeLink.appVisible = true
     }
 
-    /**
-     * Off screen during a ride, the music keeps playing. Wry pauses the
-     * WebView whenever the activity pauses (another app, the screen off),
-     * and a paused WebView stops its media: the ride's music is Web Audio
-     * in it, every song change already booked on the audio clock, so all
-     * it needs is a WebView that is not paused. The undo is posted to the
-     * main thread: Android runs an activity's whole pause (wry's
-     * mWebView.onPause() included) as one message, so the posted resume
-     * lands after it, whichever lifecycle hook delivered this callback.
-     * stopRide pauses the WebView again if Varg is still off screen. Only
-     * during a ride, so nothing else keeps working in the background.
-     */
     override fun onPause() {
         super.onPause()
         BikeLink.appVisible = false
-        main.post { if (!BikeLink.appVisible && RideService.running) webView?.onResume() }
     }
 
     private fun adapter(): BluetoothAdapter? =
@@ -302,8 +325,61 @@ class BikePlugin(private val activity: Activity) : Plugin(activity) {
         if (RideService.running) {
             activity.startService(Intent(activity, RideService::class.java).setAction(RideService.ACTION_STOP))
         }
-        // The ride kept the WebView running off screen; back to normal.
-        if (!BikeLink.appVisible) main.post { webView?.onPause() }
+        MusicEngine.stop()
+        invoke.resolve()
+    }
+
+    /** Is this song's track already here (from an earlier ride)? */
+    @Command
+    fun musicHas(invoke: Invoke) {
+        val a = invoke.parseArgs(SongArgs::class.java)
+        val o = JSObject()
+        o.put("has", MusicEngine.has(activity, a.id, a.key))
+        invoke.resolve(o)
+    }
+
+    /** A song's cut audio (lead-up and loop), 16-bit PCM, for the native player. */
+    @Command
+    fun musicSong(invoke: Invoke) {
+        val a = invoke.parseArgs(SongArgs::class.java)
+        try {
+            MusicEngine.put(activity, a.id, a.key, a.sampleRate, a.channels, Base64.decode(a.b64, Base64.DEFAULT))
+        } catch (e: Exception) {
+            invoke.reject("Could not take a song: ${e.message}")
+            return
+        }
+        invoke.resolve()
+    }
+
+    /** The ride's music score (src/lib/score.ts); starts the player. */
+    @Command
+    fun musicScore(invoke: Invoke) {
+        try {
+            MusicEngine.score(invoke.parseArgs(ScoreArgs::class.java).score)
+        } catch (e: Exception) {
+            invoke.reject("Music score refused: ${e.message}")
+            return
+        }
+        val o = JSObject()
+        o.put("error", MusicEngine.error)
+        invoke.resolve(o)
+    }
+
+    @Command
+    fun musicDuck(invoke: Invoke) {
+        MusicEngine.duck(invoke.parseArgs(DuckArgs::class.java).hold)
+        invoke.resolve()
+    }
+
+    @Command
+    fun musicMute(invoke: Invoke) {
+        MusicEngine.mute(invoke.parseArgs(MuteArgs::class.java).muted)
+        invoke.resolve()
+    }
+
+    @Command
+    fun musicStop(invoke: Invoke) {
+        MusicEngine.stop()
         invoke.resolve()
     }
 }

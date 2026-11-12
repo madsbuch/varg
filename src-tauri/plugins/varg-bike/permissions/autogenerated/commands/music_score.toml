@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-music-score"
+description = "Enables the music_score command without any pre-configured scope."
+commands.allow = ["music_score"]
+
+[[permission]]
+identifier = "deny-music-score"
+description = "Denies the music_score command without any pre-configured scope."
+commands.deny = ["music_score"]
