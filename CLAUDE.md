@@ -221,6 +221,11 @@ joints and makes limbs shrink in the intermediate frames.
   the cues on a schedule the player sends (`rideSchedule`). On return the
   player replays the packets one by one through `RideRun`. Cues sound once:
   the service only while Varg is off screen, the app only while on it.
+  The ride's music is Web Audio in the WebView, every song change booked
+  ahead on the audio clock; wry pauses the WebView with the activity, which
+  stops its media, so while the ride service runs `BikePlugin.onPause`
+  resumes the WebView again (posted, so it lands after wry's pause) and
+  `stopRide` pauses it if Varg is still off screen.
 - **Garmin.** [`src/lib/garmin.ts`](src/lib/garmin.ts) talks to the Garmin
   Connect Personal API with the owner's key: read-only, no server. FTP is
   not in the profile; it comes from the newest ride's `functionalThresholdPower`.
