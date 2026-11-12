@@ -19,9 +19,17 @@ import { allSongs, songById, songForKey, songKey } from "./songs";
 
 const KEY = "varg.songs.meta.v1";
 export const BEAT_MODEL = "Beat This! small0";
+/**
+ * The loop rules the metadata was made under. Bump it when beatgrid.ts
+ * or analyzeTrack choose loops differently: older metadata then counts as
+ * missing and the background sweep analyses the song again.
+ * 2: a peak song's loop starts on its biggest drop (whole track read).
+ */
+export const LOOP_RULES = 2;
 
 export interface SongMeta {
   createdAt: string;
+  rules?: number | undefined;
   analysedAt: string;
   model: string;
   /** Seconds the analysis took on this device. */
@@ -57,7 +65,7 @@ const emit = () => { listeners.forEach((fn) => { fn(); }); };
 /** The metadata for a song's current track, if analysed. */
 export function songMeta(songId: string, createdAt: string): SongMeta | undefined {
   const hit = all()[songId];
-  return hit?.createdAt === createdAt ? hit : undefined;
+  return hit?.createdAt === createdAt && hit.rules === LOOP_RULES ? hit : undefined;
 }
 
 export function isAnalysing(songId: string): boolean {
@@ -99,7 +107,7 @@ async function run(songId: string, blob: Blob, createdAt: string): Promise<SongM
   // An offline context decodes without a user gesture or a running clock.
   const ctx = new OfflineAudioContext(2, 1, 44100);
   const t0 = Date.now();
-  const base = { createdAt, analysedAt: new Date().toISOString(), model: BEAT_MODEL };
+  const base = { createdAt, rules: LOOP_RULES, analysedAt: new Date().toISOString(), model: BEAT_MODEL };
   let meta: SongMeta;
   try {
     const r = await analyzeTrack(ctx, blob, song);

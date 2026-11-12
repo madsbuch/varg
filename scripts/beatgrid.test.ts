@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { loopFromBeats, loudestWindow, MAX_JITTER_MS } from "../src/lib/beatgrid";
+import { loopFromBeats, loudestWindow, MAX_JITTER_MS, MIN_DROP_DB } from "../src/lib/beatgrid";
 
 const SR = 1000; // levels only need a coarse signal
 
@@ -75,6 +75,24 @@ describe("loop from the network's beats", () => {
   test("the loudest window is where the model looks first", () => {
     expect(loudestWindow(level(120, [[70, 100]]), SR, 29.76)).toBeCloseTo(70, 0);
     expect(loudestWindow(level(20), SR, 29.76)).toBe(0);
+  });
+
+  test("a peak song loops from its drop: the bar where it suddenly gets loud", () => {
+    // A steady beat throughout; quiet build until 60.3 s, then the drop.
+    const { beats, downbeats } = grid(156, 0.3, 0, 120);
+    const drop = downbeats.find((d) => d > 60) ?? 0;
+    const levels = level(120, [[drop, 120]], 0.05, 0.5);
+    const { loop } = loopFromBeats(beats, downbeats, levels, SR, 156, 16, { preferDrop: true });
+    if (!loop) throw new Error("no loop");
+    expect(Math.abs(loop.start - drop)).toBeLessThan(0.03);
+    expect(loop.dropDb).toBeGreaterThanOrEqual(MIN_DROP_DB);
+  });
+
+  test("a peak song without a drop still gets its loudest loop", () => {
+    const { beats, downbeats } = grid(156, 0.3, 0, 120);
+    const { loop } = loopFromBeats(beats, downbeats, level(120), SR, 156, 16, { preferDrop: true });
+    expect(loop).not.toBeNull();
+    expect(loop?.dropDb ?? 99).toBeLessThan(MIN_DROP_DB);
   });
 
   test("no beats at all: refused, saying so", () => {

@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { isAnalysing, onSongMeta, reanalyzeSong, songMeta } from "../lib/song-loops";
 import { formatSeconds } from "../lib/units";
+import { MIN_DROP_DB } from "../lib/beatgrid";
 
 export function SongBeats({ songId, createdAt }: { songId: string; createdAt: string }) {
   const [, setTick] = useState(0);
@@ -34,7 +35,8 @@ export function SongBeats({ songId, createdAt }: { songId: string; createdAt: st
   }
   return (
     <div className="faint" style={line}>
-      Beats · {loop.bpm.toFixed(1)} BPM · {loop.bars}-bar loop from {formatSeconds(Math.round(loop.start))} ·
+      Beats · {loop.bpm.toFixed(1)} BPM · {loop.bars}-bar loop from {formatSeconds(Math.round(loop.start))}
+      {loop.dropDb >= MIN_DROP_DB ? ` on a drop (+${loop.dropDb.toFixed(0)} dB)` : ""} ·
       ±{loop.jitterMs.toFixed(0)} ms · {meta.beats.length} beats, {meta.downbeats.length} downbeats ·
       {" "}{meta.took.toFixed(1)} s
     </div>

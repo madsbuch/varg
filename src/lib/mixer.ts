@@ -7,8 +7,10 @@
  * bars from a downbeat (beatgrid.ts), played at
  * the rate that makes its bars exactly the song's tempo. A stretch of the
  * ride plays its song with bar 1 of that loop on the stretch's first beat,
- * crossfading DJ-style: the song comes in two bars early under the one
- * before, its low end held back, and drops its kick and bass on the one. Every timed block is
+ * crossfading DJ-style over the 3-2-1: the song comes in three seconds
+ * early under the one before, playing its own lead-up (a peak song's build
+ * into its drop) with its low end held back, and drops its kick and bass
+ * on the one. Every timed block is
  * whole bars at every song's tempo (smoke test), so changes land on the
  * one even when the tempo changes (a faster peak).
  *
@@ -35,7 +37,16 @@ export interface SongLoop {
   /** Playback rate that brings the loop's section to the song's tempo. */
   rate: number;
   loop: Loop;
+  /**
+   * Seconds of the track before the loop kept at the head of the buffer
+   * (track time): a crossfade plays the song's real lead-up into bar 1,
+   * a peak song's build into its drop, not the loop's end wrapped round.
+   */
+  pre: number;
 }
+
+/** Track time kept before each loop for the crossfade's lead-up. */
+const PRE_ROLL_S = 4;
 
 /** Seam fades, against clicks where the loop wraps. */
 const SEAM_FADE_S = 0.003;
@@ -106,20 +117,25 @@ export async function analyzeTrack(ctx: BaseAudioContext, blob: Blob, song: Song
       throw new LayerError(`${song.name}: beat model failed`, e instanceof Error ? e.message : String(e));
     }
   };
-  // The network costs seconds per 30 s on a phone. The loop it is after is
-  // the loudest steady section, so it looks at the loudest window first:
-  // one model chunk, which holds 16 bars down to 72 BPM. Only if nothing
-  // there is steady does it read the whole track.
+  // The network costs seconds per 30 s on a phone. A low or mid song's
+  // loop is its loudest steady section, so the network looks at the
+  // loudest window first: one model chunk, which holds 16 bars down to
+  // 72 BPM, and the whole track only if nothing there is steady. A peak
+  // song's loop starts on its drop, which sits where the loud part
+  // begins, before that window: it reads the whole track.
+  const preferDrop = song.intensity === 3;
+  const pick = (f: { beats: number[]; downbeats: number[] }) =>
+    loopFromBeats(f.beats, f.downbeats, mono, SAMPLE_RATE, song.bpm, SONG_LOOP_BARS, { preferDrop });
   const window = (CHUNK - 2 * BORDER) / FPS;
-  const from = loudestWindow(mono, SAMPLE_RATE, window);
-  const to = Math.min(duration, from + window);
+  const from = preferDrop ? 0 : loudestWindow(mono, SAMPLE_RATE, window);
+  const to = preferDrop ? duration : Math.min(duration, from + window);
   let found = await beatsIn(from, to);
   let analysed: [number, number] = [from, to];
-  let result = loopFromBeats(found.beats, found.downbeats, mono, SAMPLE_RATE, song.bpm, SONG_LOOP_BARS);
-  if (!result.loop) {
+  let result = pick(found);
+  if (!result.loop && !preferDrop) {
     found = await beatsIn(0, duration);
     analysed = [0, duration];
-    result = loopFromBeats(found.beats, found.downbeats, mono, SAMPLE_RATE, song.bpm, SONG_LOOP_BARS);
+    result = pick(found);
   }
   return { duration, analysed, ...found, loop: result.loop, why: result.why };
 }
@@ -134,22 +150,25 @@ export async function prepareSong(ctx: BaseAudioContext, blob: Blob, song: Song,
   }
   const decoded = await decode(ctx, blob, song);
 
-  // Copy just the loop, so the rest of the decoded track can be freed.
+  // Copy the lead-up and the loop, so the rest of the track can be freed.
   const sr = decoded.sampleRate;
-  const from = Math.round(loop.start * sr);
-  const length = Math.min(decoded.length - from, Math.round(((loop.bars * 240) / loop.bpm) * sr));
+  const pre = Math.min(PRE_ROLL_S, loop.start);
+  const from = Math.round((loop.start - pre) * sr);
+  const head = Math.round(pre * sr);
+  const length = Math.min(decoded.length - from, head + Math.round(((loop.bars * 240) / loop.bpm) * sr));
   const buffer = ctx.createBuffer(decoded.numberOfChannels, length, sr);
   const fade = Math.round(SEAM_FADE_S * sr);
   for (let c = 0; c < decoded.numberOfChannels; c++) {
     const src = decoded.getChannelData(c).subarray(from, from + length);
     const dst = buffer.getChannelData(c);
     dst.set(src);
+    // Against clicks: in at the buffer's start, out where the loop wraps.
     for (let i = 0; i < fade; i++) {
       dst[i] = (dst[i] ?? 0) * (i / fade);
       dst[length - 1 - i] = (dst[length - 1 - i] ?? 0) * (i / fade);
     }
   }
-  return { song, buffer, rate: song.bpm / loop.bpm, loop };
+  return { song, buffer, rate: song.bpm / loop.bpm, loop, pre: head / sr };
 }
 
 /** A song booked for a stretch of the ride, in wall-clock time. */
@@ -179,8 +198,11 @@ const DUCK_RAMP_S = 0.06;
 const CUT_S = 0.06;
 /** Bookings this close (ms) are the same booking, rebooked. */
 const SAME_MS = 50;
-/** Bars the incoming song plays under the outgoing one before its bar 1. */
-const XF_BARS = 2;
+/**
+ * Seconds the incoming song plays under the outgoing one before its bar 1:
+ * the 3-2-1 countdown into every block (ride.ts COUNTDOWN), and no longer.
+ */
+const XF_S = 3;
 /**
  * The incoming song's high-pass during the crossfade: its kick and bass
  * wait (so two kicks never clash, even across a tempo change) and drop in
@@ -263,7 +285,7 @@ export class AdaptiveMixer {
    * Play these bookings from now on. Bookings already playing or scheduled
    * stay (their end is updated); bookings no longer wanted are cut; new
    * ones are scheduled. Back-to-back bookings crossfade: the incoming song
-   * starts XF_BARS bars early, timed so its bar 1 lands on the change,
+   * starts XF_S early (the 3-2-1), timed so its bar 1 lands on the change,
    * comes in on an equal-power curve with its low end held back, and drops
    * its kick and bass on the one while the outgoing song fades out under
    * it. A booking already under way starts where the ride clock says it
@@ -283,7 +305,7 @@ export class AdaptiveMixer {
     const fadeOutOf = (b: Booking): number => {
       const next = wanted.find((x) => b.until !== null && Math.abs(x.at - b.until) < SAME_MS);
       const nextSong = next ? this.songs.get(next.songId) : undefined;
-      if (nextSong) return (XF_BARS * 240) / nextSong.song.bpm;
+      if (nextSong) return XF_S;
       return 60 / (this.songs.get(b.songId)?.song.bpm ?? 144);
     };
     const keep: Playing[] = [];
@@ -314,6 +336,10 @@ export class AdaptiveMixer {
       const src = this.ctx.createBufferSource();
       src.buffer = song.buffer;
       src.loop = true;
+      // Loop the loop, not the lead-up kept before it.
+      const loopBuf = song.buffer.duration - song.pre;
+      src.loopStart = song.pre;
+      src.loopEnd = song.buffer.duration;
       src.playbackRate.value = song.rate;
       const hp = this.ctx.createBiquadFilter();
       hp.type = "highpass";
@@ -323,15 +349,20 @@ export class AdaptiveMixer {
       src.connect(hp).connect(gain).connect(this.bus);
       const one = this.ctxTime(b.at); // its bar 1
       const p: Playing = { songId: b.songId, at: b.at, until: b.until, fadeOut: fadeOutOf(b), src, hp, gain };
-      // After another song: start XF_BARS bars before the one, under it.
-      // With none before (the ride's first, during the lead-in): start now,
-      // so the countdown has music too.
+      // After another song: start XF_S before the one, under it. With none
+      // before (the ride's first, during the lead-in): start now, so the
+      // countdown has music too.
       const follows = wanted.some((x) => x !== b && x.until !== null && Math.abs(x.until - b.at) < SAME_MS);
-      const xf = (XF_BARS * 240) / song.song.bpm;
-      const start = Math.max(now + 0.05, follows ? one - xf : -Infinity);
-      const loopSeconds = (song.loop.bars * 240) / song.song.bpm;
-      const into = (((start - one) % loopSeconds) + loopSeconds) % loopSeconds;
-      src.start(start, into * song.rate);
+      const start = Math.max(now + 0.05, follows ? one - XF_S : -Infinity);
+      // Where in the buffer to start, so bar 1 (the buffer at `pre`) plays
+      // at `one`: in the real lead-up when it reaches back far enough,
+      // else wrapped round the loop (a long lead-in), or into the loop
+      // when the stretch is already under way.
+      const ahead = (one - start) * song.rate; // buffer seconds before bar 1
+      const offset = ahead <= song.pre
+        ? song.pre - ahead
+        : song.pre + (((-ahead % loopBuf) + loopBuf) % loopBuf);
+      src.start(start, offset);
       const g = gain.gain, f = hp.frequency;
       g.setValueAtTime(0, start);
       let inEnd: number;
@@ -342,12 +373,12 @@ export class AdaptiveMixer {
         f.exponentialRampToValueAtTime(HP_OPEN, one + SWAP_S);
         powerRamp(g, start, one, 0, 1);
         inEnd = one;
-      } else if (!follows && one - start > xf + INTRO_FADE_S) {
+      } else if (!follows && one - start > XF_S + INTRO_FADE_S) {
         // The lead-in: full song from the countdown's start, then the kick
-        // and bass cut for the last XF_BARS bars and dropped on the one.
+        // and bass cut for the 3-2-1 and dropped on the one.
         f.setValueAtTime(HP_OPEN, start);
-        f.setValueAtTime(HP_OPEN, one - xf);
-        f.exponentialRampToValueAtTime(HP_HOLD, one - xf + CUT_IN_S);
+        f.setValueAtTime(HP_OPEN, one - XF_S);
+        f.exponentialRampToValueAtTime(HP_HOLD, one - XF_S + CUT_IN_S);
         f.setValueAtTime(HP_HOLD, one);
         f.exponentialRampToValueAtTime(HP_OPEN, one + SWAP_S);
         powerRamp(g, start, start + INTRO_FADE_S, 0, 1);

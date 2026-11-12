@@ -92,14 +92,18 @@ should shape what you build:
    because the mixer needs them. Built-in songs are authored in code with
    permanent ids. A neural beat tracker (Beat This!, bundled as ONNX, see
    the Beat model note below) finds each song's beats and downbeats once
-   it is composed (`song-loops.ts`), the loudest steady 16 bars from a
-   downbeat become its loop (`beatgrid.ts`), and the mixer (`mixer.ts`)
-   lands each stretch's song with bar 1 on the block's first beat,
-   crossfading DJ-style: it starts two bars early under the song before
-   on an equal-power curve with its low end held back by a high-pass,
-   and drops its kick and bass on the one, so two kicks never clash.
-   The ride's first song starts with the 10 s lead-in, its bar 1 on Go,
-   kick and bass cut for the last two bars and dropped on Go. Every
+   it is composed (`song-loops.ts`), 16 steady bars from a downbeat
+   become its loop (`beatgrid.ts`): the loudest for low and mid songs,
+   the one starting on the biggest drop for peak songs, so a hard block
+   opens on a drop. The mixer (`mixer.ts`) lands each stretch's song with
+   bar 1 on the block's first beat, crossfading DJ-style over the 3-2-1
+   countdown and no longer: the incoming song plays its own lead-up (a
+   peak song's build) under the outgoing one with its low end held back
+   by a high-pass, and drops its kick and bass on the one, so two kicks
+   never clash. The ride's first song starts with the 10 s lead-in, its
+   bar 1 on Go, kick and bass cut for the 3-2-1 and dropped on Go. When
+   the loop rules change, bump `LOOP_RULES` in `song-loops.ts`: songs are
+   analysed again in the background. Every
    timed block must be whole bars at every set's tempos (20 s → a
    multiple of 12 BPM), since any set can be picked for any adaptive
    ride. A song the beat model cannot loop is a red line in the player,

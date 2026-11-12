@@ -16,9 +16,10 @@
  *  - the network's own downbeats inside it keep falling on the one
  *    (MIN_DOWNBEATS_ON_ONE), so the loop's bar 1 is the music's bar 1.
  *
- * Of those, the loudest wins: the main section or the drop, which is what
- * a hard block wants (the owner heard the sparse start of every track
- * again and again before). A longer loop beats a shorter one within
+ * Of those, the loudest wins: the main section, not the sparse start the
+ * owner heard again and again before. A peak song (`preferDrop`) takes the
+ * section starting on its biggest drop instead, if it has one: a hard
+ * block opens on the drop. A longer loop beats a shorter one within
  * LONGER_WITHIN_DB, so the music repeats less. Pure: scripts/beatgrid.test.ts.
  */
 
@@ -46,7 +47,16 @@ export interface Loop {
   onOne: number;
   /** Mean level of the loop, dB full scale: the loudest section wins. */
   levelDb: number;
+  /**
+   * How much louder (dB) its first two bars are than the two before: a
+   * drop. A peak song's loop starts on its biggest drop, so a hard block
+   * opens on one.
+   */
+  dropDb: number;
 }
+
+/** A section counts as starting on a drop from this rise (dB) on. */
+export const MIN_DROP_DB = 4;
 
 /** Mean level of a stretch of the track, dB (full scale). */
 export function levelDb(mono: Float32Array, sampleRate: number, from: number, seconds: number): number {
@@ -89,6 +99,7 @@ export function loopFromBeats(
   sampleRate: number,
   expectedBpm: number,
   maxBars = 48,
+  opts: { preferDrop?: boolean } = {},
 ): { loop: Loop | null; why: string } {
   const duration = mono.length / sampleRate;
   const found: Loop[] = [];
@@ -121,7 +132,16 @@ export function loopFromBeats(
       if (inside.length < bars / 2 || onOne < MIN_DOWNBEATS_ON_ONE) continue;
       const seconds = slope * n;
       if (start < 0 || start + seconds > duration) continue;
-      found.push({ start, bars, bpm: 60 / slope, jitterMs, onOne, levelDb: levelDb(mono, sampleRate, start, seconds) });
+      // The network places a beat a few ms after its attack: the window
+      // before the start stops short of it and the one after starts a
+      // little early, so the drop's first hit counts as the drop. Measured
+      // from the start itself, 7 ms of a kick out of a quiet build moved
+      // the drop by 3 dB and the loop by a bar.
+      const twoBars = 8 * slope;
+      const dropDb = start >= twoBars
+        ? levelDb(mono, sampleRate, start - 0.02, twoBars) - levelDb(mono, sampleRate, start - twoBars, twoBars - 0.05)
+        : 0;
+      found.push({ start, bars, bpm: 60 / slope, jitterMs, onOne, levelDb: levelDb(mono, sampleRate, start, seconds), dropDb });
     }
   }
   if (!found.length) {
@@ -131,6 +151,15 @@ export function loopFromBeats(
         `${String(beats.length)} beats, ${String(downbeats.length)} downbeats, ~${whole.toFixed(1)} BPM` +
         (Number.isFinite(steadiest) ? `, steadiest section ±${steadiest.toFixed(1)} ms` : ", no 8 steady bars in a row"),
     };
+  }
+  if (opts.preferDrop) {
+    // A peak song: the biggest drop, longer loops first among near-equals.
+    const drops = found.filter((l) => l.dropDb >= MIN_DROP_DB);
+    const biggest = Math.max(...drops.map((l) => l.dropDb));
+    const best = drops
+      .filter((l) => l.dropDb >= biggest - 1)
+      .sort((x, y) => y.bars - x.bars || y.dropDb - x.dropDb)[0];
+    if (best) return { loop: best, why: "" };
   }
   const loudest = Math.max(...found.map((l) => l.levelDb));
   const best = found
