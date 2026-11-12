@@ -249,7 +249,9 @@ joints and makes limbs shrink in the intermediate frames.
 - **Beat model.** Adaptive music finds beats with Beat This! (JKU Linz,
   MIT), its small checkpoint exported to ONNX
   (`src/assets/beat-this/`) and run by onnxruntime-web, bundled, single
-  threaded (the WebView is not cross-origin isolated). The network only
+  threaded (the WebView is not cross-origin isolated), in a Web Worker
+  (`beat-worker.ts`): on the UI thread it froze the interface. Keep the
+  spectrogram and the model there; the app only calls `beatThis()`. The network only
   knows its training input: [`src/lib/melspec.ts`](src/lib/melspec.ts)
   must stay identical to torchaudio's log-mel, and
   `scripts/melspec.test.ts` checks it and the peak picking against the

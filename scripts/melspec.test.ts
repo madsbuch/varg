@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "fs";
-import { aggregate, chunkStarts, postprocess } from "../src/lib/beat-this";
+import { aggregate, chunkStarts, postprocess } from "../src/lib/beat-model";
 import { logMelSpect, N_MELS } from "../src/lib/melspec";
 
 /**

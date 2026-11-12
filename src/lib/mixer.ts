@@ -20,7 +20,8 @@
  * Every way a song can fail is a short label for the player's red line,
  * never off-beat music.
  */
-import { BORDER, beatThis, CHUNK } from "./beat-this";
+import { BORDER, CHUNK } from "./beat-model";
+import { beatThis } from "./beat-this";
 import { loopFromBeats, loudestWindow, MAX_STRETCH } from "./beatgrid";
 import type { Loop } from "./beatgrid";
 import { FPS, SAMPLE_RATE } from "./melspec";
