@@ -23,10 +23,13 @@ export function BattleTrack({
   cacheKey,
   workoutName,
   profile,
+  label = "Battle track",
 }: {
   cacheKey: string;
   workoutName: string;
   profile: MusicProfile;
+  /** Card title: an adaptive ride's layers say which one they are. */
+  label?: string;
 }) {
   const [track, setTrack] = useState<CachedTrack | null | undefined>(undefined);
   const [ensure, setEnsure] = useState<EnsureStatus | null>(null);
@@ -169,7 +172,7 @@ export function BattleTrack({
     <div className="card" style={{ marginTop: 14 }}>
       <div className="row">
         <div>
-          <h3 style={{ fontSize: 15 }}>Battle track</h3>
+          <h3 style={{ fontSize: 15 }}>{label}</h3>
           <div className="faint" style={{ fontSize: 12 }}>
             {profile.style} · {profile.bpm} BPM
           </div>

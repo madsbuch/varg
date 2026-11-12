@@ -36,6 +36,8 @@ import { loadVoiceOn, saveVoiceOn, speak } from "../lib/voice";
 import { clipBlob, playClip, prepareClips } from "../lib/voice-clips";
 import { IconCheck, IconClose, IconMusic, IconSkipBack, IconSkipNext, IconVoice } from "./icons";
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
+import { useAdaptiveTrack } from "./adaptive-track";
+import { musicProfileFor } from "../lib/music";
 import { HrLine, useHeartRate } from "./HeartRate";
 import type { HrLive } from "./HeartRate";
 import { HR_ZONE_NAMES, hrZoneOf, hrZoneRange, loadHrZones } from "../lib/hr";
@@ -387,18 +389,23 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
     setStopped(true);
   };
 
-  const track = useBattleTrack(config.templateId, paused, done);
-  useWorkoutWakeLock(done);
-  // Adaptive rides: book every intensity change of the timed blocks ahead
-  // on the audio clock, rebooked on a new block, a pause or a skip.
-  const { setMusicPlan } = track;
+  // An adaptive ride mixes its three layer tracks block by block; any
+  // other ride plays its one track under the cues.
   const adaptive = config.segments.some((x) => x.intensity !== undefined);
+  const [bpm] = useState(() => musicProfileFor(config.templateId).bpm);
+  const single = useBattleTrack(adaptive ? undefined : config.templateId, paused, done);
+  const mixed = useAdaptiveTrack(adaptive ? config.templateId : undefined, bpm, done);
+  const musicButton = adaptive ? mixed.musicButton : single.musicButton;
+  useWorkoutWakeLock(done);
+  // Hand the mixer every move of the clock and the blocks: it books the
+  // changes ahead on the audio clock and keeps the music on ride time.
+  const { setPlan } = mixed;
   useEffect(() => {
-    if (done) return;
+    if (!adaptive) return;
     const r = run.current;
     const c = clockRef.current;
-    setMusicPlan(musicPlan(config.segments, r.idx, c.anchor + (c.lead + r.segmentStart) * 1000, c.pausedAt !== null));
-  }, [view.idx, jumps, clock, done, config.segments, setMusicPlan]);
+    setPlan(musicPlan(config.segments, r.idx, c.anchor + c.lead * 1000, r.segmentStart, c.pausedAt !== null));
+  }, [adaptive, view.idx, jumps, clock, done, config.segments, setPlan]);
   const attachHr = hr.attach;
 
   // --- Logging ---------------------------------------------------------------
@@ -541,7 +548,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
       <div className="wod ride">
         <div className="wod-top">
           <span className="chip">{config.title}</span>
-          {track.musicButton}
+          {musicButton}
           <button className="check" onClick={openConfirmStop} aria-label="Stop"><IconClose /></button>
         </div>
         <HrLine hr={hr} />
@@ -610,7 +617,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
           },
         ]} />
 
-        {track.audioElement}
+        {single.audioElement}
 
         <div className="wod-controls">
           <div className="btn-row">
@@ -649,14 +656,14 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         >
           <IconVoice />
         </button>
-        {track.musicButton}
+        {musicButton}
         <button className="check" onClick={openConfirmStop} aria-label="Stop"><IconClose /></button>
       </div>
       <HrLine hr={hr} />
-      {track.unrouted && adaptive && (
+      {mixed.problem && (
         <div className="hr-line bad" role="alert">
           <IconMusic />
-          <span className="hr-line-text">Music not adaptive</span>
+          <span className="hr-line-text">{mixed.problem}</span>
         </div>
       )}
       <div className="ride-total">
@@ -812,7 +819,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         },
       ]} />
 
-      {track.audioElement}
+      {single.audioElement}
 
       <div className="wod-controls">
         {seg.kcal !== undefined && !ready && !view.live && (

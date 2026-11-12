@@ -2,6 +2,7 @@ import type { Exercise, Template } from "../types";
 import { libraryFor } from "../lib/library";
 import { LEVEL_LABEL } from "../lib/catalog";
 import { BattleTrack } from "./BattleTrack";
+import { isAdaptive, LAYER_NAMES, LAYERS, layerKey } from "../lib/music";
 import ExerciseAnim from "./ExerciseAnim";
 import { Sheet } from "./ui";
 
@@ -51,7 +52,11 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
         </p>}
       </div>
 
-      <BattleTrack cacheKey={template.id} workoutName={template.name} profile={template.music} />
+      {isAdaptive(template)
+        ? LAYERS.map((l) => (
+          <BattleTrack key={l} cacheKey={layerKey(template.id, l)} workoutName={`${template.name} · ${LAYER_NAMES[l]}`} profile={template.music} label={`Battle track · ${LAYER_NAMES[l]}`} />
+        ))
+        : <BattleTrack cacheKey={template.id} workoutName={template.name} profile={template.music} />}
 
       <div className="section-label">{plan ? "Stations in each round" : forTime ? "Movements" : flow ? "Poses" : "Exercise sequence"}</div>
       <ol className="workout-stations">

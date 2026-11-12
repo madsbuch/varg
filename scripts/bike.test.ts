@@ -238,7 +238,7 @@ describe("adaptive music plan", () => {
   const segs = adaptive?.ride?.segments ?? [];
 
   test("books every change of the ride ahead, at its block boundary", () => {
-    const plan = musicPlan(segs, 0, 1_000_000, false);
+    const plan = musicPlan(segs, 0, 1_000_000, 0, false);
     expect(plan.level).toBe(1);
     // It opens Seated (1): the first change is Standing.
     expect(plan.changes[0]).toEqual({ at: 1_000_000 + 20_000, level: 2 });
@@ -251,18 +251,20 @@ describe("adaptive music plan", () => {
 
   test("from mid-ride, starts at the current block's level", () => {
     const idx = segs.findIndex((s) => s.label === "Accelerate");
-    const plan = musicPlan(segs, idx, 0, false);
+    // Third block: it started 40 s into the ride.
+    const plan = musicPlan(segs, idx, 5_000, 40, false);
     expect(plan.level).toBe(3);
-    expect(plan.changes[0]).toEqual({ at: 20_000, level: 1 });
+    expect(plan.origin).toBe(5_000);
+    expect(plan.changes[0]).toEqual({ at: 5_000 + 60_000, level: 1 });
   });
 
   test("paused: hold the level, book nothing", () => {
-    expect(musicPlan(segs, 1, 0, true)).toEqual({ level: 2, changes: [] });
+    expect(musicPlan(segs, 1, 0, 20, true)).toEqual({ origin: 0, paused: true, level: 2, changes: [] });
   });
 
   test("a ride without intensities never changes the track", () => {
     const tabata = seedTemplates().find((t) => t.id === "tpl-ride-tabata")?.ride?.segments ?? [];
-    expect(musicPlan(tabata, 0, 0, false)).toEqual({ level: 0, changes: [] });
+    expect(musicPlan(tabata, 0, 0, 0, false)).toEqual({ origin: 0, paused: false, level: 0, changes: [] });
   });
 
   test("stops at a kcal block, whose end is unknowable", () => {
@@ -272,7 +274,7 @@ describe("adaptive music plan", () => {
         { label: "B", ftp: [90, 100], kcal: 20, intensity: 3 },
         { label: "C", ftp: [50, 60], seconds: 20, intensity: 1 },
       ],
-      0, 0, false,
+      0, 0, 0, false,
     );
     expect(plan.changes).toEqual([{ at: 20_000, level: 3 }]);
   });

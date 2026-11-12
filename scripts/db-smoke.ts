@@ -19,7 +19,7 @@ import { join } from "node:path";
 import * as t from "../src/db/schema";
 import { EX, seedExercises, seedTemplates } from "../src/lib/seed";
 import { hasLibraryEntry, libraryFor } from "../src/lib/library";
-import { buildStyle, isAdaptive, STYLE_LIMIT } from "../src/lib/music";
+import { buildLayerStyle, buildStyle, isAdaptive, LAYERS, STYLE_LIMIT } from "../src/lib/music";
 import { lengthBucket } from "../src/lib/catalog";
 import * as prsModule from "../src/lib/prs";
 import { estimate1RM } from "../src/lib/units";
@@ -614,11 +614,15 @@ for (const tpl of seedTemplates()) {
 // Every built-in's music description must fit the gateway's limit untrimmed — a
 // truncated prompt silently loses the end of its style description.
 for (const tpl of seedTemplates()) {
-  const style = buildStyle(tpl.name, tpl.music, tpl.interval, isAdaptive(tpl));
-  assert(
-    !style.endsWith("…") && style.length <= STYLE_LIMIT,
-    `template "${tpl.name}" music style is truncated to ${STYLE_LIMIT} chars — shorten its theme or style`,
-  );
+  const styles = isAdaptive(tpl)
+    ? LAYERS.map((l) => buildLayerStyle(tpl.music, l))
+    : [buildStyle(tpl.name, tpl.music, tpl.interval)];
+  for (const style of styles) {
+    assert(
+      !style.endsWith("…") && style.length <= STYLE_LIMIT,
+      `template "${tpl.name}" music style is truncated to ${STYLE_LIMIT} chars — shorten its theme or style`,
+    );
+  }
 }
 
 console.log("DB smoke test passed ✔");

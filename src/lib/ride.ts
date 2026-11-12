@@ -427,14 +427,19 @@ export function rideSchedule(
 }
 
 /**
- * The battle track's intensity from block `idx` on: the level to play now
- * and the wall-clock moment of every later change, as far ahead as the
- * timed blocks reach. All of it is booked on the audio clock at once, so
- * the changes land on time even while the WebView is frozen; a kcal block's
+ * The adaptive music from block `idx` on: the layer to play now, and the
+ * wall-clock moment of every later change, as far ahead as the timed
+ * blocks reach. The mixer books all of it on the audio clock at once, so
+ * changes land on time even while the WebView is frozen; a kcal block's
  * end is unknowable, so the plan stops there and is rebooked when it ends.
- * Level 0 is the track as recorded: rides without intensities never change.
+ *
+ * `origin` is the wall-clock moment of ride time 0. The music's position is
+ * a function of ride time alone, so a pause, a resume or a skip can never
+ * leave it out of step with the blocks.
  */
 export interface MusicPlan {
+  origin: number;
+  paused: boolean;
   level: Intensity | 0;
   changes: { at: number; level: Intensity | 0 }[];
 }
@@ -442,13 +447,14 @@ export interface MusicPlan {
 export function musicPlan(
   segments: RideSegment[],
   idx: number,
-  segmentStartWall: number,
+  origin: number,
+  segmentStart: number,
   paused: boolean,
 ): MusicPlan {
   const level = segments[idx]?.intensity ?? 0;
-  const out: MusicPlan = { level, changes: [] };
+  const out: MusicPlan = { origin, paused, level, changes: [] };
   if (paused) return out;
-  let at = segmentStartWall;
+  let at = origin + segmentStart * 1000;
   let prev = level;
   for (let i = idx; i < segments.length - 1; i++) {
     const seconds = segments[i]?.seconds;

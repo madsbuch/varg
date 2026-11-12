@@ -582,9 +582,9 @@ export function seedTemplates(): Template[] {
       branch: "Spin bike",
       description:
         "Ten one-minute rounds: 20 seconds seated, 20 standing, 20 " +
-        "accelerating, no rest between. The battle track follows the " +
-        "blocks: held back seated, full standing, and a build that drops " +
-        "as you accelerate.",
+        "accelerating, no rest between. The music mixes three tracks on " +
+        "one beat, block by block: low seated, mid standing, peak " +
+        "accelerating.",
       scheme:
         "10 × (20 s seated @ 75–85 % FTP / 20 s standing @ 90–105 % FTP, 60–75 rpm / " +
         "20 s accelerate @ 110–130 % FTP, 105–120 rpm) · 5 min cool-down",

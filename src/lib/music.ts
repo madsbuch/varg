@@ -11,7 +11,7 @@
 // happens on kie.ai's servers, phone asleep or not), in-flight taskIds
 // are persisted, and results are polled — resumed on every app foreground.
 
-import type { IntervalPlan, MusicProfile } from "../types";
+import type { Intensity, IntervalPlan, MusicProfile } from "../types";
 import { seedTemplates } from "./seed";
 import { formatSeconds } from "./units";
 import { errorText, httpFetch } from "./http";
@@ -109,7 +109,11 @@ export interface WorkoutMusic {
 export function workoutMusicList(): WorkoutMusic[] {
   const overrides = loadProfileOverrides();
   const base = [
-    ...seedTemplates().map((t) => ({ key: t.id, name: t.name, music: t.music })),
+    ...seedTemplates().flatMap((t) =>
+      isAdaptive(t)
+        ? LAYERS.map((l) => ({ key: layerKey(t.id, l), name: `${t.name} · ${LAYER_NAMES[l]}`, music: t.music }))
+        : [{ key: t.id, name: t.name, music: t.music }],
+    ),
     { key: "freestyle", name: "Freestyle session", music: FREESTYLE_PROFILE },
   ];
   return base.map((w) => {
@@ -657,18 +661,55 @@ export const TRACK_SECONDS = 360;
  * playback is not aligned to the workout clock. Untimed workouts (logged
  * sessions) get nothing.
  */
-/**
- * Adaptive rides shape the track live (filters, builds, drops: see
- * track.ts), so the source must stay full the whole way: a quiet breakdown
- * in the mix would land on a hard block and fight the player.
- */
-const ADAPTIVE_LINE =
-  " Dense, full mix throughout: punchy kick and bass in every section, no " +
-  "breakdowns, no quiet intro.";
+/* ---------------------------- Adaptive layers ---------------------------- */
+// An adaptive ride has no single track. It has one per intensity, composed
+// in the same style, tempo and key, and the ride player mixes between them
+// block by block (src/lib/mixer.ts). Each layer is cached and composed like
+// any workout track, under its own key.
 
-/** True when a ride drives its track's intensity block by block. */
+/** True when a ride drives its music's intensity block by block. */
 export function isAdaptive(tpl: { ride?: { segments: { intensity?: unknown }[] } | undefined }): boolean {
   return tpl.ride?.segments.some((s) => s.intensity !== undefined) ?? false;
+}
+
+export const LAYERS: readonly Intensity[] = [1, 2, 3];
+export const LAYER_NAMES: Record<Intensity, string> = { 1: "Low", 2: "Mid", 3: "Peak" };
+
+/** Cache key of one layer of an adaptive ride. */
+export function layerKey(templateId: string, level: Intensity): string {
+  return `${templateId}#${String(level)}`;
+}
+
+function parseLayerKey(key: string): { templateId: string; level?: Intensity } {
+  const [templateId = key, l] = key.split("#");
+  const n = Number(l);
+  return n === 1 || n === 2 || n === 3 ? { templateId, level: n } : { templateId };
+}
+
+/**
+ * Layers are loops, not songs: the mixer cuts up to 32 bars from each, so
+ * two minutes is plenty and keeps three decoded layers small on the phone.
+ */
+export const LAYER_SECONDS = 120;
+
+const LAYER_ENERGY: Record<Intensity, string> = {
+  1: "Energy: low. Stripped back: kick, bass and soft hats only, no lead, no risers.",
+  2: "Energy: medium. Full groove: kick, rolling bass, claps, rhythmic synth stabs.",
+  3: "Energy: maximum. Peak drop: pounding kick, heavy bass, big lead synth, everything in.",
+};
+
+/**
+ * The style for one layer. What the mixer needs comes first and is never
+ * trimmed: one steady tempo, a kick on every beat (the beat grid is found
+ * from it), one key so layers can cross, and no intro, breakdown or fade.
+ */
+export function buildLayerStyle(profile: MusicProfile, level: Intensity): string {
+  const head =
+    `Instrumental electronic workout loop, constant ${String(profile.bpm)} BPM, strict 4/4, ` +
+    `four-on-the-floor kick on every beat, A minor, no vocals. Starts on the first beat ` +
+    `with no intro; no breakdowns, no tempo changes, no fade-out. ${LAYER_ENERGY[level]}`;
+  const full = `${head} Style: ${profile.style}.`;
+  return full.length <= STYLE_LIMIT ? full : full.slice(0, STYLE_LIMIT - 1).trimEnd() + "…";
 }
 
 function timingLine(interval?: IntervalPlan): string {
@@ -693,14 +734,12 @@ export function buildStyle(
   workoutName: string,
   profile: MusicProfile,
   interval?: IntervalPlan,
-  adaptive = false,
 ): string {
   const head =
     `Instrumental workout mix, steady ${profile.bpm} BPM, no vocals. ` +
     `Long DJ arrangement, many evolving sections, no early ending or ` +
     `fade-out.` +
-    timingLine(interval) +
-    (adaptive ? ADAPTIVE_LINE : "");
+    timingLine(interval);
   const tail =
     ` For "${workoutName}": ${profile.theme}. Style: ${profile.style}.`;
   const full = head + tail;
@@ -719,8 +758,11 @@ async function requestTrack(
   profile: MusicProfile,
   settings: MusicSettings,
 ): Promise<PendingTask> {
-  const tpl = seedTemplates().find((t) => t.id === key);
-  const style = buildStyle(workoutName, profile, tpl?.interval, tpl ? isAdaptive(tpl) : false);
+  const { templateId, level } = parseLayerKey(key);
+  const tpl = seedTemplates().find((t) => t.id === templateId);
+  const style = level
+    ? buildLayerStyle(profile, level)
+    : buildStyle(workoutName, profile, tpl?.interval);
 
   musicLog(`Requesting "${workoutName}" (Suno ${settings.model}) from kie.ai…`);
   let taskId: string;
@@ -735,7 +777,7 @@ async function requestTrack(
       style,
       negative_tags: "vocals, singing, rap, spoken word, choir",
       // Always sent: without it the model picks its own, short, length.
-      duration: TRACK_SECONDS,
+      duration: level ? LAYER_SECONDS : TRACK_SECONDS,
     });
   } catch (e) {
     musicLog(`Request for "${workoutName}" rejected: ${errorText(e)}`);
