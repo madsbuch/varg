@@ -120,6 +120,12 @@ export interface MusicProfile {
   bpm: number;
   style: string; // genre / instrumentation tags
   theme: string; // mood and story of the workout
+  /**
+   * Adaptive rides: a full style per intensity layer, used instead of
+   * `style`. Each must stand on its own, or Suno writes three versions of
+   * one groove and the mix is only accents.
+   */
+  layers?: Record<Intensity, string> | undefined;
 }
 
 /** Interval prescription for circuit templates that run guided. */

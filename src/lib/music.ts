@@ -693,9 +693,9 @@ function parseLayerKey(key: string): { templateId: string; level?: Intensity } {
 export const LAYER_SECONDS = 120;
 
 const LAYER_ENERGY: Record<Intensity, string> = {
-  1: "Energy: low. Stripped back: kick, bass and soft hats only, no lead, no risers.",
-  2: "Energy: medium. Full groove: kick, rolling bass, claps, rhythmic synth stabs.",
-  3: "Energy: maximum. Peak drop: pounding kick, heavy bass, big lead synth, everything in.",
+  1: "Energy: low, restrained and sparse the whole way.",
+  2: "Energy: medium, a full driving groove the whole way.",
+  3: "Energy: maximum, the peak drop the whole way: explosive, nothing held back.",
 };
 
 /**
@@ -708,7 +708,7 @@ export function buildLayerStyle(profile: MusicProfile, level: Intensity): string
     `Instrumental electronic workout loop, constant ${String(profile.bpm)} BPM, strict 4/4, ` +
     `four-on-the-floor kick on every beat, A minor, no vocals. Starts on the first beat ` +
     `with no intro; no breakdowns, no tempo changes, no fade-out. ${LAYER_ENERGY[level]}`;
-  const full = `${head} Style: ${profile.style}.`;
+  const full = `${head} Style: ${profile.layers?.[level] ?? profile.style}.`;
   return full.length <= STYLE_LIMIT ? full : full.slice(0, STYLE_LIMIT - 1).trimEnd() + "…";
 }
 

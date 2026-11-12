@@ -225,21 +225,42 @@ export interface Loop {
   jitterMs: number;
   coverage: number;
   longestGap: number;
+  /** Mean level of the loop, dB full scale: the loudest section wins. */
+  levelDb: number;
 }
 
-/** Loop lengths to try, longest first: whole phrases. */
-const LOOP_BARS = [32, 16, 8];
+/** Loop lengths, in bars: whole phrases, longest 48 (80 s at 144 BPM). */
+const LOOP_BARS = [48, 32, 16, 8];
+/**
+ * How much quieter (dB) a longer loop may be than the loudest one and
+ * still win: more of the track before it repeats, at the same energy.
+ */
+const LONGER_WITHIN_DB = 1.5;
+
+/** Mean level of a stretch of the track, dB (full scale). */
+function levelDb(mono: Float32Array, sampleRate: number, from: number, seconds: number): number {
+  const a = Math.max(0, Math.round(from * sampleRate)), b = Math.min(mono.length, Math.round((from + seconds) * sampleRate));
+  let sum = 0;
+  for (let i = a; i < b; i++) sum += (mono[i] ?? 0) ** 2;
+  return 10 * Math.log10(sum / Math.max(1, b - a) + 1e-12);
+}
 
 /**
- * The steadiest section of a track, as a loop. A generated track is not a
- * sequencer pattern: it can open on an ambient intro, drop its kick for a
- * breakdown, or drift a little in tempo. So the whole track only gives the
- * tempo roughly; then every section of `bars` bars, in steps of 4 bars,
- * gets its own grid. A section qualifies when nearly every beat carries a
- * hit (MIN_COVERAGE), none goes two bars without one (MAX_GAP_BEATS: a
- * fill passes, a breakdown does not) and they sit tight to the grid (MAX_JITTER_MS); the
- * tightest qualifying section is the loop. Longer loops first; null when no section has a steady beat,
- * with the best section's numbers for the log.
+ * The loop to play from a track: its loudest section with a steady beat.
+ *
+ * A generated track is not a sequencer pattern. It can open on an ambient
+ * intro, drop its kick for a breakdown, or drift a little in tempo, so the
+ * whole track only gives the tempo roughly; then every section of 8 to 48
+ * bars, in steps of 4 bars, gets its own grid. A section qualifies when
+ * nearly every beat carries a hit (MIN_COVERAGE), none goes two bars
+ * without one (MAX_GAP_BEATS: a fill passes, a breakdown does not) and the
+ * hits sit tight to the grid (MAX_JITTER_MS).
+ *
+ * Of those, the loudest wins: the main section or the drop, which is what
+ * a hard block wants. The tightest section was the sparse opening, and
+ * the owner heard the start of the track again and again. A longer loop
+ * beats a shorter one within LONGER_WITHIN_DB, so the music repeats less.
+ * Null when no section qualifies, with the closest numbers for the log.
  */
 export function findLoop(
   mono: Float32Array,
@@ -250,19 +271,29 @@ export function findLoop(
   const duration = mono.length / sampleRate;
   const barS = 240 / whole.bpm;
   let closest = { bpm: whole.bpm, jitterMs: whole.jitterMs, coverage: whole.coverage, longestGap: whole.longestGap };
+  const found: Loop[] = [];
   for (const bars of LOOP_BARS) {
     // One spare bar, so the first downbeat (within a bar) still leaves
     // `bars` whole bars inside the section.
     const len = (bars + 1) * barS;
-    let best: Loop | null = null;
     for (let s = 0; s + len <= duration; s += 4 * barS) {
       const slice = mono.subarray(Math.round(s * sampleRate), Math.round((s + len) * sampleRate));
       const g = analyzeBeats(slice, sampleRate, whole.bpm, 0.01);
       if (g.coverage > closest.coverage) closest = { bpm: g.bpm, jitterMs: g.jitterMs, coverage: g.coverage, longestGap: g.longestGap };
       const start = s + g.downbeat;
-      if (g.jitterMs > MAX_JITTER_MS || g.coverage < MIN_COVERAGE || g.longestGap > MAX_GAP_BEATS || start + (bars * 240) / g.bpm > duration) continue;
-      if (!best || g.jitterMs < best.jitterMs) best = { start, bars, bpm: g.bpm, jitterMs: g.jitterMs, coverage: g.coverage, longestGap: g.longestGap };
+      const seconds = (bars * 240) / g.bpm;
+      if (g.jitterMs > MAX_JITTER_MS || g.coverage < MIN_COVERAGE || g.longestGap > MAX_GAP_BEATS || start + seconds > duration) continue;
+      found.push({
+        start, bars, bpm: g.bpm, jitterMs: g.jitterMs, coverage: g.coverage, longestGap: g.longestGap,
+        levelDb: levelDb(mono, sampleRate, start, seconds),
+      });
     }
+  }
+  if (found.length) {
+    const loudest = Math.max(...found.map((l) => l.levelDb));
+    const best = found
+      .filter((l) => l.levelDb >= loudest - LONGER_WITHIN_DB)
+      .sort((x, y) => y.bars - x.bars || y.levelDb - x.levelDb)[0];
     if (best) return { loop: best, bpm: best.bpm, jitterMs: best.jitterMs, coverage: best.coverage, longestGap: best.longestGap };
   }
   return { loop: null, ...closest };

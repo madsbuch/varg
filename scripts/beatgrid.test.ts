@@ -127,20 +127,20 @@ describe("beat grid", () => {
     expect(loop.jitterMs).toBeLessThan(MAX_JITTER_MS);
   });
 
-  test("a steady track loops 32 bars at its own tempo", () => {
+  test("a steady track loops 48 bars at its own tempo", () => {
     const { loop } = findLoop(busy(146.3, 1.02, 120), 22050, 144);
-    expect(loop?.bars).toBe(32);
+    expect(loop?.bars).toBe(48);
     expect(Math.abs((loop?.bpm ?? 0) - 146.3)).toBeLessThan(0.05);
   });
 
   test("accented ones: soft beats 2-4 still count as hits", () => {
     // The one at twice the level of the other three: every beat is a hit.
     const { loop } = findLoop(track(146.9, 0.77, 120), 22050, 144);
-    expect(loop?.bars).toBe(32);
+    expect(loop?.bars).toBe(48);
     expect(loop?.coverage).toBeGreaterThan(0.95);
   });
 
-  test("fills: a bar without the kick every 8 bars still loops 32 bars", () => {
+  test("fills: a bar without the kick every 8 bars still loops 48 bars", () => {
     // Like the owner's real Mid layer (89 % of beats hit): the kick drops
     // out for the last bar of every 8-bar phrase.
     const sr = 22050, bpm = 143.95, beat = 60 / bpm;
@@ -153,9 +153,22 @@ describe("beat grid", () => {
       }
     }
     const { loop } = findLoop(x, sr, 144);
-    expect(loop?.bars).toBe(32);
+    expect(loop?.bars).toBe(48);
     expect(loop?.coverage).toBeLessThan(0.9);
     expect(loop?.longestGap).toBeLessThanOrEqual(4);
+  });
+
+  test("the loudest steady section is the loop, not the clean opening", () => {
+    // The owner heard the start of every track again and again. Here the
+    // first 30 s carry the same tight beat at a quarter of the level: the
+    // loop must come from the full section after it.
+    const sr = 22050;
+    const x = busy(144, 0.4, 130, sr);
+    for (let i = 0; i < 30 * sr; i++) x[i] = (x[i] ?? 0) * 0.25;
+    const { loop } = findLoop(x, sr, 144);
+    if (!loop) throw new Error("no loop");
+    expect(loop.start).toBeGreaterThanOrEqual(29.9);
+    expect(loop.bars).toBe(48);
   });
 
   test("noise: no loop, and the closest numbers for the log", () => {

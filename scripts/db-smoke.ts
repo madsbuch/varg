@@ -614,6 +614,12 @@ for (const tpl of seedTemplates()) {
 // Every built-in's music description must fit the gateway's limit untrimmed — a
 // truncated prompt silently loses the end of its style description.
 for (const tpl of seedTemplates()) {
+  // An adaptive ride mixes three tracks: each needs its own style, or
+  // Suno writes one groove three times and the mix is only accents.
+  if (isAdaptive(tpl)) {
+    const l = tpl.music.layers;
+    assert(l !== undefined && new Set([l[1], l[2], l[3]]).size === 3, `template "${tpl.name}": an adaptive ride needs music.layers, a different style per intensity`);
+  }
   const styles = isAdaptive(tpl)
     ? LAYERS.map((l) => buildLayerStyle(tpl.music, l))
     : [buildStyle(tpl.name, tpl.music, tpl.interval)];

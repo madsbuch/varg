@@ -602,7 +602,21 @@ export function seedTemplates(): Template[] {
           { label: "Cool-down", ftp: [40, 55], seconds: 300, intensity: 1 },
         ],
       },
-      music: { bpm: 144, style: "driving tech house, punchy kick, rolling bassline, no vocals", theme: "Sit, stand, accelerate, a minute at a time, the music lifting with every block" },
+      music: {
+        bpm: 144,
+        style: "driving tech house, punchy kick, rolling bassline, no vocals",
+        theme: "Sit, stand, accelerate, a minute at a time, the music lifting with every block",
+        // Three tracks, mixed by the block: they must sound unlike each
+        // other, not like one groove with accents.
+        layers: {
+          1: "minimal deep tech house, sparse and hypnotic, steady deep kick, deep sub bass, " +
+            "quiet shakers, dark filtered pads, no claps, no lead, no risers",
+          2: "driving tech house groove, rolling bassline, claps on 2 and 4, open hi-hats, " +
+            "percussive synth stabs, bouncy and confident",
+          3: "peak-time hard techno drop, distorted pounding kick, huge rumbling bass, " +
+            "screaming supersaw lead, crash cymbals, rave stabs, euphoric and explosive",
+        },
+      },
     },
     {
       id: "tpl-ride-kcal-ladder",

@@ -54,7 +54,7 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
 
       {isAdaptive(template)
         ? LAYERS.map((l) => (
-          <BattleTrack key={l} cacheKey={layerKey(template.id, l)} workoutName={`${template.name} · ${LAYER_NAMES[l]}`} profile={template.music} label={`Battle track · ${LAYER_NAMES[l]}`} />
+          <BattleTrack key={l} cacheKey={layerKey(template.id, l)} workoutName={`${template.name} · ${LAYER_NAMES[l]}`} profile={{ ...template.music, style: template.music.layers?.[l] ?? template.music.style }} label={`Battle track · ${LAYER_NAMES[l]}`} />
         ))
         : <BattleTrack cacheKey={template.id} workoutName={template.name} profile={template.music} />}
 
