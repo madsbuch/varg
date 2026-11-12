@@ -189,6 +189,10 @@ const XF_BARS = 2;
 const HP_HOLD = 300;
 const HP_OPEN = 10;
 const SWAP_S = 0.03;
+/** The ride's first song fades in over this from the lead-in's start. */
+const INTRO_FADE_S = 0.5;
+/** How fast the low end is cut before the drop on the ride's first one. */
+const CUT_IN_S = 0.15;
 
 /**
  * An equal-power move of `p` from `from` to `to` over [t0, t1], as linear
@@ -319,24 +323,38 @@ export class AdaptiveMixer {
       src.connect(hp).connect(gain).connect(this.bus);
       const one = this.ctxTime(b.at); // its bar 1
       const p: Playing = { songId: b.songId, at: b.at, until: b.until, fadeOut: fadeOutOf(b), src, hp, gain };
-      // Start XF_BARS bars before the one, or as early as now allows.
-      const lead = (XF_BARS * 240) / song.song.bpm;
-      const start = Math.max(now + 0.05, one - lead);
+      // After another song: start XF_BARS bars before the one, under it.
+      // With none before (the ride's first, during the lead-in): start now,
+      // so the countdown has music too.
+      const follows = wanted.some((x) => x !== b && x.until !== null && Math.abs(x.until - b.at) < SAME_MS);
+      const xf = (XF_BARS * 240) / song.song.bpm;
+      const start = Math.max(now + 0.05, follows ? one - xf : -Infinity);
       const loopSeconds = (song.loop.bars * 240) / song.song.bpm;
       const into = (((start - one) % loopSeconds) + loopSeconds) % loopSeconds;
       src.start(start, into * song.rate);
       const g = gain.gain, f = hp.frequency;
       g.setValueAtTime(0, start);
       let inEnd: number;
-      if (one - start > 0.05) {
+      if (follows && one - start > 0.05) {
         // Under the outgoing song: highs first, the low end on the one.
         f.setValueAtTime(HP_HOLD, start);
         f.setValueAtTime(HP_HOLD, one);
         f.exponentialRampToValueAtTime(HP_OPEN, one + SWAP_S);
         powerRamp(g, start, one, 0, 1);
         inEnd = one;
+      } else if (!follows && one - start > xf + INTRO_FADE_S) {
+        // The lead-in: full song from the countdown's start, then the kick
+        // and bass cut for the last XF_BARS bars and dropped on the one.
+        f.setValueAtTime(HP_OPEN, start);
+        f.setValueAtTime(HP_OPEN, one - xf);
+        f.exponentialRampToValueAtTime(HP_HOLD, one - xf + CUT_IN_S);
+        f.setValueAtTime(HP_HOLD, one);
+        f.exponentialRampToValueAtTime(HP_OPEN, one + SWAP_S);
+        powerRamp(g, start, start + INTRO_FADE_S, 0, 1);
+        inEnd = start + INTRO_FADE_S;
       } else {
-        // Under way (a resume, a skip, a song that just loaded): straight in.
+        // Under way (a resume, a skip, a song that just loaded, or too
+        // little lead-in left to build): straight in.
         f.setValueAtTime(HP_OPEN, start);
         powerRamp(g, start, start + 0.1, 0, 1);
         inEnd = start + 0.1;
