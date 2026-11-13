@@ -325,12 +325,17 @@ joints and makes limbs shrink in the intermediate frames.
   for history: a session whose overlapping watch activity has heart rate
   shows the watch's numbers, and the strap's recording only fills in when
   there is none. The live strap reading is for the workout itself.
-- **Spoken cues.** Guided workouts name what comes next — the first
-  exercise in the lead-in, the next one as each rest or move begins — in a
-  calm yoga voice or a firm workout voice. The lines are generated through
-  kie.ai and cached; `allVoiceLines()` derives them from the player's own
-  steps via `configForTemplate`, so new content is voiced automatically. Do
-  not hand-maintain a line list.
+- **Spoken cues.** Every workout with a player names what comes next, in
+  a calm yoga voice or a firm workout voice. Guided workouts: the first
+  exercise in the lead-in, the next one as each rest or move begins, and
+  where work runs straight into more work (an EMOM minute, a warm-up, an
+  interval with no rest) during it, at `announceAt` (wod.ts): before the
+  3-2-1, never over it. For time: the first stage in the lead-in, each
+  next stage as the last is marked done (`stageLine`). Rides: each
+  segment ahead of it. The lines are generated through kie.ai and cached;
+  `allVoiceLines()` derives them from the players' own steps and stages,
+  so new content is voiced automatically. Do not hand-maintain a line
+  list. Players share `useVoiceCues` (toggle, clips, red line on failure).
 - **Beat model.** Adaptive music finds beats with Beat This! (JKU Linz,
   MIT), its small checkpoint exported to ONNX
   (`src/assets/beat-this/`) and run by onnxruntime-web, bundled, single

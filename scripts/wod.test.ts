@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
-  advanceProgress, buildSteps, clockElapsed, configForTemplate, emomAnnounceAt, emomPhase, emomRoundsTarget, newWodProgress,
+  advanceProgress, buildSteps, clockElapsed, configForTemplate, announceAt, emomPhase, emomRoundsTarget, newWodProgress,
   recordedEntries, recordedSession, seekClock, stepIndexAt, togglePauseClock,
 } from "../src/lib/wod";
 import type { Clock, WodConfig } from "../src/lib/wod";
@@ -8,7 +8,7 @@ import { templateLength } from "../src/lib/catalog";
 import type { Template } from "../src/types";
 import { recomputePRs } from "../src/lib/prs";
 import { seedExercises, seedTemplates } from "../src/lib/seed";
-import { allVoiceLines, cueLine, restLine } from "../src/lib/voice-clips";
+import { allVoiceLines, cueLine, nextLine, spokenLabel, stageLine, stageLines } from "../src/lib/voice-clips";
 
 const exercises = seedExercises();
 const EX_DEAD_BUG = "ex-dead-bug";
@@ -147,7 +147,7 @@ describe("spoken cue lines", () => {
       if (typeof cfg === "string") continue;
       const all = buildSteps(cfg);
       for (const [i, step] of all.entries()) {
-        for (const line of [cueLine(step), restLine(all, i)]) {
+        for (const line of [cueLine(step), nextLine(all, i)]) {
           if (!line) continue;
           spoken++;
           expect(lines.has(`${cfg.voice!}|${line}`)).toBe(true);
@@ -261,17 +261,20 @@ describe("Full Body EMOM - 20 Minutes", () => {
     expect(skips.exercise!.name).toBe("Single-Under");
     expect(emomPhase(skips, 59.9)).toBe("work");
     expect(emomPhase(steps[0]!, 1)).toBe("rest"); // lead-in is not work
-    // The next exercise is named 10 s before a rep minute ends.
-    expect(emomAnnounceAt(burpees)).toBe(50);
-    expect(emomAnnounceAt(warm)).toBeUndefined();
+    // The next exercise is named 10 s before a rep minute ends; a warm-up
+    // move runs straight into the next, so 8 s before its end.
+    const idx = (st: typeof warm) => steps.indexOf(st);
+    expect(announceAt(steps, idx(burpees))).toBe(50);
+    expect(announceAt(steps, idx(warm))).toBe(32);
     // A timed station (none ships today, the model still allows one) rests
     // by itself once its round's seconds have run, and is announced then.
     const plan = tpl.emom!;
     const timed: Template = { ...tpl, emom: { ...plan, stations: plan.stations.map((st, i) => (i === 3 ? { exerciseId: "ex-high-knees", seconds: [35, 38, 40] } : st)) } };
-    const ts = buildSteps(cfgOf(timed)).filter((st) => st.exercise?.name === "High Knees" && st.emom?.block === "station");
+    const tsteps = buildSteps(cfgOf(timed));
+    const ts = tsteps.filter((st) => st.exercise?.name === "High Knees" && st.emom?.block === "station");
     expect(ts.map((st) => st.emom!.target)).toEqual(["35 s", "38 s", "40 s"]);
     expect([emomPhase(ts[0]!, 34.9), emomPhase(ts[0]!, 35), emomPhase(ts[2]!, 39.9), emomPhase(ts[2]!, 40)]).toEqual(["work", "rest", "work", "rest"]);
-    expect(emomAnnounceAt(ts[0]!)).toBe(35);
+    expect(announceAt(tsteps, tsteps.indexOf(ts[0]!))).toBe(35);
   });
 
   test("pause freezes the minute and resume continues it; standby lands on the right minute", () => {
@@ -357,12 +360,13 @@ describe("Full Body EMOM - 20 Minutes", () => {
     expect(typeof configForTemplate(tpl, partial)).toBe("string");
   });
 
-  test("the voice names the next minute's exercise as each rest begins", () => {
+  test("the voice names every next exercise: each warm-up move, each minute", () => {
     const burpeeIdx = steps.findIndex((st) => st.exercise?.name === "Burpee");
     expect(cueLine(steps[0]!)).toBe("First: Run on the Spot");
-    expect(restLine(steps, burpeeIdx)).toBe("Next: Reverse Lunge");
-    expect(restLine(steps, 1)).toBe(""); // warm-up has no rest
-    expect(restLine(steps, steps.length - 1)).toBe(""); // nothing after the last minute
+    expect(nextLine(steps, burpeeIdx)).toBe("Next: Reverse Lunge");
+    // The warm-up runs back to back: each move names the next, the last the first minute.
+    expect([1, 2, 3].map((i) => nextLine(steps, i))).toEqual(["Next: Arm Circles", "Next: Air Squat", "Next: Burpee"]);
+    expect(nextLine(steps, steps.length - 1)).toBe(""); // nothing after the last minute
     const lines = new Set(allVoiceLines().map((l) => `${l.role}|${l.text}`));
     expect(lines.has("workout|Next: Band or Backpack Row")).toBe(true);
   });
@@ -389,5 +393,48 @@ describe("Kettlebell EMOM - 20 Minutes", () => {
     ]);
     expect(stations[0]!.emom!.target).toBe("15 reps");
     expect(stations.map((st) => st.at - steps[0]!.secs)).toEqual(stations.map((_, i) => 120 + i * 60));
+  });
+});
+
+describe("spoken cues in every workout with a player", () => {
+  const exById = new Map(seedExercises().map((e) => [e.id, e]));
+  const steps = (id: string) => buildSteps(configForTemplate(seedTemplates().find((t) => t.id === id)!, exById) as WodConfig);
+
+  test("an interval with no rest names each next station before the 3-2-1", () => {
+    for (const id of ["tpl-cindy", "tpl-rasteplads", "tpl-varg-mobility-5", "tpl-varg-mobility-20"]) {
+      const s = steps(id);
+      const work = s.map((st, i) => [st, i] as const).filter(([st]) => st.kind === "work");
+      // Every station but the last is named by the one before it.
+      expect(work.slice(0, -1).every(([, i]) => nextLine(s, i).startsWith("Next: "))).toBe(true);
+      expect(nextLine(s, work.at(-1)![1])).toBe("");
+      for (const [st, i] of work.slice(0, -1)) {
+        const at = announceAt(s, i)!;
+        expect(st.secs - at).toBeGreaterThan(3); // before the countdown
+        expect(at).toBeGreaterThanOrEqual(st.secs / 2);
+      }
+    }
+    // Cindy's 40 s stations: 8 s before the end. Rasteplads' 15 s: halfway.
+    expect(announceAt(steps("tpl-cindy"), 1)).toBe(32);
+    expect(announceAt(steps("tpl-rasteplads"), 1)).toBe(7.5);
+  });
+
+  test("a rest still names what follows as it begins, never twice", () => {
+    const s = steps("tpl-varg-18");
+    expect(s.every((_, i) => nextLine(s, i) === "")).toBe(true);
+    expect(cueLine(s[2]!)).toBe("Next: Run on the Spot");
+  });
+
+  test("for time: the first stage in the lead-in, each next as the last is done, in plain words", () => {
+    const tpl = (id: string) => seedTemplates().find((t) => t.id === id)!;
+    const murph = tpl("tpl-murph").forTime!.stages;
+    expect(stageLines(murph)).toEqual([
+      "First: 1.6 kilometres run", "Next: 100 pull-ups", "Next: 200 push-ups", "Next: 300 air squats", "Next: 1.6 kilometres run",
+    ]);
+    expect(stageLine(tpl("tpl-dt").forTime!.stages, 1)).toBe("Next: Round 1, 9 hang power cleans");
+    expect(spokenLabel("800 m run")).toBe("800 metres run");
+    const lines = new Set(allVoiceLines().map((l) => `${l.role}|${l.text}`));
+    for (const t of seedTemplates()) {
+      for (const line of stageLines(t.forTime?.stages ?? [])) expect(lines.has(`workout|${line}`)).toBe(true);
+    }
   });
 });

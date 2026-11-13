@@ -29,6 +29,8 @@ import ExerciseAnim from "./ExerciseAnim";
 import { IconCheck, IconClose } from "./icons";
 import { useWorkoutWakeLock } from "./battle-track";
 import { useWorkoutMusic } from "./workout-music";
+import { useVoiceCues } from "./voice-cues";
+import { stageLine, stageLines } from "../lib/voice-clips";
 import { mainEnergy, openSections, templateById } from "../lib/workout-music";
 import { useHeartRate } from "./HeartRate";
 import { Slot, TopTitle } from "./TopBar";
@@ -196,6 +198,20 @@ export default function ForTimePlayer({
     cueTick();
   }, [ready, paused, readyRemain]);
 
+  // The workout voice names the first stage in the lead-in, and each next
+  // stage as the one before it is marked done ("Next: 15 pull-ups"). The
+  // clock starts on the work beep; a failed voice still gets its beep.
+  const voiceLines = useMemo(() => stageLines(stages), [stages]);
+  const voice = useVoiceCues("workout", voiceLines);
+  const { say } = voice;
+  const voiceReady = voice.ready;
+  const cuedFirst = useRef(false);
+  useEffect(() => {
+    if (!ready || !voiceReady || cuedFirst.current) return;
+    cuedFirst.current = true;
+    say(stageLine(stages, 0), () => undefined);
+  }, [ready, voiceReady, stages, say]);
+
   const cuedStage = useRef(-1); // -1: lead-in
   useEffect(() => {
     const at = ready ? -1 : marks.length;
@@ -205,8 +221,9 @@ export default function ForTimePlayer({
     }
     cuedStage.current = at;
     if (at === stages.length) cueFinish();
-    else cueWork();
-  }, [ready, marks.length, stages.length]);
+    else if (at === 0) cueWork();
+    else say(stageLine(stages, at), cueWork);
+  }, [ready, marks.length, stages, say]);
 
   // --- Transport -------------------------------------------------------------
   const completeStage = () => {
@@ -408,7 +425,7 @@ export default function ForTimePlayer({
     <div className={`wod ${ready ? "resting" : ""}`}>
       <div className="wod-top">
         <TopTitle hr={hr} title={`${config.title} · Stage ${String(stageIdx + 1)}/${String(stages.length)}`} />
-        <Slot>{null}</Slot>
+        <Slot>{voice.button}</Slot>
         <Slot>{track.musicButton}</Slot>
         <button className="check" onClick={openConfirmStop} aria-label="Stop">
           <IconClose />
@@ -431,6 +448,8 @@ export default function ForTimePlayer({
           <ExerciseAnim anim={exercise ? libraryFor(exercise).anim : "rest"} size={170} />
         </div>
         {track.problem && <div className="wod-voice-error">{track.problem}</div>}
+        {voice.error}
+        {ready && voice.note}
         <div className="wod-exname">{stage.label}</div>
         <div className="muted fortime-stage-time">
           {ready ? "First up" : `This stage ${formatSeconds(Math.max(0, work - stageStart))}`}

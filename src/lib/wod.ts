@@ -254,16 +254,29 @@ export function emomPhase(step: Step, into: number): "work" | "rest" {
 
 /** Seconds before a rep station's minute ends at which the voice names the next exercise. */
 export const EMOM_ANNOUNCE_SECS = 10;
+/**
+ * Back-to-back work (no rest between): how long before the end the voice
+ * names the next exercise. Done before the 3-2-1, so the two never talk
+ * over each other; a short station hears it halfway through instead.
+ */
+export const BACK_TO_BACK_SECS = 8;
 
 /**
- * When, in seconds into an EMOM station, the voice names what the next
- * minute starts with: as a timed station's rest begins, or ten seconds
- * before a rep station's minute ends. Undefined for any other step.
+ * When, in seconds into work step `index`, the voice names the exercise
+ * that follows it directly. Undefined when a rest (or a move between
+ * poses) follows instead: that step's own line names it, as it begins.
+ *  - An EMOM minute: as a timed station's rest begins, or ten seconds
+ *    before a rep minute ends.
+ *  - Any other work straight into more work (a warm-up, an interval with
+ *    no rest): BACK_TO_BACK_SECS before the end, or halfway.
  */
-export function emomAnnounceAt(step: Step): number | undefined {
+export function announceAt(steps: Step[], index: number): number | undefined {
+  const step = steps[index];
+  const next = steps[index + 1];
+  if (step?.kind !== "work" || next?.kind !== "work" || !next.exercise) return undefined;
   const e = step.emom;
-  if (step.kind !== "work" || e?.block !== "station") return undefined;
-  return e.workSecs ?? Math.max(0, step.secs - EMOM_ANNOUNCE_SECS);
+  if (e?.block === "station") return e.workSecs ?? Math.max(0, step.secs - EMOM_ANNOUNCE_SECS);
+  return Math.max(step.secs / 2, step.secs - BACK_TO_BACK_SECS);
 }
 
 /**

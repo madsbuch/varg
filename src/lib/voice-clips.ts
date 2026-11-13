@@ -19,7 +19,7 @@ import { loadMusicSettings } from "./music";
 import { audioResults, createTask, download, getTask } from "./kie";
 import { duckMusic, getAudioContext } from "./beep";
 import type { Side } from "../types";
-import { buildSteps, configForTemplate } from "./wod";
+import { announceAt, buildSteps, configForTemplate } from "./wod";
 import { rideLine } from "./ride";
 import type { Step, VoiceRole } from "./wod";
 
@@ -269,23 +269,44 @@ export function cueLine(step: Step): string {
 }
 
 /**
- * EMOM: what the player says ahead of the next minute — as a timed
- * station's rest begins, or ten seconds before a rep station's minute
- * ends (`emomAnnounceAt`): the exercise the next minute starts with. A
- * station minute has no rest step of its own, so this is keyed on the
- * station's index in the steps.
+ * What the player says during work step `index` about the exercise that
+ * follows it directly, with no rest in between to name it in: an EMOM's
+ * next minute, a warm-up's next move, the next station of an interval
+ * with no rest. When (`announceAt` in wod.ts) is the player's business.
  */
-export function restLine(steps: Step[], index: number): string {
-  const step = steps[index];
+export function nextLine(steps: Step[], index: number): string {
   const next = steps[index + 1];
-  if (step?.emom?.block !== "station" || !next?.exercise) return "";
+  if (announceAt(steps, index) === undefined || !next?.exercise) return "";
   return poseLine(next.exercise.name, next.side, "Next");
 }
 
 /** Every line a step list can speak, in order, each once. */
 export function stepLines(steps: Step[]): string[] {
-  const lines = steps.flatMap((s, i) => [cueLine(s), restLine(steps, i)]);
+  const lines = steps.flatMap((s, i) => [cueLine(s), nextLine(steps, i)]);
   return [...new Set(lines.filter(Boolean))];
+}
+
+/** A for-time stage's label as it should sound: "Round 3 · 9 cleans" → "Round 3, 9 cleans". */
+export function spokenLabel(label: string): string {
+  return label
+    .replace(/\s*·\s*/g, ", ")
+    .replace(/(\d+(?:\.\d+)?)\s*km\b/g, "$1 kilometres")
+    .replace(/(\d+)\s*m\b/g, "$1 metres")
+    .replace(/\s*@\s*/g, " at ");
+}
+
+/**
+ * What the for-time player says: the first stage during the lead-in, then
+ * each next stage as the one before it is marked done.
+ */
+export function stageLine(stages: { label: string }[], index: number): string {
+  const stage = stages[index];
+  if (!stage) return "";
+  return `${index === 0 ? "First" : "Next"}: ${spokenLabel(stage.label)}`;
+}
+
+export function stageLines(stages: { label: string }[]): string[] {
+  return [...new Set(stages.map((_, i) => stageLine(stages, i)))];
 }
 
 export interface VoiceLine {
@@ -310,6 +331,15 @@ export function allVoiceLines(): VoiceLine[] {
       if (seen.has(id)) continue;
       seen.add(id);
       out.push({ role: cfg.voice, text });
+    }
+  }
+  // For time: the workout voice names each stage as the last one is done.
+  for (const t of seedTemplates()) {
+    for (const text of stageLines(t.forTime?.stages ?? [])) {
+      const id = `workout|${text}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push({ role: "workout", text });
     }
   }
   // Rides: the workout voice names each segment ahead of it.

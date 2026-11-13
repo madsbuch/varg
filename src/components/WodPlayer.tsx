@@ -25,7 +25,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../lib/app-context";
 import { deleteSession, upsertSession } from "../lib/store";
 import {
-  advanceProgress, buildSteps, clockElapsed, emomAnnounceAt, emomPhase, newWodProgress, recordedSession,
+  advanceProgress, buildSteps, clockElapsed, announceAt, emomPhase, newWodProgress, recordedSession,
   seekClock, stepIndexAt, togglePauseClock,
 } from "../lib/wod";
 import type { Clock, Step, StepKind, WodConfig } from "../lib/wod";
@@ -33,10 +33,10 @@ import { libraryFor } from "../lib/library";
 import { useBackHandler } from "../lib/back";
 import type { AnimKey } from "./ExerciseAnim";
 import { cueFinish, cueRest, cueTick, cueWork, unlockAudio } from "../lib/beep";
-import { loadVoiceOn, saveVoiceOn, speak } from "../lib/voice";
-import { cueLine, playClip, prepareClips, restLine, stepLines, voiceConfigured } from "../lib/voice-clips";
+import { cueLine, nextLine, stepLines } from "../lib/voice-clips";
+import { useVoiceCues } from "./voice-cues";
 import ExerciseAnim from "./ExerciseAnim";
-import { IconCheck, IconClose, IconVoice } from "./icons";
+import { IconCheck, IconClose } from "./icons";
 import { useWorkoutWakeLock } from "./battle-track";
 import { useWorkoutMusic } from "./workout-music";
 import { mainEnergy, templateById, wodSections } from "../lib/workout-music";
@@ -156,12 +156,13 @@ export default function WodPlayer({
   const step = steps[Math.min(stepIdx, steps.length - 1)];
   const remain = step ? Math.max(0, Math.ceil(step.at + step.secs - elapsed)) : 0;
 
-  // EMOM: a timed station rests once its seconds have run. And when the
-  // next minute's exercise is named (`emomAnnounceAt`).
+  // EMOM: a timed station rests once its seconds have run. And when work
+  // runs straight into more work, the moment the next one is named
+  // (`announceAt`): there is no rest step to name it in.
   const emom = config.emom !== undefined;
   const phase = step ? emomPhase(step, elapsed - step.at) : "rest";
-  const announceAt = step ? emomAnnounceAt(step) : undefined;
-  const announceIn = step && announceAt !== undefined && !done && elapsed - step.at >= announceAt ? stepIdx : -1;
+  const announceSecs = announceAt(steps, stepIdx);
+  const announceIn = step && announceSecs !== undefined && !done && elapsed - step.at >= announceSecs ? stepIdx : -1;
 
   // The next two steps — rest included, because with 10 s rests the useful
   // lookahead is "rest, then push-ups". A flow's moves are just the way
@@ -183,44 +184,13 @@ export default function WodPlayer({
   // move between poses) begins. The work itself starts on a beep.
   const voiceRole = config.voice;
   const voiced = voiceRole !== undefined;
-  const [voiceOn, setVoiceOn] = useState(loadVoiceOn);
-  const [voiceError, setVoiceError] = useState<string | null>(null);
-  // Generated clips for this workout, decoded before the first cue so every
-  // line plays the instant its step begins. Lines without a clip fall back
-  // to the phone's voice, and the player says how many.
-  const [clips, setClips] = useState<{ buffers: Map<string, AudioBuffer>; missing: string[] } | null>(
-    voiced ? null : { buffers: new Map(), missing: [] },
-  );
-  useEffect(() => {
-    if (!voiceRole) return;
-    let alive = true;
-    const lines = stepLines(steps);
-    prepareClips(voiceRole, lines).then(
-      (r) => { if (alive) setClips(r); },
-      () => { if (alive) setClips({ buffers: new Map(), missing: lines }); },
-    );
-    return () => { alive = false; };
-  }, [voiceRole, steps]);
-  // Speak a line, or give the step its beep when there is no line to say.
-  const say = useCallback((line: string, beep: () => void) => {
-    if (!line) {
-      beep();
-      return;
-    }
-    const clip = clips?.buffers.get(line);
-    if (clip && playClip(clip)) return;
-    speak(line).then(
-      () => { setVoiceError(null); },
-      (e: unknown) => {
-        // Say why there is no voice, and still give the step a sound.
-        setVoiceError(e instanceof Error ? e.message : String(e));
-        beep();
-      },
-    );
-  }, [clips]);
+  const voiceLines = useMemo(() => stepLines(steps), [steps]);
+  const voice = useVoiceCues(voiceRole, voiceLines);
+  const { say } = voice;
+  const voiceReady = voice.ready;
   const cuedStep = useRef(voiced ? -1 : 0);
   useEffect(() => {
-    if (voiced && voiceOn && !clips) return; // wait for the clips: speak properly, once
+    if (!voiceReady) return; // wait for the clips: speak properly, once
     if (cuedStep.current === stepIdx) return;
     cuedStep.current = stepIdx;
     const s = steps[stepIdx];
@@ -238,20 +208,21 @@ export default function WodPlayer({
         cueRest();
       }
     };
-    say(voiced && voiceOn ? cueLine(s) : "", beep);
-  }, [stepIdx, steps, flow, voiced, voiceOn, clips, say]);
+    say(cueLine(s), beep);
+  }, [stepIdx, steps, flow, voiceReady, say]);
 
-  // EMOM: ahead of the next minute the voice names its exercise — as a
-  // timed station's rest begins (with the low rest tone when there is no
-  // voice), or ten seconds before a rep station's minute ends.
+  // Work straight into more work (an EMOM's next minute, a warm-up, an
+  // interval with no rest): the voice names what comes next before it
+  // starts. A timed EMOM station's rest begins there too: the low rest
+  // tone when there is no voice; otherwise no beep, the 3-2-1 follows.
   const cuedRest = useRef(-1);
   useEffect(() => {
     if (announceIn < 0 || cuedRest.current === announceIn) return;
-    if (voiced && voiceOn && !clips) return;
+    if (!voiceReady) return;
     cuedRest.current = announceIn;
     const timed = steps[announceIn]?.emom?.workSecs !== undefined;
-    say(voiced && voiceOn ? restLine(steps, announceIn) : "", timed ? cueRest : () => undefined);
-  }, [announceIn, steps, voiced, voiceOn, clips, say]);
+    say(nextLine(steps, announceIn), timed ? cueRest : () => undefined);
+  }, [announceIn, steps, voiceReady, say]);
 
   const cuedTick = useRef("");
   useEffect(() => {
@@ -493,20 +464,7 @@ export default function WodPlayer({
             ? `${formatSeconds(workTotal - workElapsed)} left`
             : `${formatSeconds(workElapsed)} / ${formatSeconds(workTotal)}`}
         </span>
-        <Slot>{voiced && (
-          <button
-            className={`check music ${voiceOn ? "on" : ""}`}
-            aria-label={voiceOn ? "Stop the spoken cues" : "Speak the cues"}
-            onClick={() => {
-              const next = !voiceOn;
-              setVoiceOn(next);
-              saveVoiceOn(next);
-              if (!next) setVoiceError(null);
-            }}
-          >
-            <IconVoice />
-          </button>
-        )}</Slot>
+        <Slot>{voice.button}</Slot>
         <Slot>{track.musicButton}</Slot>
         <button className="check" onClick={openConfirmStop} aria-label="Stop">
           <IconClose />
@@ -539,16 +497,8 @@ export default function WodPlayer({
           </ul>
         )}
         {track.problem && <div className="wod-voice-error">{track.problem}</div>}
-        {voiced && voiceOn && voiceError && (
-          <div className="wod-voice-error">Voice unavailable: {voiceError}</div>
-        )}
-        {voiced && voiceOn && step.kind === "ready" && clips && clips.missing.length > 0 && (
-          <div className="wod-voice-note">
-            {voiceConfigured()
-              ? `Phone voice for ${String(clips.missing.length)} line${clips.missing.length === 1 ? "" : "s"}. Generate them in Settings → Voice.`
-              : "Phone voice. Add your kie.ai key in Skipan for a natural one."}
-          </div>
-        )}
+        {voice.error}
+        {step.kind === "ready" && voice.note}
 
         <div className="wod-stepbar" aria-hidden>
           <div style={{ width: `${String(stepFrac * 100)}%` }} />
