@@ -103,6 +103,12 @@ export const EX = {
   singleUnder: "ex-single-under",
   doubleUnder: "ex-double-under",
   spinBike: "ex-spin-bike",
+  // Full Body EMOM. High knees is a sprint in place with the thigh driven
+  // past horizontal, not Run on the Spot's jog; the row is done with a
+  // band or a loaded backpack, so it is counted in reps, not kilograms.
+  highKnees: "ex-high-knees",
+  packRow: "ex-band-backpack-row",
+  deadBug: "ex-dead-bug",
 } as const;
 
 export function seedExercises(): Exercise[] {
@@ -241,6 +247,9 @@ export function seedExercises(): Exercise[] {
     e(EX.doubleUnder, "Double-Under", "conditioning", "reps", ["calves", "coordination"]),
     e(EX.spinBike, "Spin Bike", "cardio", "time", ["legs", "conditioning"]),
     e(EX.burpee, "Burpee", "conditioning", "reps", ["full body"]),
+    e(EX.highKnees, "High Knees", "cardio", "time", ["hip flexors", "conditioning"]),
+    e(EX.packRow, "Band or Backpack Row", "strength", "reps", ["back", "biceps"]),
+    e(EX.deadBug, "Dead Bug", "core", "reps", ["core", "hip flexors"]),
     e(EX.boxJump, "Box Jump", "conditioning", "reps", ["legs"]),
     e(EX.boxStepUp, "Box Step-up", "conditioning", "reps", ["legs", "glutes"]),
     // Both ACFT events are scored on a single effort: metres thrown, and
@@ -1070,6 +1079,48 @@ export function seedTemplates(): Template[] {
         bpm: 170,
         style: "fast punk rock, upbeat and raw",
         theme: "Twenty minutes of relentless rounds, keep moving",
+      },
+    },
+    {
+      id: "tpl-full-body-emom-20",
+      name: "Full Body EMOM - 20 Minutes",
+      branch: "CrossFit",
+      description:
+        "Two minutes of warm-up, then 18 minutes on the minute: a new " +
+        "exercise at the top of every minute, whatever is left of the minute " +
+        "is rest. Six stations, three rounds. Tap Done when the reps are in; " +
+        "high knees rest by themselves. Rows need a resistance band or a " +
+        "loaded backpack, nothing else.",
+      // Warm-up 3 × 40 s = 120 s, then 3 rounds × 6 stations × 60 s =
+      // 1080 s: 1200 s, exactly 20:00. The 5 s get-ready lead-in every
+      // guided workout has is not workout time.
+      scheme: "20:00 · 2:00 warm-up · 18:00 EMOM · 3 rounds · 6 stations",
+      level: "intermediate",
+      exerciseIds: [
+        EX.runInPlace, EX.armCircles, EX.airSquat,
+        EX.burpee, EX.reverseLunge, EX.pushUp, EX.highKnees, EX.packRow, EX.deadBug,
+      ],
+      emom: {
+        minute: 60,
+        rounds: 3,
+        warmup: [
+          { exerciseId: EX.runInPlace, seconds: 40 },
+          { exerciseId: EX.armCircles, seconds: 40 },
+          { exerciseId: EX.airSquat, seconds: 40 },
+        ],
+        stations: [
+          { exerciseId: EX.burpee, reps: [8, 12], target: "8–12 reps", focus: "Cardio, explosiveness" },
+          { exerciseId: EX.reverseLunge, reps: [16, 16], target: "16 reps · 8 per leg", focus: "Legs, glutes, balance" },
+          { exerciseId: EX.pushUp, reps: [10, 15], target: "10–15 reps", focus: "Chest, shoulders, triceps" },
+          { exerciseId: EX.highKnees, seconds: [35, 40], target: "35–40 s", focus: "Cardio" },
+          { exerciseId: EX.packRow, reps: [12, 15], target: "12–15 reps", focus: "Back, biceps" },
+          { exerciseId: EX.deadBug, reps: [10, 16], target: "10–16 reps", focus: "Core, stability" },
+        ],
+      },
+      music: {
+        bpm: 150,
+        style: "driving hard electronic, heavy kick, gritty synth bass, no vocals",
+        theme: "Every minute on the minute, attack the work, steal the rest, three rounds",
       },
     },
     {

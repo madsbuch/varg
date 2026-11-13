@@ -1,6 +1,7 @@
 import type { Exercise, Template } from "../types";
 import { libraryFor } from "../lib/library";
-import { LEVEL_LABEL } from "../lib/catalog";
+import { emomSeconds, LEVEL_LABEL } from "../lib/catalog";
+import { formatSeconds } from "../lib/units";
 import { BattleTrack } from "./BattleTrack";
 import { MusicPicker } from "./MusicPicker";
 import ExerciseAnim from "./ExerciseAnim";
@@ -15,7 +16,21 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
   const byId = new Map(exercises.map(ex => [ex.id, ex]));
   // Keep every slot, including repeated movements and missing exercises.
   // A flow lists its steps — each pose with its own time and side.
-  const ids = template.flow ? template.flow.steps.map(s => s.exerciseId) : template.exerciseIds;
+  // An EMOM lists its warm-up, then its stations, each with its target.
+  const emom = template.emom;
+  const warmupCount = emom?.warmup?.length ?? 0;
+  const ids = template.flow
+    ? template.flow.steps.map(s => s.exerciseId)
+    : emom
+    ? [...(emom.warmup ?? []).map(w => w.exerciseId), ...emom.stations.map(s => s.exerciseId)]
+    : template.exerciseIds;
+  const emomSub = (i: number): string => {
+    if (!emom) return "";
+    const w = emom.warmup?.[i];
+    if (w) return `${String(w.seconds)} s · `;
+    const st = emom.stations[i - warmupCount];
+    return st ? `${st.target}${st.focus ? ` · ${st.focus}` : ""} · ` : "";
+  };
   const stations = ids.map(id => byId.get(id));
   const missing = stations.some(ex => !ex);
   const plan = template.interval;
@@ -37,6 +52,12 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
           {plan.rest > 0
             ? ` Rest ${String(plan.rest)} seconds between stations, including between rounds. No rest after the final station.`
             : " Move straight to the next station, with no rest."}
+        </p>}
+        {emom && <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
+          {formatSeconds(emomSeconds(emom))} in all.
+          {warmupCount > 0 ? ` Warm up first, ${String(warmupCount)} movements back to back.` : ""}
+          {` Then a new station at the top of every minute, ${String(emom.stations.length)} stations, ${emom.rounds === 1 ? "once" : `${String(emom.rounds)} rounds`}.`}
+          {" Do the target, then rest until the minute ends. Tap Done when the reps are in; timed stations rest by themselves."}
         </p>}
         {flow && <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
           A guided flow of {flow.steps.length} poses, each held for its own time. Between
@@ -60,13 +81,13 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
           />
         : <BattleTrack cacheKey={template.id} workoutName={template.name} profile={template.music} />}
 
-      <div className="section-label">{plan ? "Stations in each round" : forTime ? "Movements" : flow ? "Poses" : "Exercise sequence"}</div>
+      <div className="section-label">{plan ? "Stations in each round" : emom ? (warmupCount > 0 ? "Warm-up, then one station a minute" : "One station a minute") : forTime ? "Movements" : flow ? "Poses" : "Exercise sequence"}</div>
       <ol className="workout-stations">
         {stations.map((ex, i) => {
           const guide = ex ? libraryFor(ex) : null;
           return (
             <li key={`${String(i)}-${ids[i] ?? "missing"}`}>
-              <span className="workout-station-number">{i + 1}</span>
+              <span className="workout-station-number">{emom ? (i < warmupCount ? "W" : i - warmupCount + 1) : i + 1}</span>
               {ex && guide ? <details className="workout-station">
                 <summary>
                   <ExerciseAnim anim={guide.anim} size={62} mirror={flowMirror(guide.side, template.flow?.steps[i]?.side)} />
@@ -74,6 +95,7 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
                     <strong>{ex.name}{template.flow?.steps[i]?.side ? ` · ${template.flow.steps[i].side}` : ""}</strong>
                     <span className="sub">
                       {plan ? `${String(plan.work)} s work · ` : ""}
+                      {emomSub(i)}
                       {template.flow?.steps[i] ? `${String(template.flow.steps[i].seconds)} s · ` : ""}
                       View form cues
                     </span>
@@ -88,7 +110,7 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
       {missing && <p style={{ color: "var(--danger)" }}>This workout cannot start until all its exercises are available.</p>}
       <div className="workout-start">
         <button className="btn primary" style={{ width: "100%" }} disabled={missing} onClick={onStart}>
-          {plan || flow ? "Start guided" : forTime ? "Start the clock" : "Start workout"}
+          {plan || flow || emom ? "Start guided" : forTime ? "Start the clock" : "Start workout"}
         </button>
       </div>
     </Sheet>

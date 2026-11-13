@@ -552,6 +552,30 @@ const LIB: Record<string, LibraryEntry> = {
       "Arms driving, shoulders loose, torso upright.",
     ],
   },
+  [EX.highKnees]: {
+    anim: "highKnees",
+    cues: [
+      "Drive each knee above hip height, fast.",
+      "Stay on the balls of the feet, torso tall, no leaning back.",
+      "Pump the arms hard; quick feet, not long ones.",
+    ],
+  },
+  [EX.packRow]: {
+    anim: "packRow",
+    cues: [
+      "Hinge to about 45°, back flat, knees soft.",
+      "Pull the band or pack to the lower ribs, elbows close.",
+      "Squeeze the shoulder blades, lower under control.",
+    ],
+  },
+  [EX.deadBug]: {
+    anim: "deadBug",
+    cues: [
+      "On your back, arms to the ceiling, knees over hips at 90°.",
+      "Press the lower back into the floor and keep it there.",
+      "Reach one arm back and the opposite leg long, return; alternate.",
+    ],
+  },
   [EX.airBoxing]: {
     anim: "boxing",
     cues: [

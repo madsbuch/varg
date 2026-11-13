@@ -67,7 +67,8 @@ function setHasData(s: WorkoutSet): boolean {
 /** How a template runs when started — the library's filter categories. */
 type Kind = "interval" | "flow" | "forTime" | "ride" | "logged";
 function kindOf(t: Template): Kind {
-  return t.interval ? "interval" : t.flow ? "flow" : t.forTime ? "forTime" : t.ride ? "ride" : "logged";
+  // An EMOM is an interval format: it files under Intervals.
+  return t.interval || t.emom ? "interval" : t.flow ? "flow" : t.forTime ? "forTime" : t.ride ? "ride" : "logged";
 }
 
 type Filter = "all" | "favorites" | Kind;
@@ -238,8 +239,8 @@ function StartScreen() {
       });
       return;
     }
-    if (tpl.flow || tpl.interval) {
-      // Guided: a circuit or a yoga flow — timing, cues, voice, music.
+    if (tpl.flow || tpl.interval || tpl.emom) {
+      // Guided: a circuit, an EMOM or a yoga flow — timing, cues, voice, music.
       const cfg = configForTemplate(tpl, new Map(data.exercises.map((e) => [e.id, e])));
       if (typeof cfg === "string") {
         setStartError(cfg);

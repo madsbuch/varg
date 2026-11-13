@@ -144,5 +144,23 @@ describe("exercise motion geometry", () => {
     expect(anim(EX.hangPowerClean)).not.toBe(anim(EX.powerClean));
     expect(anim(EX.pushPress)).not.toBe(anim(EX.overheadPress));
     expect(sampleScene(anim(EX.wallBall), 0).balls.length).toBe(2);
+    // High knees is a sprint with the thigh past horizontal, not the jog;
+    // the pack row is not the barbell row.
+    expect(anim(EX.highKnees)).not.toBe(anim(EX.runInPlace));
+    expect(anim(EX.packRow)).not.toBe(anim(EX.barbellRow));
+  });
+
+  test("high knees drive the knee above the hip; dead bug keeps hips and shoulders down", () => {
+    let highest = Infinity;
+    for (let i = 0; i <= 200; i++) {
+      const rig = skeleton(sampleScene("highKnees", i / 200).pose);
+      highest = Math.min(highest, ...rig.legs.map((l) => l[1]![1] - rig.hip[1]));
+    }
+    expect(highest).toBeLessThan(0);
+    for (let i = 0; i <= 200; i++) {
+      const rig = skeleton(sampleScene("deadBug", i / 200).pose);
+      expect(rig.hip[1]).toBe(86);
+      expect(rig.shoulder[1]).toBeCloseTo(86, 5);
+    }
   });
 });

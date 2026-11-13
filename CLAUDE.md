@@ -60,15 +60,22 @@ should shape what you build:
    scored by time ("— for time"), give it `forTime` stages instead: starting
    it launches the for-time player (stopwatch, one Done per stage, splits
    and best time). Each stage's label must state the reps or distance it
-   logs. For a yoga class — every pose its own hold, one-sided poses left
+   logs. For an EMOM (every minute on the minute) give it `emom`: the
+   stations in order, each owning one `minute`, `rounds`, and an optional
+   timed `warmup` run back to back first. A station prescribes `reps`
+   (low–high; the athlete taps Done and the rest of the minute is rest)
+   or `seconds` (rest shows by itself after the top of the range), and a
+   `target` label stating those numbers. The minute is one player step,
+   so the boundaries are fixed by the clock; work and rest inside it are
+   a phase (`emomPhase` in `wod.ts`), never a timer of their own. For a yoga class — every pose its own hold, one-sided poses left
    then right — give it `flow` steps and a `transition` (seconds to move
    between poses): the guided player names each next pose as the move
    begins and shows its cues. A one-sided pose needs `side` declared on its `LIB`
    entry (which side the animation draws) so the player mirrors the right
    one. With none of these, it opens as a logged session. Every template
    also gets a `level` (beginner / intermediate / advanced — how hard it is
-   to start with) and, unless it is an interval or flow whose length is
-   computed, `estimateMinutes`: the typical finishing time the library's
+   to start with) and, unless it is an interval, EMOM or flow whose length
+   is computed, `estimateMinutes`: the typical finishing time the library's
    length filter and cards use. An indoor-bike session gets `ride`
    segments instead: each targets a % of FTP (the rider's FTP lives in
    Settings, so watts follow it) and ends on `seconds` or on `kcal` —
@@ -118,7 +125,9 @@ should shape what you build:
    units the guided player actually enforces — no metres, no AMRAP, no rep
    counts — that the interval itself is within sane bounds, that every
    for-time stage prescribes the amount its exercise's metric measures and
-   says so in its label, that a flow's sides are paired and its scheme states
+   says so in its label, that an EMOM's stations prescribe what their
+   exercise counts and its scheme states its real total, warm-up, EMOM
+   length, rounds and stations, that a flow's sides are paired and its scheme states
    its real total, pose count and hold range, that every template has a level
    and a length (computed or estimated), and that every metric has a declared PR direction.
 5. Existing installs get *new* built-ins through `mergeBuiltIns`, which the

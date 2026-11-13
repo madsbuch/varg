@@ -536,15 +536,73 @@ for (const probe of METRIC_PROBES) {
   }
 }
 
+// EMOMs run in the guided player: every station owns one whole minute,
+// work until Done (reps) or until its timed target has run, rest after.
+// So: every exercise resolves and is in exerciseIds (the details sheet's
+// cues), a station prescribes reps exactly when its exercise counts reps
+// and its target label says those numbers, timed work fits inside the
+// minute, and the scheme states the real total, warm-up, EMOM length,
+// rounds and stations — the arithmetic the owner reads is what runs.
+{
+  const exById = new Map(seedExercises().map((e) => [e.id, e]));
+  const fmt = (t: number) => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
+  const range = (r: [number, number]) => (r[0] === r[1] ? String(r[0]) : `${String(r[0])}–${String(r[1])}`);
+  for (const tpl of seedTemplates()) {
+    const em = tpl.emom;
+    if (!em) continue;
+    const where = `template "${tpl.name}" emom`;
+    assert(Number.isInteger(em.minute) && em.minute >= 30 && em.minute <= 300, `${where}: minute must be 30-300 whole seconds, got ${em.minute}`);
+    assert(Number.isInteger(em.rounds) && em.rounds >= 1 && em.rounds <= 50, `${where}: rounds must be 1-50, got ${em.rounds}`);
+    assert(em.stations.length >= 1 && em.stations.length * em.rounds <= 200, `${where}: needs 1-200 station minutes`);
+    em.stations.forEach((st, i) => {
+      const at = `${where} station ${i + 1} ("${st.target}")`;
+      const ex = exById.get(st.exerciseId);
+      assert(ex, `${at}: exercise ${st.exerciseId} does not exist`);
+      assert(tpl.exerciseIds.includes(st.exerciseId), `${at}: ${ex.name} missing from exerciseIds`);
+      assert((st.reps === undefined) !== (st.seconds === undefined), `${at}: needs exactly one of reps or seconds`);
+      if (st.reps) {
+        const [lo, hi] = st.reps;
+        assert(ex.metric === "reps" || ex.metric === "weight_reps", `${at}: ${ex.name} is a ${ex.metric} exercise, not counted in reps`);
+        assert(Number.isInteger(lo) && Number.isInteger(hi) && lo >= 1 && lo <= hi, `${at}: reps must be whole numbers, low to high`);
+        assert(st.target.includes(`${range(st.reps)} reps`), `${at}: target does not say "${range(st.reps)} reps"`);
+      }
+      if (st.seconds) {
+        const [lo, hi] = st.seconds;
+        assert(ex.metric === "time", `${at}: ${ex.name} is a ${ex.metric} exercise, not timed`);
+        assert(Number.isInteger(lo) && Number.isInteger(hi) && lo >= 5 && lo <= hi && hi < em.minute, `${at}: timed work must be 5 s up to under the minute, low to high`);
+        assert(st.target.includes(`${range(st.seconds)} s`), `${at}: target does not say "${range(st.seconds)} s"`);
+      }
+    });
+    const warmup = em.warmup ?? [];
+    warmup.forEach((w, i) => {
+      const at = `${where} warm-up ${i + 1}`;
+      const ex = exById.get(w.exerciseId);
+      assert(ex, `${at}: exercise ${w.exerciseId} does not exist`);
+      assert(tpl.exerciseIds.includes(w.exerciseId), `${at}: ${ex.name} missing from exerciseIds`);
+      assert(Number.isInteger(w.seconds) && w.seconds >= 10 && w.seconds <= 600, `${at}: 10-600 whole seconds, got ${w.seconds}`);
+    });
+    const warm = warmup.reduce((a, w) => a + w.seconds, 0);
+    const main = em.rounds * em.stations.length * em.minute;
+    const expected = [
+      fmt(warm + main),
+      ...(warm > 0 ? [`${fmt(warm)} warm-up`] : []),
+      `${fmt(main)} EMOM`,
+      `${String(em.rounds)} rounds`,
+      `${String(em.stations.length)} stations`,
+    ];
+    for (const part of expected) assert(tpl.scheme.includes(part), `${where}: scheme "${tpl.scheme}" does not say "${part}"`);
+  }
+}
+
 // Rides run in the ride player against live bike data. Each segment ends
 // on time or on kcal — exactly one — and its targets must be sane, or the
 // player shows a target no rider can hold. A kcal segment makes the ride a
 // race (scored by total time), so it must say so.
 {
-  const players = (t: { interval?: unknown; forTime?: unknown; flow?: unknown; ride?: unknown }) =>
-    [t.interval, t.forTime, t.flow, t.ride].filter((x) => x !== undefined).length;
+  const players = (t: { interval?: unknown; forTime?: unknown; flow?: unknown; ride?: unknown; emom?: unknown }) =>
+    [t.interval, t.forTime, t.flow, t.ride, t.emom].filter((x) => x !== undefined).length;
   for (const tpl of seedTemplates()) {
-    assert(players(tpl) <= 1, `template "${tpl.name}": more than one of interval, forTime, flow and ride`);
+    assert(players(tpl) <= 1, `template "${tpl.name}": more than one of interval, forTime, flow, emom and ride`);
     const r = tpl.ride;
     if (!r) continue;
     const where = `template "${tpl.name}" ride`;
@@ -612,7 +670,7 @@ for (const probe of METRIC_PROBES) {
 for (const tpl of seedTemplates()) {
   const where = `template "${tpl.name}"`;
   assert(["beginner", "intermediate", "advanced"].includes(tpl.level), `${where}: level must be beginner, intermediate or advanced`);
-  const computed = tpl.interval !== undefined || tpl.flow !== undefined ||
+  const computed = tpl.interval !== undefined || tpl.flow !== undefined || tpl.emom !== undefined ||
     (tpl.ride !== undefined && !tpl.ride.free && tpl.ride.segments.every((sg) => sg.seconds !== undefined));
   if (computed) {
     assert(tpl.estimateMinutes === undefined, `${where}: has an exact clock time, so no estimateMinutes`);

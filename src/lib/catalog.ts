@@ -2,7 +2,7 @@
  * Facts about a template that the library filters and cards show: how long
  * it takes, and whether that length is exact or a typical estimate.
  */
-import type { Level, Template } from "../types";
+import type { EmomPlan, Level, Template } from "../types";
 import { rideSeconds } from "./ride";
 
 /**
@@ -22,14 +22,21 @@ export function flowSeconds(flow: { steps: { seconds: number }[]; transition: nu
   return flow.steps.reduce((sum, s) => sum + s.seconds, 0) + Math.max(0, flow.steps.length - 1) * flow.transition;
 }
 
+/** Clock time of an EMOM: the warm-up, then every station's whole minute, every round. */
+export function emomSeconds(plan: EmomPlan): number {
+  const warmup = (plan.warmup ?? []).reduce((sum, w) => sum + w.seconds, 0);
+  return warmup + plan.rounds * plan.stations.length * plan.minute;
+}
+
 /**
- * How long a workout takes: exact for interval and flow workouts, the
+ * How long a workout takes: exact for interval, flow and EMOM workouts, the
  * authored typical time for everything else. Undefined only for a template
  * missing its estimate — db:smoke makes that a build failure.
  */
 export function templateLength(t: Template): { seconds: number; exact: boolean } | undefined {
   if (t.interval) return { seconds: intervalSeconds(t.exerciseIds.length, t.interval), exact: true };
   if (t.flow) return { seconds: flowSeconds(t.flow), exact: true };
+  if (t.emom) return { seconds: emomSeconds(t.emom), exact: true };
   if (t.ride && !t.ride.free) {
     const s = rideSeconds(t.ride.segments);
     if (s !== undefined) return { seconds: s, exact: true };

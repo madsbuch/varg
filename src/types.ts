@@ -173,6 +173,46 @@ export interface FlowPlan {
   transition: number;
 }
 
+/**
+ * One station of an EMOM: it owns one whole minute. The athlete does the
+ * prescribed work from the top of the minute, and whatever is left of the
+ * minute is rest.
+ *
+ * Exactly one of `reps` or `seconds`:
+ *  - `reps`: a rep target, low to high (equal for a fixed count). The
+ *    athlete taps Done when the reps are in; the clock keeps running.
+ *  - `seconds`: timed work, low to high. Rest is shown automatically once
+ *    the top of the range has run; Done ends it early.
+ */
+export interface EmomStation {
+  exerciseId: string;
+  reps?: [number, number] | undefined;
+  seconds?: [number, number] | undefined;
+  /** What the athlete reads under the name: "8–12 reps", "35–40 s". */
+  target: string;
+  /** What the station trains, for the details sheet: "Cardio, explosiveness". */
+  focus?: string | undefined;
+}
+
+/** One timed warm-up exercise, run back to back before the first minute. */
+export interface EmomWarmup {
+  exerciseId: string;
+  seconds: number;
+}
+
+/**
+ * Every Minute On the Minute: the stations in order, each owning one
+ * `minute`, repeated for `rounds`. An optional warm-up runs first, each
+ * movement for its own time with no rest between.
+ */
+export interface EmomPlan {
+  /** Seconds each station owns; 60 for a true EMOM. */
+  minute: number;
+  rounds: number;
+  stations: EmomStation[];
+  warmup?: EmomWarmup[] | undefined;
+}
+
 /** A fixed amount of work, scored by the time it takes. */
 export interface ForTimePlan {
   stages: ForTimeStage[];
@@ -254,6 +294,13 @@ export interface Template {
    * steps, each its own length. Never set together with interval or forTime.
    */
   flow?: FlowPlan | undefined;
+  /**
+   * When set, starting the template launches the guided player as an
+   * EMOM: a new station at the top of every minute, Done for rep targets,
+   * automatic rest after timed work. Never set together with interval,
+   * forTime, flow or ride.
+   */
+  emom?: EmomPlan | undefined;
   /**
    * An indoor-bike ride: starting it launches the ride player, which reads
    * power, cadence and kcal from the bike over Bluetooth. Never set

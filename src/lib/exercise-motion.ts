@@ -302,6 +302,50 @@ function ropeMotion(dur: number, turns: number, airtime: (t: number) => number):
   };
 }
 
+/* --- Full Body EMOM --------------------------------------------------------
+ * High knees: a sprint in place. Unlike Run on the Spot's jog, each thigh
+ * drives up past horizontal with the foot tucked under the knee, and the
+ * opposite arm pumps back hard. Feet plant directly under the hip.
+ */
+function highKneesAt(t: number): Pose {
+  const hip: Point = [48, 56.6 - 0.9 * Math.sin(TAU * t) ** 2];
+  const foot = (phase: number, x: number): Point => {
+    const u = ((phase % 1) + 1) % 1;
+    const lift = u < 0.5 ? Math.sin(Math.PI * u / 0.5) : 0;
+    return [x + 12 * lift, 88 - 16 * lift];
+  };
+  const shoulder = shoulderAt(hip, 2);
+  const hand = (phase: number): Point => {
+    const swing = Math.sin(TAU * phase);
+    return reach(shoulder, 85 + swing * 35, -10 + swing * 30);
+  };
+  return pose(hip, 2, foot(t, 51), hand(t), { farFoot: foot(t + 0.5, 46), farHand: hand(t + 0.5), elbows: [-1, -1] });
+}
+/** A backpack hanging from the hands by its grab handle. */
+const packGear = (_t: number, s: Skeleton) => {
+  const [x, y] = s.arms[1][2];
+  return { shapes: [gear(`M${f(x)} ${f(y)} v3 M${f(x - 4.5)} ${f(y + 3)} h9 v9 h-9 Z M${f(x - 4.5)} ${f(y + 7)} h9`)] };
+};
+const packRowLow = pose([38, 61], 50, [51, 88], [57, 69.5], { farFoot: [44, 88], farHand: [55, 69.5], elbows: [1, 1], headLean: 40 });
+const packRowHigh = pose([38, 61], 50, [51, 88], [46, 61], { farFoot: [44, 88], farHand: [44, 61], elbows: [1, 1], headLean: 40 });
+/**
+ * Dead bug, on the back: arms to the ceiling, knees stacked over the hips.
+ * One leg reaches long and low while the opposite arm reaches back past
+ * the head, return, then the other pair. The hip and shoulders stay down.
+ * Arms sweep around the shoulder so they never shorten mid-reach.
+ */
+function deadBugAt(t: number): Pose {
+  const hip: Point = [58, 86];
+  const shoulder = shoulderAt(hip, -90);
+  const near = scalar(t, [[0, 0], [0.08, 0], [0.25, 1], [0.33, 1], [0.5, 0], [1, 0]]);
+  const far = scalar(t, [[0, 0], [0.5, 0], [0.58, 0], [0.75, 1], [0.83, 1], [1, 0]]);
+  return pose(hip, -90, between([75, 69], [91, 82], near), reach(shoulder, mix(-88, -168, far), mix(-88, -168, far), 11.8), {
+    farFoot: between([72, 69], [89, 81], far),
+    farHand: reach(shoulder, mix(-93, -170, near), mix(-93, -170, near), 11.8),
+    knees: [-1, -1], elbows: [1, 1], headLean: -90,
+  });
+}
+
 export const MOTIONS = {
   rest: rep(4, standing([58, 52]), pose(standHip, 0, [54, 88], [58, 51.5], { farFoot: [39, 88], farHand: [34, 51.5], elbows: [-1, 1] })),
   squat: rep(3, squatTop, squatLow, handBar),
@@ -454,6 +498,9 @@ export const MOTIONS = {
   burpee: { dur: 5.2, at: (t: number) => { if (t >= 0.27 && t <= 0.49) return floorHold(scalar(t, [[0.27, -155.2], [0.39, -174], [0.49, -155.2]]), [34, 88]); return timeline([[0, burpeeStand], [0.065, pose([47, 64], -35, [58, 88], [42, 63], { farFoot: [52, 88], farHand: [39, 63], elbows: [-1, -1] })], [0.13, burpeeCrouch], [0.27, plankTop], [0.39, pushLow], [0.49, plankTop], [0.64, burpeeCrouch], [0.7, pose([47, 64], -35, [58, 88], [42, 63], { farFoot: [52, 88], farHand: [39, 63], elbows: [-1, -1] })], [0.78, burpeeStand], [0.825, pose([47, 50], 0, [52, 82], [68, 29], { farFoot: [42, 82], farHand: [26, 29], elbows: [-1, -1] })], [0.87, burpeeJump], [0.915, pose([47, 50], 0, [52, 82], [68, 29], { farFoot: [42, 82], farHand: [26, 29], elbows: [-1, -1] })], [0.95, burpeeStand], [1, burpeeStand]])(t); } },
   run: { dur: 0.9, at: (t: number) => gait(t, "run") },
   runInPlace: { dur: 1, at: (t: number) => gait(t, "high") },
+  highKnees: { dur: 0.7, at: highKneesAt },
+  packRow: rep(2.8, packRowLow, packRowHigh, packGear),
+  deadBug: { dur: 6, at: deadBugAt },
   boxing: { dur: 1.8, at: (t: number) => {
     const jab = Math.max(0, Math.sin(TAU * t)), cross = Math.max(0, -Math.sin(TAU * t));
     const hip: Point = [47 + cross * 2, 59.5], shoulder = shoulderAt(hip, 6 + cross * 5);

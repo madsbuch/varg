@@ -268,6 +268,25 @@ export function cueLine(step: Step): string {
   return "";
 }
 
+/**
+ * EMOM: what the player says as a station's rest begins (Done tapped, or
+ * the timed work ran out): the exercise the next minute starts with. A
+ * station minute has no rest step of its own, so this is keyed on the
+ * station's index in the steps.
+ */
+export function restLine(steps: Step[], index: number): string {
+  const step = steps[index];
+  const next = steps[index + 1];
+  if (step?.emom?.block !== "station" || !next?.exercise) return "";
+  return poseLine(next.exercise.name, next.side, "Next");
+}
+
+/** Every line a step list can speak, in order, each once. */
+export function stepLines(steps: Step[]): string[] {
+  const lines = steps.flatMap((s, i) => [cueLine(s), restLine(steps, i)]);
+  return [...new Set(lines.filter(Boolean))];
+}
+
 export interface VoiceLine {
   role: VoiceRole;
   text: string;
@@ -285,10 +304,9 @@ export function allVoiceLines(): VoiceLine[] {
   for (const t of seedTemplates()) {
     const cfg = configForTemplate(t, exById);
     if (typeof cfg === "string" || !cfg.voice) continue;
-    for (const step of buildSteps(cfg)) {
-      const text = cueLine(step);
+    for (const text of stepLines(buildSteps(cfg))) {
       const id = `${cfg.voice}|${text}`;
-      if (!text || seen.has(id)) continue;
+      if (seen.has(id)) continue;
       seen.add(id);
       out.push({ role: cfg.voice, text });
     }
