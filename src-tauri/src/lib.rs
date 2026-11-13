@@ -8,6 +8,7 @@ pub fn run() {
         .plugin(tauri_plugin_varg_voice::init())
         .plugin(tauri_plugin_varg_bike::init())
         .plugin(tauri_plugin_varg_hr::init())
+        .plugin(tauri_plugin_varg_system::init())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

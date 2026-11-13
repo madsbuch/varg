@@ -15,6 +15,7 @@
     "varg-voice:default",
     "varg-bike:default",
     "varg-hr:default",
+    "varg-system:default",
     {
       "identifier": "http:default",
       "allow": [

@@ -243,6 +243,14 @@ joints and makes limbs shrink in the intermediate frames.
   Android app plays its music natively instead; see The bike). Music ducks under cues and its
   loop seam is crossfaded, because generated tracks are always shorter than
   the workout. See [`src/lib/track.ts`](src/lib/track.ts).
+- **System bars.** The Android WebView ignores `<meta name="theme-color">`,
+  so the phone's status and navigation bars are coloured natively
+  ([`src-tauri/plugins/varg-system`](src-tauri/plugins/varg-system)):
+  `theme.ts` calls `system_bars` with the theme's `--bg` and light or dark
+  icons whenever the theme resolves. Without it the generated activity
+  theme left a black status bar over the light theme. `gen/android` is
+  regenerated on every release, so fix bar colours here, never by
+  patching generated theme XML.
 - **GPS.** Run tracking lives in native code
   ([`src-tauri/plugins/varg-gps`](src-tauri/plugins/varg-gps)): an Android
   foreground location service, because the WebView is frozen while the phone

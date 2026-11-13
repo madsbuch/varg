@@ -6,6 +6,9 @@
  * the database: it has to be applied before the first paint, and the
  * database opens asynchronously.
  */
+import { invoke } from "@tauri-apps/api/core";
+import { isTauri } from "../db/persistence";
+
 export type ThemeChoice = "system" | "light" | "dark";
 
 const KEY = "varg.theme";
@@ -30,6 +33,12 @@ function apply(choice: ThemeChoice): void {
   const resolved = choice === "system" ? (systemDark()?.matches ? "dark" : "light") : choice;
   document.documentElement.setAttribute("data-theme", resolved);
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", CHROME[resolved]);
+  // The Android WebView ignores theme-color: the phone's own status and
+  // navigation bars are coloured natively (plugins/varg-system), or the
+  // status bar stays black over the light theme.
+  if (isTauri() && /Android/i.test(navigator.userAgent)) {
+    invoke("plugin:varg-system|system_bars", { color: CHROME[resolved], dark: resolved === "dark" }).catch(() => undefined);
+  }
 }
 
 export function saveTheme(choice: ThemeChoice): void {
