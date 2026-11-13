@@ -41,6 +41,26 @@ export interface Booking {
 
 export type Points = [number, number][];
 
+/**
+ * Back-to-back bookings of the same song become one, so it plays on
+ * instead of crossfading into itself and restarting at bar 1. That
+ * happens whenever the rotation has one song to give at an intensity (a
+ * set with one ready Peak song, a custom pick of one), and it sounded like
+ * the music switching to the same track.
+ */
+export function mergeRepeats(bookings: Booking[]): Booking[] {
+  const out: Booking[] = [];
+  for (const b of bookings) {
+    const last = out[out.length - 1];
+    if (last?.songId === b.songId && last.until !== null && Math.abs(last.until - b.at) < SAME_MS) {
+      out[out.length - 1] = { ...last, until: b.until };
+    } else {
+      out.push(b);
+    }
+  }
+  return out;
+}
+
 export interface Voice {
   songId: string;
   /** The booking's bar 1 (wall ms): with songId, what makes it the same voice. */

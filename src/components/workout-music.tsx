@@ -10,6 +10,7 @@
  */
 import { useEffect, useState } from "react";
 import { useAdaptiveTrack } from "./adaptive-track";
+import { LIGHT_DUCK } from "../lib/mixer";
 import { useBattleTrack } from "./battle-track";
 import { INTENSITY_NAMES } from "../lib/songs";
 import { sectionLevels, sectionsPlan, workoutMix } from "../lib/workout-music";
@@ -43,8 +44,10 @@ export function useWorkoutMusic({ templateId, trackKey, sections, anchor, paused
   const [seed] = useState(() => Math.floor(Date.now() / 1000) % 997);
   const [mix] = useState(() => workoutMix(templateId, seed));
   const paused = pausedAt !== null;
-  const single = useBattleTrack(mix ? undefined : trackKey, paused, done);
-  const songs = useAdaptiveTrack(mix ?? undefined, seed, done);
+  const single = useBattleTrack(mix ? undefined : trackKey, paused, done, LIGHT_DUCK);
+  // Cues come at every station here, not every few minutes as on a ride:
+  // duck lightly, or the music all but stops at each exercise.
+  const songs = useAdaptiveTrack(mix ?? undefined, seed, done, LIGHT_DUCK);
   const { setPlan } = songs;
 
   useEffect(() => {

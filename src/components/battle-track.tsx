@@ -23,6 +23,8 @@ export function useBattleTrack(
   trackKey: string | undefined,
   paused: boolean,
   done: boolean,
+  /** How far cues pull the music down; guided workouts pass mixer.ts LIGHT_DUCK. */
+  duckLevel?: number,
 ): BattleTrack {
   // Play the workout's cached track under the cues. While the track is
   // still composing, keep checking so it joins mid-workout.
@@ -61,13 +63,13 @@ export function useBattleTrack(
     if (!a || !trackUrl) return;
     const channel = createTrackChannel(a);
     channelRef.current = channel;
-    if (channel) setCueDucker((hold) => { channel.duck(hold); });
+    if (channel) setCueDucker((hold) => { channel.duck(hold, duckLevel); });
     return () => {
       setCueDucker(null);
       channel?.dispose();
       channelRef.current = null;
     };
-  }, [trackUrl]);
+  }, [trackUrl, duckLevel]);
 
   // "The track should be playing and isn't": either play() was refused —
   // a track that finishes composing mid-workout mounts long after the tap

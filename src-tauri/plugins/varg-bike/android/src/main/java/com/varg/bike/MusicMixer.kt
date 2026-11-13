@@ -62,6 +62,8 @@ class MusicMixer(val outRate: Int) {
     @Volatile var muted = false
     /** Wall ms until which the music is ducked under a cue. */
     @Volatile var duckUntil = 0.0
+    /** How far down the duck goes: the ride's DUCK_LEVEL, or a guided workout's lighter one. */
+    @Volatile var duckLevel = DUCK_LEVEL
     private var duckGain = 1.0
     private var master = 1.0
     private var env = 0.0
@@ -118,7 +120,7 @@ class MusicMixer(val outRate: Int) {
         val release = 1.0 - Math.exp(-1.0 / (RELEASE_S * outRate))
         for (i in 0 until frames) {
             val t = t0 + i * msPerFrame
-            val duckTarget = if (t < duckUntil) DUCK_LEVEL else 1.0
+            val duckTarget = if (t < duckUntil) duckLevel else 1.0
             duckGain += (duckTarget - duckGain).coerceIn(-duckStep, duckStep * 0.25)
             val masterTarget = if (muted) 0.0 else 1.0
             master += (masterTarget - master).coerceIn(-masterStep, masterStep)

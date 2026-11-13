@@ -19,7 +19,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAudioContext, setCueDucker } from "../lib/beep";
-import { AdaptiveMixer, LayerError, prepareSong } from "../lib/mixer";
+import { AdaptiveMixer, DUCK_LEVEL, LayerError, prepareSong } from "../lib/mixer";
+import { mergeRepeats } from "../lib/score";
 import { NativeMusic } from "../lib/native-music";
 import { bikeAvailable } from "../lib/bike";
 import type { Booking } from "../lib/mixer";
@@ -64,7 +65,12 @@ function loadOrder(mix: Mix, seed: number): string[] {
   return out;
 }
 
-export function useAdaptiveTrack(mix: Mix | undefined, seed: number, done: boolean): AdaptiveTrack {
+/**
+ * `duckLevel`: how far cues pull the music down. A ride's cues are rare and
+ * duck deep; a guided workout cues every station and ducks lightly
+ * (mixer.ts LIGHT_DUCK).
+ */
+export function useAdaptiveTrack(mix: Mix | undefined, seed: number, done: boolean, duckLevel = DUCK_LEVEL): AdaptiveTrack {
   const mixerRef = useRef<AdaptiveMixer | NativeMusic | null>(null);
   const planRef = useRef<MusicPlan | null>(null);
   const [ready, setReady] = useState(false);
@@ -81,7 +87,7 @@ export function useAdaptiveTrack(mix: Mix | undefined, seed: number, done: boole
       if (songId) bookings.push({ songId, at: b.at, until: b.until });
     }
     // Only the plan's first block may start before its 3-2-1 (the lead-in).
-    m.book(bookings, plan.paused || doneRef.current, plan.blocks[0]?.at);
+    m.book(mergeRepeats(bookings), plan.paused || doneRef.current, plan.blocks[0]?.at);
   }, [mix, seed]);
 
   useEffect(() => {
@@ -105,7 +111,7 @@ export function useAdaptiveTrack(mix: Mix | undefined, seed: number, done: boole
       ? new NativeMusic((msg) => { if (alive()) setProblem(`Music · ${msg}`); })
       : new AdaptiveMixer(ctx as AudioContext);
     mixerRef.current = mixer;
-    setCueDucker((hold) => { mixer.duck(hold); });
+    setCueDucker((hold) => { mixer.duck(hold, duckLevel); });
     void (async () => {
       const order = loadOrder(mix, seed);
       const refused: string[] = [];
@@ -154,7 +160,7 @@ export function useAdaptiveTrack(mix: Mix | undefined, seed: number, done: boole
       mixer.dispose();
       mixerRef.current = null;
     };
-  }, [mix, seed, apply]);
+  }, [mix, seed, apply, duckLevel]);
 
   useEffect(() => {
     doneRef.current = done;

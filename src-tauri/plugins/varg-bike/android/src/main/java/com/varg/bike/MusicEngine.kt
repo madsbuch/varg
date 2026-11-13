@@ -110,8 +110,10 @@ object MusicEngine {
         mixer?.score = voices
     }
 
-    fun duck(holdS: Double) {
-        mixer?.duckUntil = System.currentTimeMillis() + holdS * 1000
+    fun duck(holdS: Double, level: Double = MusicMixer.DUCK_LEVEL) {
+        val m = mixer ?: return
+        m.duckLevel = level
+        m.duckUntil = System.currentTimeMillis() + holdS * 1000
     }
 
     fun mute(muted: Boolean) {

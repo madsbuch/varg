@@ -229,6 +229,12 @@ joints and makes limbs shrink in the intermediate frames.
   (`useWorkoutMusic`) play them. A section boundary inside a workout must
   sit on the 20 s bar grid (db:smoke checks EMOM warm-ups). Never follow
   each station: a 10 s rest has no room for the 3-2-1 crossfade.
+  Cues duck the music, and guided workouts cue every station: they duck
+  lightly (`LIGHT_DUCK`, own track and songs alike), rides deep. At the
+  ride's depth the music all but stopped at each exercise and swelled
+  back, which sounded like the same song starting over. Back-to-back
+  blocks on the same song are one booking (`mergeRepeats`), so a song
+  never crossfades into itself.
 - **Music screens.** Skipan → Music is a stack of real screens (`views/Music.tsx`:
   default, sets, a set's songs, new song, own tracks, one track), owned by
   Settings so Back pops one screen. Don't bring back sheets for it.

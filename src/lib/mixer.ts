@@ -213,7 +213,15 @@ interface Nodes {
 }
 
 /** How far the music drops under a cue. */
-const DUCK_LEVEL = 0.22;
+export const DUCK_LEVEL = 0.22;
+/**
+ * A guided workout's duck. Its cues come at every station (3-2-1, Go, the
+ * next exercise's name), not every few minutes like a ride's: at the deep
+ * duck the music all but stopped and swelled back at every exercise, and
+ * sounded like the same song starting over. This keeps the ticks clear
+ * without pulling the floor out each time.
+ */
+export const LIGHT_DUCK = 0.55;
 const DUCK_RAMP_S = 0.06;
 
 const voiceKey = (v: Voice) => `${v.songId}@${String(v.at)}`;
@@ -325,14 +333,14 @@ export class AdaptiveMixer {
     this.nodes = keep;
   }
 
-  /** Pull the music down under a cue for `hold` seconds, then restore. */
-  duck(hold: number): void {
+  /** Pull the music down to `level` under a cue for `hold` seconds, then restore. */
+  duck(hold: number, level = DUCK_LEVEL): void {
     const now = this.ctx.currentTime;
     const g = this.duckGain.gain;
     g.cancelScheduledValues(now);
     g.setValueAtTime(g.value, now);
-    g.linearRampToValueAtTime(DUCK_LEVEL, now + DUCK_RAMP_S);
-    g.setValueAtTime(DUCK_LEVEL, now + Math.max(DUCK_RAMP_S, hold));
+    g.linearRampToValueAtTime(level, now + DUCK_RAMP_S);
+    g.setValueAtTime(level, now + Math.max(DUCK_RAMP_S, hold));
     g.linearRampToValueAtTime(1, now + Math.max(DUCK_RAMP_S, hold) + 0.25);
   }
 

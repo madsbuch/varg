@@ -71,6 +71,8 @@ class ScoreArgs {
 @InvokeArg
 class DuckArgs {
     var hold: Double = 1.0
+    /** How far down: a ride's deep duck unless a guided workout asks for its lighter one. */
+    var level: Double = MusicMixer.DUCK_LEVEL
 }
 
 @InvokeArg
@@ -367,7 +369,8 @@ class BikePlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun musicDuck(invoke: Invoke) {
-        MusicEngine.duck(invoke.parseArgs(DuckArgs::class.java).hold)
+        val a = invoke.parseArgs(DuckArgs::class.java)
+        MusicEngine.duck(a.hold, a.level)
         invoke.resolve()
     }
 

@@ -39,7 +39,8 @@ const DUCK_RAMP_S = 0.06;
 
 export interface TrackChannel {
   /** Pull the music down under a cue for `hold` seconds, then restore. */
-  duck(hold: number): void;
+  /** Pull the music down to `level` (default the deep ride duck) for `hold` seconds. */
+  duck(hold: number, level?: number): void;
   /** Overall music level, 0..1. Independent of ducking and seam fades. */
   setVolume(volume: number): void;
   /**
@@ -112,13 +113,13 @@ export function createTrackChannel(el: HTMLAudioElement): TrackChannel | null {
   };
 
   return {
-    duck(hold) {
+    duck(hold, level = DUCK_LEVEL) {
       const now = ctx.currentTime;
       const g = duckGain.gain;
       g.cancelScheduledValues(now);
       g.setValueAtTime(g.value, now);
-      g.linearRampToValueAtTime(DUCK_LEVEL, now + DUCK_RAMP_S);
-      g.setValueAtTime(DUCK_LEVEL, now + Math.max(DUCK_RAMP_S, hold));
+      g.linearRampToValueAtTime(level, now + DUCK_RAMP_S);
+      g.setValueAtTime(level, now + Math.max(DUCK_RAMP_S, hold));
       g.linearRampToValueAtTime(1, now + Math.max(DUCK_RAMP_S, hold) + 0.25);
     },
     setVolume(v) {

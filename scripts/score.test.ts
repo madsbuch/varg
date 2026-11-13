@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { CUT_S, HP_HOLD, HP_OPEN, positionAt, scoreVoices, valueAt, XF_S } from "../src/lib/score";
+import { CUT_S, HP_HOLD, HP_OPEN, mergeRepeats, positionAt, scoreVoices, valueAt, XF_S } from "../src/lib/score";
 import type { Booking, ScoreSong, Voice } from "../src/lib/score";
 
 const song = (id: string, bpm = 144): ScoreSong => ({ id, bpm, rate: 1.01, trim: 0.5, pre: 4, duration: 4 + 26.7 });
@@ -84,6 +84,35 @@ describe("the music score", () => {
     const t = T + ((loopLen + 1) / v.rate) * 1000; // past one full loop
     expect(positionAt(v, t)).toBeGreaterThanOrEqual(v.loopStart);
     expect(positionAt(v, t)).toBeCloseTo(v.loopStart + 1, 6);
+  });
+});
+
+describe("the same song twice in a row", () => {
+  // A workout's 2-minute blocks with one Peak song to give: P, P, P, then L.
+  const blocks: Booking[] = [
+    { songId: "P", at: T, until: T + 120_000 },
+    { songId: "P", at: T + 120_000, until: T + 240_000 },
+    { songId: "P", at: T + 240_000, until: T + 360_000 },
+    { songId: "L", at: T + 360_000, until: T + 480_000 },
+  ];
+
+  test("plays on as one booking instead of restarting at bar 1", () => {
+    expect(mergeRepeats(blocks)).toEqual([
+      { songId: "P", at: T, until: T + 360_000 },
+      { songId: "L", at: T + 360_000, until: T + 480_000 },
+    ]);
+    // Alternating songs, or a block with no known end, stay as they are.
+    expect(mergeRepeats(ride)).toEqual(ride);
+    const open: Booking[] = [{ songId: "P", at: T, until: null }, { songId: "P", at: T + 1, until: null }];
+    expect(mergeRepeats(open)).toEqual(open);
+  });
+
+  test("one voice, full level across the old block boundaries, no second entry", () => {
+    const s = scoreVoices([], mergeRepeats(blocks), songs, T - 5_000, false, T).filter((v) => v.songId === "P");
+    expect(s).toHaveLength(1);
+    const p = s[0]!;
+    for (const at of [T + 117_000, T + 119_000, T + 120_000, T + 240_000]) expect(valueAt(p.gain, at)).toBeCloseTo(1, 9);
+    expect(valueAt(p.hp, T + 119_000)).toBe(HP_OPEN);
   });
 });
 

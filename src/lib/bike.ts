@@ -320,8 +320,8 @@ export async function nativeMusicScore(score: unknown): Promise<string | null> {
   return (await call<{ error?: string | null }>("music_score", { score: JSON.stringify(score) })).error ?? null;
 }
 
-export async function nativeMusicDuck(hold: number): Promise<void> {
-  await call("music_duck", { hold });
+export async function nativeMusicDuck(hold: number, level?: number): Promise<void> {
+  await call("music_duck", level === undefined ? { hold } : { hold, level });
 }
 
 export async function nativeMusicMute(muted: boolean): Promise<void> {

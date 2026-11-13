@@ -45,8 +45,8 @@ export class NativeMusic {
     );
   }
 
-  duck(hold: number): void {
-    void nativeMusicDuck(hold).catch(() => undefined);
+  duck(hold: number, level?: number): void {
+    void nativeMusicDuck(hold, level).catch(() => undefined);
   }
 
   setMuted(muted: boolean): void {
