@@ -6,9 +6,12 @@
 import type { AnimKey } from "../components/ExerciseAnim";
 import type { Category, Exercise } from "../types";
 import { EX } from "./seed";
+import type { GearId } from "./gear";
 
 interface LibraryEntry {
   anim: AnimKey;
+  /** What the exercise needs to hand ([] = nothing). Workout kit lists are built from it. */
+  gear: readonly GearId[];
   cues: string[];
   /** Measured outdoors over distance: the for-time player offers GPS for it. */
   gps?: true;
@@ -23,6 +26,7 @@ interface LibraryEntry {
 const LIB: Record<string, LibraryEntry> = {
   [EX.backSquat]: {
     anim: "squat",
+    gear: ["barbell", "rack"],
     cues: [
       "Bar on upper traps, brace hard before descending.",
       "Sit down between the hips, knees tracking over toes.",
@@ -31,6 +35,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.frontSquat]: {
     anim: "frontSquat",
+    gear: ["barbell", "rack"],
     cues: [
       "Bar racked on front delts, elbows high.",
       "Torso as upright as possible all the way down.",
@@ -39,6 +44,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.deadlift]: {
     anim: "hinge",
+    gear: ["barbell"],
     cues: [
       "Bar over mid-foot, shins touching, back flat.",
       "Wedge in: chest up, lats tight, slack out of the bar.",
@@ -47,6 +53,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.benchPress]: {
     anim: "bench",
+    gear: ["barbell", "rack", "bench"],
     cues: [
       "Shoulder blades pinched, feet planted.",
       "Bar to lower chest with elbows ~45°.",
@@ -55,6 +62,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.overheadPress]: {
     anim: "press",
+    gear: ["barbell", "rack"],
     cues: [
       "Squeeze glutes, ribs down, no leaning back.",
       "Press slightly around the face, then straight up.",
@@ -63,6 +71,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.barbellRow]: {
     anim: "row",
+    gear: ["barbell"],
     cues: [
       "Hinge to ~45°, flat back, bar under the shoulders.",
       "Pull to the lower ribs, elbows tight.",
@@ -71,6 +80,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.powerClean]: {
     anim: "powerClean",
+    gear: ["barbell"],
     cues: [
       "Set up like a deadlift, shoulders over the bar.",
       "Explode with the hips, shrug, pull under.",
@@ -79,6 +89,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.hangPowerClean]: {
     anim: "hangPowerClean",
+    gear: ["barbell"],
     cues: [
       "Start standing tall, bar at the hips; hinge until it is just above the knees.",
       "Jump: hips and knees extend hard, shrug, then pull yourself under.",
@@ -87,6 +98,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.pushPress]: {
     anim: "pushPress",
+    gear: ["barbell", "rack"],
     cues: [
       "Bar in the front rack, feet hip-width, brace.",
       "Short, straight dip through the knees, torso stays vertical.",
@@ -95,6 +107,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.thruster]: {
     anim: "thruster",
+    gear: ["barbell"],
     cues: [
       "Front squat to full depth.",
       "Drive out of the hole and press in one motion.",
@@ -103,6 +116,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.kettlebellSwing]: {
     anim: "swing",
+    gear: ["kettlebell"],
     cues: [
       "Hinge, don't squat. Bell high between the thighs.",
       "Snap the hips; arms are just ropes.",
@@ -111,6 +125,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.wallBall]: {
     anim: "wallBall",
+    gear: ["wallBall"],
     cues: [
       "Full squat holding the ball at the chest.",
       "Drive up and throw to the target in one rhythm.",
@@ -122,6 +137,7 @@ const LIB: Record<string, LibraryEntry> = {
   // still hold it, and a missing entry would demonstrate a burpee.
   [EX.farmerCarry]: {
     anim: "carry",
+    gear: ["carryPair"],
     cues: [
       "Deadlift the handles up, never round over.",
       "Tall posture, ribs stacked, crush grip.",
@@ -130,6 +146,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.farmerCarryDistance]: {
     anim: "carry",
+    gear: ["carryPair"],
     cues: [
       "Deadlift the handles up, never round over.",
       "Tall posture, ribs stacked, crush grip.",
@@ -138,6 +155,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.airSquat]: {
     anim: "airSquat",
+    gear: [],
     cues: [
       "Feet shoulder width, weight through the whole foot.",
       "Hips back and down past parallel, chest tall.",
@@ -146,6 +164,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.pullUp]: {
     anim: "pullup",
+    gear: ["pullUpBar"],
     cues: [
       "Dead hang, overhand grip just outside shoulders.",
       "Pull the elbows to the ribs, chin over the bar.",
@@ -154,6 +173,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.chinUp]: {
     anim: "pullup",
+    gear: ["pullUpBar"],
     cues: [
       "Underhand grip, shoulder width.",
       "Chest to the bar, squeeze biceps and lats.",
@@ -162,6 +182,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.pushUp]: {
     anim: "pushup",
+    gear: [],
     cues: [
       "Rigid plank from head to heels.",
       "Chest to the deck, elbows ~45° from the body.",
@@ -170,6 +191,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.dip]: {
     anim: "dip",
+    gear: ["dipBars"],
     cues: [
       "Support hold, shoulders down and back.",
       "Lower until upper arms hit parallel.",
@@ -178,6 +200,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.benchDip]: {
     anim: "benchDip",
+    gear: ["bench"],
     cues: [
       "Hands on the bench edge behind you, fingers forward.",
       "Elbows straight back, lower until upper arms are parallel.",
@@ -186,6 +209,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.sitUp]: {
     anim: "situp",
+    gear: ["mat"],
     cues: [
       "Knees bent, feet anchored or free.",
       "Curl the trunk, chest to knees.",
@@ -194,6 +218,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.backLift]: {
     anim: "backLift",
+    gear: ["mat"],
     cues: [
       "Face down, arms reaching forward, forehead near the deck.",
       "Lift chest, arms and legs together. Squeeze the glutes.",
@@ -202,6 +227,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.flutterKick]: {
     anim: "flutter",
+    gear: ["mat"],
     cues: [
       "Lower back pressed into the deck.",
       "Legs straight, heels 15 cm off the ground.",
@@ -210,6 +236,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.hangingLegRaise]: {
     anim: "hang",
+    gear: ["pullUpBar"],
     cues: [
       "Dead hang, shoulders packed.",
       "Raise straight legs to at least parallel.",
@@ -218,6 +245,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.lunge]: {
     anim: "lunge",
+    gear: [],
     cues: [
       "Long step, torso tall.",
       "Back knee kisses the ground.",
@@ -226,6 +254,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.reverseLunge]: {
     anim: "reverseLunge",
+    gear: [],
     cues: [
       "Step straight back, torso tall, no forward lean.",
       "Back knee toward the ground, front shin vertical.",
@@ -234,6 +263,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.kneeLift]: {
     anim: "kneeLift",
+    gear: [],
     cues: [
       "Stand tall, weight through the whole standing foot.",
       "Drive one knee above hip height, slow and controlled.",
@@ -242,6 +272,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.armCircles]: {
     anim: "armCircles",
+    gear: [],
     cues: [
       "Arms straight out to the sides, shoulders down.",
       "Big slow circles, chest open, ribs stacked.",
@@ -250,6 +281,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.ankleRock]: {
     anim: "ankleRock",
+    gear: ["mat"],
     cues: [
       "Half-kneel, front foot flat and fully planted.",
       "Drive the front knee forward past the toes, heel glued down.",
@@ -258,6 +290,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.catCow]: {
     anim: "catCow",
+    gear: ["mat"],
     cues: [
       "Hands under shoulders, knees under hips.",
       "Cow: drop the belly, lift the chest and tailbone.",
@@ -266,6 +299,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.hip90Switch]: {
     anim: "hip90Switch",
+    gear: ["mat"],
     cues: [
       "Seated, both knees bent to roughly 90°.",
       "Rotate through the hips to switch the front and back leg, chest stays tall.",
@@ -274,6 +308,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.worldsGreatestStretch]: {
     anim: "worldsGreatestStretch",
+    gear: ["mat"],
     cues: [
       "Long lunge, back knee down, front foot flat.",
       "Drop the back hip low, then rotate the chest and reach the same-side arm to the ceiling.",
@@ -282,6 +317,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.hipFlexorStretch]: {
     anim: "hipFlexorStretch",
+    gear: ["mat"],
     side: "right", // side view facing right; the near front foot is the right
     cues: [
       "Half-kneel, back knee under the hip, front foot flat ahead.",
@@ -292,6 +328,7 @@ const LIB: Record<string, LibraryEntry> = {
   [EX.openBook]: {
     side: "right", // the near, opening arm is the right
     anim: "openBook",
+    gear: ["mat"],
     cues: [
       "Lie on your side, knees stacked and bent to 90°.",
       "Reach the top arm across the body, then open it to the far side, letting the gaze follow.",
@@ -300,6 +337,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.downDogCobra]: {
     anim: "downDogCobra",
+    gear: ["mat"],
     cues: [
       "From all fours, lift the hips high into an inverted V, heels reaching for the floor.",
       "Flow forward and down into Cobra: hips to the deck, chest lifted, shoulders down.",
@@ -308,6 +346,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.childsPose]: {
     anim: "childsPose",
+    gear: ["mat"],
     cues: [
       "Knees wide, big toes together, sit the hips back toward the heels.",
       "Walk the hands forward and rest the forehead down; let the back go long.",
@@ -316,6 +355,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.downwardDog]: {
     anim: "downDog",
+    gear: ["mat"],
     cues: [
       "Hands shoulder-width, spread the fingers, push the floor away.",
       "Hips up and back into an inverted V, length in the spine first.",
@@ -324,6 +364,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.upwardSalute]: {
     anim: "upwardSalute",
+    gear: ["mat"],
     cues: [
       "Stand tall, feet hip-width, weight even through both feet.",
       "Inhale and sweep the arms forward and up overhead; ribs stay down.",
@@ -332,6 +373,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.standingForwardFold]: {
     anim: "forwardFold",
+    gear: ["mat"],
     cues: [
       "Hinge from the hips, not the waist; let the head hang heavy.",
       "Knees soft or well bent: the point is a long back, not straight legs.",
@@ -340,6 +382,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.chairPose]: {
     anim: "chairPose",
+    gear: ["mat"],
     cues: [
       "Feet together, sit back as if onto a chair, knees behind the toes.",
       "Arms reach up in line with the torso; weight in the heels.",
@@ -348,6 +391,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.warriorTwo]: {
     anim: "warriorTwo",
+    gear: ["mat"],
     side: "left", // front-facing; the bent front knee on screen-right is the left leg
     cues: [
       "Wide stance: front foot forward, back foot turned in slightly.",
@@ -357,6 +401,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.trianglePose]: {
     anim: "trianglePose",
+    gear: ["mat"],
     side: "left", // front-facing; reaching over the left leg, on screen-right
     cues: [
       "From a wide stance, both legs straight, reach forward over the front leg.",
@@ -366,6 +411,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.treePose]: {
     anim: "treePose",
+    gear: ["mat"],
     side: "right", // front-facing; the lifted foot is the right one, on screen-left
     cues: [
       "Stand on one leg; place the other foot on the inner calf or thigh, never the knee.",
@@ -375,6 +421,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.pigeonPose]: {
     anim: "pigeonPose",
+    gear: ["mat"],
     side: "right", // side view facing right; the near, folded front leg is the right
     cues: [
       "From all fours, bring one knee forward behind the wrist, shin across the mat.",
@@ -384,6 +431,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.boatPose]: {
     anim: "boatPose",
+    gear: ["mat"],
     cues: [
       "Sit on the sit bones, lean back with a long, straight spine.",
       "Lift the legs: shins parallel to the floor first, straight legs when you can.",
@@ -392,6 +440,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.bridgePose]: {
     anim: "bridgePose",
+    gear: ["mat"],
     cues: [
       "On your back, knees bent, feet flat and hip-width near the hips.",
       "Press through the feet and lift the hips; knees point straight ahead.",
@@ -400,6 +449,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.seatedForwardFold]: {
     anim: "seatedForwardFold",
+    gear: ["mat"],
     cues: [
       "Sit tall with legs straight ahead, feet flexed.",
       "Hinge forward from the hips, leading with the chest, not the head.",
@@ -408,6 +458,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.lowLunge]: {
     anim: "hipFlexorStretch",
+    gear: ["mat"],
     side: "right", // side view facing right; the near front foot is the right
     cues: [
       "Step one foot forward, lower the back knee to the floor.",
@@ -417,6 +468,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.ringRow]: {
     anim: "ringRow",
+    gear: ["rings"],
     cues: [
       "Rings at hip height or higher; heels on the floor, body in one straight line.",
       "Pull the chest to the rings, elbows back, squeeze the shoulder blades.",
@@ -425,6 +477,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.deadHang]: {
     anim: "deadHang",
+    gear: ["pullUpBar"],
     cues: [
       "Full grip on the bar, hands just outside the shoulders, arms long.",
       "Ribs down, legs together and still, no swinging.",
@@ -433,6 +486,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.scapPull]: {
     anim: "scapPull",
+    gear: ["pullUpBar"],
     cues: [
       "Hang with straight arms; the elbows never bend.",
       "Pull the shoulders down away from the ears. The body rises a few centimetres.",
@@ -441,6 +495,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.pullupNegative]: {
     anim: "pullupNegative",
+    gear: ["pullUpBar"],
     cues: [
       "Step or jump up so the chin is over the bar.",
       "Lower as slowly as you can. Aim for 3–5 seconds down to straight arms.",
@@ -449,6 +504,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.bandPullup]: {
     anim: "bandPullup",
+    gear: ["pullUpBar", "band"],
     cues: [
       "Loop a band over the bar and stand or kneel in it; thicker band, more help.",
       "Pull the chest towards the bar, chin over, then lower under control.",
@@ -457,6 +513,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.singleUnder]: {
     anim: "singleUnder",
+    gear: ["jumpRope"],
     cues: [
       "Elbows close to the ribs; the turn comes from the wrists, not the arms.",
       "Small, quick hops on the balls of the feet, just high enough for the rope.",
@@ -465,6 +522,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.doubleUnder]: {
     anim: "doubleUnder",
+    gear: ["jumpRope"],
     cues: [
       "A slightly higher hop, body straight, feet together.",
       "Flick the wrists twice as fast so the rope passes under twice per jump.",
@@ -473,6 +531,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.spinBike]: {
     anim: "spinBike",
+    gear: ["spinBike"],
     cues: [
       "Saddle at hip height: a slight bend in the knee at the bottom of the stroke.",
       "Ride the target watts on screen; cadence is how you get there. Stay smooth.",
@@ -481,6 +540,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.savasana]: {
     anim: "savasana",
+    gear: ["mat"],
     cues: [
       "Lie on your back, legs relaxed apart, arms by your sides, palms up.",
       "Let the whole body go heavy; breathe normally.",
@@ -489,6 +549,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.burpee]: {
     anim: "burpee",
+    gear: [],
     cues: [
       "Hands down, kick back to a plank.",
       "Chest to the deck.",
@@ -497,6 +558,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.boxJump]: {
     anim: "jump",
+    gear: ["box"],
     cues: [
       "Load the hips, arms back.",
       "Explode up, land soft and quiet, full foot on the box.",
@@ -505,6 +567,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.boxStepUp]: {
     anim: "boxStepUp",
+    gear: ["box"],
     cues: [
       "Whole foot on the box, knee tracking over the toes.",
       "Stand up through the top leg: no push off the back foot, no hop.",
@@ -513,6 +576,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.powerThrow]: {
     anim: "powerThrow",
+    gear: ["medBall"],
     cues: [
       "Squat with the ball low, back flat, arms long.",
       "Explode hips and legs, throw back over the head.",
@@ -521,6 +585,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.sprintDragCarry]: {
     anim: "sprintDragCarry",
+    gear: ["sled", "carryPair"],
     cues: [
       "Five 50 m lengths: sprint, sled drag, lateral, carry, sprint.",
       "Stay low on the drag, hips down, short driving steps.",
@@ -529,6 +594,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.plank]: {
     anim: "plank",
+    gear: [],
     cues: [
       "Elbows under shoulders, feet together.",
       "Squeeze glutes and quads, one straight line.",
@@ -537,6 +603,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.run]: {
     anim: "run",
+    gear: [],
     gps: true,
     cues: [
       "Tall posture, slight forward lean.",
@@ -546,6 +613,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.runInPlace]: {
     anim: "runInPlace",
+    gear: [],
     cues: [
       "Knees to hip height, land on the balls of the feet.",
       "Quick light cadence. Noise means you're stamping.",
@@ -554,6 +622,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.highKnees]: {
     anim: "highKnees",
+    gear: [],
     cues: [
       "Drive each knee above hip height, fast.",
       "Stay on the balls of the feet, torso tall, no leaning back.",
@@ -562,6 +631,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.packRow]: {
     anim: "packRow",
+    gear: ["bandOrPack"],
     cues: [
       "Hinge to about 45°, back flat, knees soft.",
       "Pull the band or pack to the lower ribs, elbows close.",
@@ -570,14 +640,43 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.deadBug]: {
     anim: "deadBug",
+    gear: ["mat"],
     cues: [
       "On your back, arms to the ceiling, knees over hips at 90°.",
       "Press the lower back into the floor and keep it there.",
       "Reach one arm back and the opposite leg long, return; alternate.",
     ],
   },
+  [EX.gobletSquat]: {
+    anim: "gobletSquat",
+    gear: ["kettlebell"],
+    cues: [
+      "Bell held by the horns at the chest, elbows down.",
+      "Sit between the heels, elbows inside the knees, chest up.",
+      "Drive up through the whole foot; squeeze the glutes at the top.",
+    ],
+  },
+  [EX.kbCleanPress]: {
+    anim: "kbCleanPress",
+    gear: ["kettlebell"],
+    cues: [
+      "Hike the bell back, snap the hips, let it roll onto the forearm. No flip.",
+      "Rack tight: wrist straight, elbow against the ribs. Press to lockout.",
+      "Lower to the rack, then back between the legs. Half the reps each arm.",
+    ],
+  },
+  [EX.kbRow]: {
+    anim: "kbRow",
+    gear: ["kettlebell"],
+    cues: [
+      "Staggered stance, free hand braced on the front knee, back flat.",
+      "Pull the bell to the hip, elbow close; don't twist open.",
+      "Lower to a long arm. Half the reps each side.",
+    ],
+  },
   [EX.airBoxing]: {
     anim: "boxing",
+    gear: [],
     cues: [
       "Hands up by the cheeks, chin tucked, elbows in.",
       "Punch straight from the guard and snap it back. Alternate hands, don't wind up.",
@@ -586,6 +685,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.ruck]: {
     anim: "ruck",
+    gear: ["ruck"],
     gps: true,
     cues: [
       "Pack high and tight against the back.",
@@ -595,6 +695,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.row]: {
     anim: "rowErg",
+    gear: ["rower"],
     cues: [
       "Sequence: legs → back → arms; reverse on the return.",
       "Drive with the legs, arms straight until the finish.",
@@ -603,6 +704,7 @@ const LIB: Record<string, LibraryEntry> = {
   },
   [EX.assaultBike]: {
     anim: "bike",
+    gear: ["airBike"],
     cues: [
       "Push AND pull the handles; drive with the legs.",
       "Stay seated tall, core braced.",
@@ -614,29 +716,40 @@ const LIB: Record<string, LibraryEntry> = {
 const CATEGORY_FALLBACK: Record<Category, LibraryEntry> = {
   strength: {
     anim: "hinge",
+    gear: [],
     cues: ["Brace before every rep.", "Full range of motion.", "Own the eccentric."],
   },
   bodyweight: {
     anim: "pushup",
+    gear: [],
     cues: ["Strict form before reps.", "Full lockout, full stretch.", "Quality over quantity."],
   },
   core: {
     anim: "plank",
+    gear: [],
     cues: ["Brace the trunk.", "Move slow, no momentum.", "Keep breathing."],
   },
   conditioning: {
     anim: "burpee",
+    gear: [],
     cues: ["Set a repeatable pace.", "Break before you fail.", "Fast transitions."],
   },
   cardio: {
     anim: "run",
+    gear: [],
     cues: ["Even pacing.", "Nasal breathing at easy pace.", "Finish strong."],
   },
   ruck: {
     anim: "ruck",
+    gear: [],
     cues: ["Load tight to the back.", "Stride out.", "Protect the feet."],
   },
 };
+
+/** An exercise's declared gear; [] for one with no entry (db:smoke forbids that for built-ins). */
+export function exerciseGear(exerciseId: string): readonly GearId[] {
+  return LIB[exerciseId]?.gear ?? [];
+}
 
 export function libraryFor(ex: Exercise): LibraryEntry {
   return LIB[ex.id] ?? CATEGORY_FALLBACK[ex.category];

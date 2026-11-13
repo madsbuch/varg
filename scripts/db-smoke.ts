@@ -18,7 +18,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as t from "../src/db/schema";
 import { EX, seedExercises, seedTemplates } from "../src/lib/seed";
-import { hasLibraryEntry, libraryFor } from "../src/lib/library";
+import { exerciseGear, hasLibraryEntry, libraryFor } from "../src/lib/library";
+import { GEAR, templateExerciseIds, templateGear } from "../src/lib/gear";
+import type { GearId } from "../src/lib/gear";
 import { buildSongStyle, buildStyle, STYLE_LIMIT } from "../src/lib/music";
 import { BUILT_IN_SONGS, INTENSITY_NAMES, SETS, setById } from "../src/lib/songs";
 import { lengthBucket } from "../src/lib/catalog";
@@ -591,6 +593,24 @@ for (const probe of METRIC_PROBES) {
       `${String(em.stations.length)} stations`,
     ];
     for (const part of expected) assert(tpl.scheme.includes(part), `${where}: scheme "${tpl.scheme}" does not say "${part}"`);
+  }
+}
+
+// The kit list on every card is derived from the exercises' declared gear.
+// A template's own entries can only qualify that list or add what no
+// exercise implies: a detail for gear the workout does not use ("24 kg"
+// for a kettlebell nobody swings) would print a line the list never shows,
+// and an extra that an exercise already brings is a second source of truth.
+for (const tpl of seedTemplates()) {
+  const where = `template "${tpl.name}" gear`;
+  const derived = new Set<GearId>(templateExerciseIds(tpl).flatMap((id) => exerciseGear(id)));
+  for (const id of tpl.gear?.extra ?? []) {
+    assert(id in GEAR, `${where}: unknown gear "${id}"`);
+    assert(!derived.has(id), `${where}: "${id}" comes from its exercises already; drop it from extra`);
+  }
+  const listed = new Set(templateGear(tpl, exerciseGear).map((g) => g.id));
+  for (const id of Object.keys(tpl.gear?.detail ?? {})) {
+    assert(listed.has(id as GearId), `${where}: detail for "${id}", which the workout does not use`);
   }
 }
 

@@ -346,3 +346,26 @@ describe("Full Body EMOM - 20 Minutes", () => {
     expect(lines.has("workout|Next: Band or Backpack Row")).toBe(true);
   });
 });
+
+describe("Kettlebell EMOM - 20 Minutes", () => {
+  const exById = new Map(seedExercises().map((e) => [e.id, e]));
+  const tpl = seedTemplates().find((t) => t.id === "tpl-kettlebell-emom-20")!;
+  const cfg = configForTemplate(tpl, exById) as WodConfig;
+  const steps = buildSteps(cfg);
+
+  test("20:00 after the lead-in: the same warm-up, then three rounds of six bell minutes", () => {
+    expect(steps.reduce((a, st) => a + st.secs, 0) - steps[0]!.secs).toBe(1200);
+    expect(templateLength(tpl)).toEqual({ seconds: 1200, exact: true });
+    const stations = steps.filter((st) => st.emom?.block === "station");
+    expect(stations).toHaveLength(18);
+    expect(stations.slice(0, 6).map((st) => [st.exercise!.name, st.emom!.target])).toEqual([
+      ["Kettlebell Swing", "15–20 reps"],
+      ["Goblet Squat", "10–12 reps"],
+      ["Kettlebell Clean & Press", "10 reps · 5 per arm"],
+      ["High Knees", "35–40 s"],
+      ["Single-Arm Kettlebell Row", "16 reps · 8 per arm"],
+      ["Dead Bug", "10–16 reps"],
+    ]);
+    expect(stations.map((st) => st.at - steps[0]!.secs)).toEqual(stations.map((_, i) => 120 + i * 60));
+  });
+});

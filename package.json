@@ -15,7 +15,7 @@
     "android:init": "tauri android init",
     "android:dev": "tauri android dev",
     "android:build": "tauri android build --apk",
-    "test": "bun test scripts/score.test.ts scripts/music-choice.test.ts scripts/beatgrid.test.ts scripts/melspec.test.ts scripts/wod.test.ts scripts/fortime.test.ts scripts/bike.test.ts scripts/hr.test.ts scripts/animations.test.ts scripts/garmin.test.ts",
+    "test": "bun test scripts/score.test.ts scripts/music-choice.test.ts scripts/beatgrid.test.ts scripts/melspec.test.ts scripts/wod.test.ts scripts/fortime.test.ts scripts/bike.test.ts scripts/hr.test.ts scripts/animations.test.ts scripts/garmin.test.ts scripts/gear.test.ts",
     "lint": "eslint src",
     "voice:probe": "bun run scripts/kie-voice-probe.ts"
   },

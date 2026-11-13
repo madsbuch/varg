@@ -1,5 +1,6 @@
 import type { Exercise, Template } from "../types";
-import { libraryFor } from "../lib/library";
+import { exerciseGear, libraryFor } from "../lib/library";
+import { templateGear } from "../lib/gear";
 import { emomSeconds, LEVEL_LABEL } from "../lib/catalog";
 import { formatSeconds } from "../lib/units";
 import { BattleTrack } from "./BattleTrack";
@@ -36,6 +37,7 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
   const plan = template.interval;
   const forTime = template.forTime;
   const flow = template.flow;
+  const kit = templateGear(template, exerciseGear);
 
   return (
     <Sheet title={template.name} onClose={onClose}>
@@ -44,6 +46,19 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
         <span className={`chip level-${template.level}`}>{LEVEL_LABEL[template.level]}</span>
       </span>
       <p className="muted">{template.description}</p>
+      <div className="card gear-card">
+        <h3 style={{ fontSize: 15 }}>What you need</h3>
+        {kit.length === 0
+          ? <p className="muted" style={{ margin: "8px 0 0" }}>Bodyweight only</p>
+          : <ul className="gear-list">
+              {kit.map(g => (
+                <li key={g.id}>
+                  <span>{g.label}</span>
+                  {g.detail && <span className="gear-detail">{g.detail}</span>}
+                </li>
+              ))}
+            </ul>}
+      </div>
       <div className="card">
         <h3 style={{ fontSize: 15 }}>The workout</h3>
         <p style={{ margin: "8px 0 0" }}>{template.scheme}</p>

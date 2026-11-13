@@ -1,4 +1,5 @@
 // Core domain types for Varg.
+import type { GearId } from "./lib/gear";
 // Weights are always kilograms, distances always meters — kg or death.
 
 /**
@@ -301,6 +302,15 @@ export interface Template {
    * forTime, flow or ride.
    */
   emom?: EmomPlan | undefined;
+  /**
+   * The kit list on the card is derived from the exercises (library.ts).
+   * Here only what no exercise implies (`extra`: Murph's vest) and the
+   * specifics of this prescription (`detail`: kettlebell "24/16 kg").
+   */
+  gear?: {
+    extra?: GearId[] | undefined;
+    detail?: Partial<Record<GearId, string>> | undefined;
+  } | undefined;
   /**
    * An indoor-bike ride: starting it launches the ride player, which reads
    * power, cadence and kcal from the bike over Bluetooth. Never set

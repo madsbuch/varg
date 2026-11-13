@@ -346,6 +346,35 @@ function deadBugAt(t: number): Pose {
   });
 }
 
+/* --- Kettlebell EMOM -------------------------------------------------------
+ * One bell: a handle arc over the hand and the bell under it, so it reads
+ * as a kettlebell at 62 px and is never confused with a barbell or a pack.
+ */
+const bellAt = (hand: Point) => ({
+  shapes: [gear(`M${f(hand[0] - 2.4)} ${f(hand[1] + 1.5)} Q${f(hand[0])} ${f(hand[1] - 2)} ${f(hand[0] + 2.4)} ${f(hand[1] + 1.5)}`)],
+  balls: [ball(add(hand, [0, 4.2]), 3.4)],
+});
+const handBell = (_t: number, s: Skeleton) => bellAt(s.arms[1][2]);
+/** Goblet squat: the bell held at the sternum, elbows down, torso upright. */
+const gobletTop = pose(standHip, 0, [53, 88], [55, 39], { farFoot: [41, 88], farHand: [54, 39], elbows: [1, 1] });
+const gobletLow = pose([40, 72], 18, [53, 88], [57, 56], { farFoot: [41, 88], farHand: [56, 56], elbows: [1, 1], headLean: 10 });
+/**
+ * Single-arm clean and press: the bell hangs at the hip from a soft hinge,
+ * is cleaned to the rack at the shoulder, pressed overhead, lowered to the
+ * rack and back to the hang. The free arm stays out of the way at the side.
+ */
+// Straight arms are drawn a hair short of full length: the shoulder moves
+// between keys, and a fully straight target would leave reach mid-move.
+const sideArm = (hip: Point, lean: number, angle: number) => reach(shoulderAt(hip, lean), angle, angle, 11.5);
+const kbHang = pose([44, 58], 16, [53, 88], sideArm([44, 58], 16, 92), { farFoot: [41, 88], farHand: sideArm([44, 58], 16, 100), elbows: [1, 1], headLean: 8 });
+const kbRack = pose(standHip, 0, [53, 88], [54, 38], { farFoot: [41, 88], farHand: sideArm(standHip, 0, 100), elbows: [1, 1] });
+const kbOverhead = pose(standHip, 0, [53, 88], [50, 9.5], { farFoot: [41, 88], farHand: sideArm(standHip, 0, 100), elbows: [1, 1] });
+/**
+ * Single-arm row: staggered stance, the free hand braced on the front
+ * knee, the working arm pulls the bell from a long arm to the hip.
+ */
+const kbRowAt = (hand: Point) => pose([40, 62], 62, [34, 88], hand, { farFoot: [60, 88], farHand: [55, 71], elbows: [1, 1], headLean: 50 });
+
 export const MOTIONS = {
   rest: rep(4, standing([58, 52]), pose(standHip, 0, [54, 88], [58, 51.5], { farFoot: [39, 88], farHand: [34, 51.5], elbows: [-1, 1] })),
   squat: rep(3, squatTop, squatLow, handBar),
@@ -501,6 +530,13 @@ export const MOTIONS = {
   highKnees: { dur: 0.7, at: highKneesAt },
   packRow: rep(2.8, packRowLow, packRowHigh, packGear),
   deadBug: { dur: 6, at: deadBugAt },
+  gobletSquat: rep(3, gobletTop, gobletLow, handBell),
+  kbCleanPress: {
+    dur: 4.2,
+    at: timeline([[0, kbHang], [0.1, kbHang], [0.28, kbRack], [0.38, kbRack], [0.54, kbOverhead], [0.64, kbOverhead], [0.78, kbRack], [0.86, kbRack], [1, kbHang]]),
+    equipment: handBell,
+  },
+  kbRow: rep(2.8, kbRowAt([61, 74]), kbRowAt([50, 62]), handBell),
   boxing: { dur: 1.8, at: (t: number) => {
     const jab = Math.max(0, Math.sin(TAU * t)), cross = Math.max(0, -Math.sin(TAU * t));
     const hip: Point = [47 + cross * 2, 59.5], shoulder = shoulderAt(hip, 6 + cross * 5);

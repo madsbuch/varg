@@ -55,6 +55,11 @@ should shape what you build:
    Every built-in exercise must have its own — the category fallback exists
    for user-created exercises only, and demonstrating the wrong movement is a
    bug, not a graceful degradation.
+   The `LIB` entry also declares the exercise's `gear` from `GEAR` in
+   [`src/lib/gear.ts`](src/lib/gear.ts) (`[]` for bodyweight): every
+   workout card's "What you need" list is derived from it. A template
+   adds only what no exercise implies (`gear.extra`: Murph's vest) and the
+   specifics of its prescription (`gear.detail`: kettlebell "24/16 kg").
 3. Add the `Template` to `seedTemplates()`. If it has an `interval`, starting
    it launches the guided interval player. If it is a fixed amount of work
    scored by time ("— for time"), give it `forTime` stages instead: starting
@@ -125,7 +130,8 @@ should shape what you build:
    units the guided player actually enforces — no metres, no AMRAP, no rep
    counts — that the interval itself is within sane bounds, that every
    for-time stage prescribes the amount its exercise's metric measures and
-   says so in its label, that an EMOM's stations prescribe what their
+   says so in its label, that a template's gear details name gear the
+   workout actually uses, that an EMOM's stations prescribe what their
    exercise counts and its scheme states its real total, warm-up, EMOM
    length, rounds and stations, that a flow's sides are paired and its scheme states
    its real total, pose count and hold range, that every template has a level

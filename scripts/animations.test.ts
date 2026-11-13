@@ -148,6 +148,11 @@ describe("exercise motion geometry", () => {
     // the pack row is not the barbell row.
     expect(anim(EX.highKnees)).not.toBe(anim(EX.runInPlace));
     expect(anim(EX.packRow)).not.toBe(anim(EX.barbellRow));
+    // Kettlebell work: one bell, its own lifts.
+    expect(new Set([anim(EX.kbRow), anim(EX.packRow), anim(EX.barbellRow)]).size).toBe(3);
+    expect(new Set([anim(EX.gobletSquat), anim(EX.frontSquat), anim(EX.airSquat)]).size).toBe(3);
+    expect(anim(EX.kbCleanPress)).not.toBe(anim(EX.powerClean));
+    expect(sampleScene(anim(EX.kbCleanPress), 0.6).balls[1]!.center[1]).toBeLessThan(20); // pressed overhead
   });
 
   test("high knees drive the knee above the hip; dead bug keeps hips and shoulders down", () => {

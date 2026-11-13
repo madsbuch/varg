@@ -109,6 +109,10 @@ export const EX = {
   highKnees: "ex-high-knees",
   packRow: "ex-band-backpack-row",
   deadBug: "ex-dead-bug",
+  // Kettlebell EMOM. Weighed in kilograms like the swing.
+  gobletSquat: "ex-goblet-squat",
+  kbCleanPress: "ex-kb-clean-press",
+  kbRow: "ex-kb-row",
 } as const;
 
 export function seedExercises(): Exercise[] {
@@ -250,6 +254,9 @@ export function seedExercises(): Exercise[] {
     e(EX.highKnees, "High Knees", "cardio", "time", ["hip flexors", "conditioning"]),
     e(EX.packRow, "Band or Backpack Row", "strength", "reps", ["back", "biceps"]),
     e(EX.deadBug, "Dead Bug", "core", "reps", ["core", "hip flexors"]),
+    e(EX.gobletSquat, "Goblet Squat", "strength", "weight_reps", ["quads", "glutes", "core"]),
+    e(EX.kbCleanPress, "Kettlebell Clean & Press", "strength", "weight_reps", ["shoulders", "posterior chain", "core"]),
+    e(EX.kbRow, "Single-Arm Kettlebell Row", "strength", "weight_reps", ["back", "biceps"]),
     e(EX.boxJump, "Box Jump", "conditioning", "reps", ["legs"]),
     e(EX.boxStepUp, "Box Step-up", "conditioning", "reps", ["legs", "glutes"]),
     // Both ACFT events are scored on a single effort: metres thrown, and
@@ -658,6 +665,7 @@ export function seedTemplates(): Template[] {
         "savage: most finish between 3 and 10 minutes.",
       scheme: "21-15-9 thrusters @ 43/29 kg · pull-ups · for time",
       level: "advanced",
+      gear: { detail: { barbell: "43/29 kg" } },
       estimateMinutes: 8,
       exerciseIds: [EX.thruster, EX.pullUp],
       forTime: {
@@ -677,6 +685,7 @@ export function seedTemplates(): Template[] {
         "bar and ring rows. Set the rings so the last rows are hard but clean.",
       scheme: "21-15-9 thrusters @ 20/15 kg · ring rows · for time",
       level: "beginner",
+      gear: { detail: { barbell: "20/15 kg" } },
       estimateMinutes: 8,
       exerciseIds: [EX.thruster, EX.ringRow],
       forTime: {
@@ -694,6 +703,7 @@ export function seedTemplates(): Template[] {
       description: "Three rounds of a run, kettlebell swings and pull-ups.",
       scheme: "3 rounds: 400 m run · 21 kettlebell swings @ 24/16 kg · 12 pull-ups · for time",
       level: "advanced",
+      gear: { detail: { kettlebell: "24/16 kg" } },
       estimateMinutes: 12,
       exerciseIds: [EX.run, EX.kettlebellSwing, EX.pullUp],
       forTime: {
@@ -712,6 +722,7 @@ export function seedTemplates(): Template[] {
       description: "Helen with a lighter bell and ring rows in place of pull-ups.",
       scheme: "3 rounds: 400 m run · 21 kettlebell swings @ 16/12 kg · 12 ring rows · for time",
       level: "beginner",
+      gear: { detail: { kettlebell: "16/12 kg" } },
       estimateMinutes: 15,
       exerciseIds: [EX.run, EX.kettlebellSwing, EX.ringRow],
       forTime: {
@@ -730,6 +741,7 @@ export function seedTemplates(): Template[] {
       description: "Row, thrusters, pull-ups: one long chipper, one lap each.",
       scheme: "1000 m row · 50 thrusters @ 20/15 kg · 30 pull-ups · for time",
       level: "advanced",
+      gear: { detail: { barbell: "20/15 kg" } },
       estimateMinutes: 12,
       exerciseIds: [EX.row, EX.thruster, EX.pullUp],
       forTime: {
@@ -748,6 +760,7 @@ export function seedTemplates(): Template[] {
       description: "Jackie with a training bar and ring rows.",
       scheme: "1000 m row · 50 thrusters @ 15/10 kg · 30 ring rows · for time",
       level: "beginner",
+      gear: { detail: { barbell: "15/10 kg" } },
       estimateMinutes: 15,
       exerciseIds: [EX.row, EX.thruster, EX.ringRow],
       forTime: {
@@ -768,6 +781,7 @@ export function seedTemplates(): Template[] {
         "before you have to: 10s or 15s with short rests.",
       scheme: "150 wall balls @ 9/6 kg to a 3 m target · for time",
       level: "intermediate",
+      gear: { detail: { wallBall: "9/6 kg · 3 m target" } },
       estimateMinutes: 12,
       exerciseIds: [EX.wallBall],
       forTime: { stages: [{ exerciseId: EX.wallBall, label: "150 wall balls", reps: 150 }] },
@@ -780,6 +794,7 @@ export function seedTemplates(): Template[] {
       description: "Five long rounds of running, jumping and throwing: a lung burner.",
       scheme: "5 rounds: 400 m run · 30 box jumps @ 60/50 cm · 30 wall balls @ 9/6 kg · for time",
       level: "advanced",
+      gear: { detail: { box: "60/50 cm", wallBall: "9/6 kg · 3 m target" } },
       estimateMinutes: 35,
       exerciseIds: [EX.run, EX.boxJump, EX.wallBall],
       forTime: {
@@ -942,6 +957,7 @@ export function seedTemplates(): Template[] {
       description: "March training under load, inspired by Træn med Forsvaret.",
       scheme: "10 km march · 10 kg pack · steady pace",
       level: "intermediate",
+      gear: { detail: { ruck: "10 kg" } },
       estimateMinutes: 110,
       exerciseIds: [EX.ruck],
       music: {
@@ -978,6 +994,7 @@ export function seedTemplates(): Template[] {
       scheme:
         "1.6 km run · 100 pull-ups · 200 push-ups · 300 air squats · 1.6 km run · for time",
       level: "advanced",
+      gear: { extra: ["vest"], detail: { vest: "9 kg · traditional" } },
       estimateMinutes: 60,
       exerciseIds: [EX.run, EX.pullUp, EX.pushUp, EX.airSquat, EX.run],
       // The middle 600 reps are one stage each, exactly as prescribed —
@@ -1013,6 +1030,7 @@ export function seedTemplates(): Template[] {
       scheme:
         "3-rep deadlift · power throw · hand-release push-ups · sprint-drag-carry · plank · 3.2 km run",
       level: "advanced",
+      gear: { detail: { barbell: "Hex bar", medBall: "4.5 kg", sled: "41 kg", carryPair: "2 × 18 kg" } },
       estimateMinutes: 50,
       exerciseIds: [
         EX.deadlift,
@@ -1124,12 +1142,54 @@ export function seedTemplates(): Template[] {
       },
     },
     {
+      id: "tpl-kettlebell-emom-20",
+      name: "Kettlebell EMOM - 20 Minutes",
+      branch: "CrossFit",
+      description:
+        "One kettlebell, twenty minutes. Two minutes of warm-up, then 18 " +
+        "minutes on the minute: swings, goblet squats, clean and press, " +
+        "high knees to breathe, rows, dead bugs. Three rounds. Tap Done " +
+        "when the reps are in; the rest of the minute is rest.",
+      // Warm-up 3 × 40 s = 120 s, then 3 rounds × 6 stations × 60 s =
+      // 1080 s: 1200 s, exactly 20:00 after the 5 s lead-in.
+      scheme: "20:00 · 2:00 warm-up · 18:00 EMOM · 3 rounds · 6 stations",
+      level: "intermediate",
+      gear: { detail: { kettlebell: "12–24 kg" } },
+      exerciseIds: [
+        EX.runInPlace, EX.armCircles, EX.airSquat,
+        EX.kettlebellSwing, EX.gobletSquat, EX.kbCleanPress, EX.highKnees, EX.kbRow, EX.deadBug,
+      ],
+      emom: {
+        minute: 60,
+        rounds: 3,
+        warmup: [
+          { exerciseId: EX.runInPlace, seconds: 40 },
+          { exerciseId: EX.armCircles, seconds: 40 },
+          { exerciseId: EX.airSquat, seconds: 40 },
+        ],
+        stations: [
+          { exerciseId: EX.kettlebellSwing, reps: [15, 20], target: "15–20 reps", focus: "Hips, posterior chain, power" },
+          { exerciseId: EX.gobletSquat, reps: [10, 12], target: "10–12 reps", focus: "Legs, glutes, core" },
+          { exerciseId: EX.kbCleanPress, reps: [10, 10], target: "10 reps · 5 per arm", focus: "Shoulders, full body" },
+          { exerciseId: EX.highKnees, seconds: [35, 40], target: "35–40 s", focus: "Cardio" },
+          { exerciseId: EX.kbRow, reps: [16, 16], target: "16 reps · 8 per arm", focus: "Back, biceps" },
+          { exerciseId: EX.deadBug, reps: [10, 16], target: "10–16 reps", focus: "Core, stability" },
+        ],
+      },
+      music: {
+        bpm: 150,
+        style: "heavy industrial electronic, iron-hammer percussion, dark bass, no vocals",
+        theme: "Swinging iron every minute on the minute, three rounds, no wasted breath",
+      },
+    },
+    {
       id: "tpl-ruck-standard",
       name: "Standard Ruck",
       branch: "Army Ranger / SF",
       description: "Foot-march standard: 19.3 km with a 16 kg dry pack.",
       scheme: "19.3 km ruck · 16 kg load · target sub-3:00 · for time",
       level: "advanced",
+      gear: { detail: { ruck: "16 kg" } },
       estimateMinutes: 180,
       exerciseIds: [EX.ruck],
       // One stage on the stopwatch. With GPS on, the distance is measured
@@ -1151,6 +1211,7 @@ export function seedTemplates(): Template[] {
       scheme:
         "5 rounds: 12 deadlifts · 9 hang power cleans · 6 push press @ 70/48 kg · for time",
       level: "advanced",
+      gear: { detail: { barbell: "70/48 kg" } },
       estimateMinutes: 15,
       exerciseIds: [EX.deadlift, EX.hangPowerClean, EX.pushPress],
       // Five rounds of three movements: fifteen stages, round number in
@@ -1238,6 +1299,7 @@ export function seedTemplates(): Template[] {
         "1,000 box step-ups with a rucksack. Honors LT Chad Wilkinson.",
       scheme: "1000 step-ups @ 50 cm box · 20/16 kg ruck · for time",
       level: "advanced",
+      gear: { detail: { box: "50 cm", ruck: "20/16 kg" } },
       estimateMinutes: 75,
       // Step-ups, not box jumps. The station used to map to Box Jump,
       // whose cues say "explode up, land soft" — a thousand jumps under a
