@@ -1612,6 +1612,11 @@ input.invalid,
   width: 100%;
   max-width: 380px;
 }
+/* The card stays inside the screen whatever the phone's text size: the
+   track cannot grow to the buttons' min-content, and they wrap instead. */
+.wod-confirm { grid-template-columns: minmax(0, 1fr); }
+.wod-confirm .card { justify-self: center; }
+.wod-confirm .btn-row .btn { min-width: 0; flex: 1 1 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .sheet,

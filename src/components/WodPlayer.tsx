@@ -615,13 +615,14 @@ export default function WodPlayer({
               <button className="btn ghost" onClick={keepGoing}>
                 Keep going
               </button>
-              <button className="btn ghost" onClick={restart}>
-                Restart
-              </button>
               <button className="btn danger" onClick={onClose}>
                 Discard
               </button>
             </div>
+            {/* Its own row: three across overflowed the card at the phone's text size. */}
+            <button className="btn ghost" style={{ marginTop: 12 }} onClick={restart}>
+              Restart
+            </button>
           </div>
         </div>
       )}
