@@ -1157,8 +1157,7 @@ input.invalid,
   padding-top: 12px;
 }
 
-/* EMOM: the target under the exercise name, and the Done button above
-   the transport. Rest dims both, like the rest of the screen. */
+/* EMOM: the target under the exercise name. */
 .wod-target {
   font-size: 20px;
   font-weight: 800;
@@ -1173,19 +1172,13 @@ input.invalid,
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
 }
-/* An EMOM screen carries a target, a position and Done on top of the
-   usual column: on a short phone the step bar and the second queue row
+/* An EMOM screen carries a target and a position on top of the usual
+   column: on a short phone the step bar and the second queue row
    give way so the figure keeps some size. */
 @media (max-height: 700px) {
   .wod.emom .wod-time { font-size: min(64px, 10vh); }
   .wod.emom .wod-stepbar { display: none; }
   .wod.emom .wod-queue-row.dim { display: none; }
-}
-.wod-controls .wod-done {
-  width: 100%;
-  min-height: 56px;
-  margin-bottom: 10px;
-  font-size: 18px;
 }
 
 /* Scoped to the transport row: these are the ◀ / ▶ squares flanking

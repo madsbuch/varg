@@ -10,10 +10,11 @@
  *     genuinely useful lookahead is "rest, then burpees", not "burpees".
  *
  * An EMOM runs on the same timeline: every station is a step exactly one
- * minute long, so the minute boundaries are fixed by the clock. Inside the
- * minute the athlete works until Done (reps) or until the timed target has
- * run, and the rest of the minute shows as rest — a phase of the step,
- * derived like everything else, never a timer of its own.
+ * minute long, so the minute boundaries are fixed by the clock. A timed
+ * station's work ends by itself and the rest of its minute shows as rest
+ * — a phase of the step, derived like everything else, never a timer of
+ * its own. A rep station shows its target all minute: there is no Done
+ * to tap, the reps are the athlete's to finish.
  *
  * Timing is anchored to the wall clock rather than accumulated from a
  * setInterval, so the workout survives a re-render, a dropped frame, or
@@ -24,7 +25,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../lib/app-context";
 import { deleteSession, upsertSession } from "../lib/store";
 import {
-  advanceProgress, buildSteps, clockElapsed, emomPhase, newWodProgress, recordedSession,
+  advanceProgress, buildSteps, clockElapsed, emomAnnounceAt, emomPhase, newWodProgress, recordedSession,
   seekClock, stepIndexAt, togglePauseClock,
 } from "../lib/wod";
 import type { Clock, Step, StepKind, WodConfig } from "../lib/wod";
@@ -115,8 +116,6 @@ export default function WodPlayer({
   const loggedId = useRef<string | null>(null);
   const [discarded, setDiscarded] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
-  // EMOM: seconds into each station step at which Done was tapped.
-  const [doneMarks, setDoneMarks] = useState<Readonly<Record<number, number>>>({});
 
   const paused = clock.pausedAt !== null;
   const done = stoppedEarly || elapsed >= total;
@@ -155,11 +154,12 @@ export default function WodPlayer({
   const step = steps[Math.min(stepIdx, steps.length - 1)];
   const remain = step ? Math.max(0, Math.ceil(step.at + step.secs - elapsed)) : 0;
 
-  // EMOM: is this minute's work done? Then the rest of the minute is rest.
+  // EMOM: a timed station rests once its seconds have run. And when the
+  // next minute's exercise is named (`emomAnnounceAt`).
   const emom = config.emom !== undefined;
-  const station = step?.emom?.block === "station";
-  const phase = step ? emomPhase(step, elapsed - step.at, doneMarks[stepIdx]) : "rest";
-  const restingIn = station && phase === "rest" && !done ? stepIdx : -1;
+  const phase = step ? emomPhase(step, elapsed - step.at) : "rest";
+  const announceAt = step ? emomAnnounceAt(step) : undefined;
+  const announceIn = step && announceAt !== undefined && !done && elapsed - step.at >= announceAt ? stepIdx : -1;
 
   // The next two steps — rest included, because with 10 s rests the useful
   // lookahead is "rest, then push-ups". A flow's moves are just the way
@@ -239,16 +239,17 @@ export default function WodPlayer({
     say(voiced && voiceOn ? cueLine(s) : "", beep);
   }, [stepIdx, steps, flow, voiced, voiceOn, clips, say]);
 
-  // EMOM: the moment a station's work ends — Done, or its timed target
-  // ran out — the rest of the minute begins: the low rest tone, or the
-  // voice naming what the next minute starts with.
+  // EMOM: ahead of the next minute the voice names its exercise — as a
+  // timed station's rest begins (with the low rest tone when there is no
+  // voice), or ten seconds before a rep station's minute ends.
   const cuedRest = useRef(-1);
   useEffect(() => {
-    if (restingIn < 0 || cuedRest.current === restingIn) return;
+    if (announceIn < 0 || cuedRest.current === announceIn) return;
     if (voiced && voiceOn && !clips) return;
-    cuedRest.current = restingIn;
-    say(voiced && voiceOn ? restLine(steps, restingIn) : "", cueRest);
-  }, [restingIn, steps, voiced, voiceOn, clips, say]);
+    cuedRest.current = announceIn;
+    const timed = steps[announceIn]?.emom?.workSecs !== undefined;
+    say(voiced && voiceOn ? restLine(steps, announceIn) : "", timed ? cueRest : () => undefined);
+  }, [announceIn, steps, voiced, voiceOn, clips, say]);
 
   const cuedTick = useRef("");
   useEffect(() => {
@@ -270,19 +271,12 @@ export default function WodPlayer({
     advanceProgress(progress.current, steps, clockElapsed(clock, now));
     progress.current.position = Math.max(0, seconds);
     setRecordedDuration(progress.current.duration);
-    // Going back to a station replays its minute from the top: its Done
-    // no longer holds, and its rest is cued again when it comes.
+    // Going back to a station replays its minute from the top: its
+    // announcement is cued again when it comes.
     const target = stepIndexAt(steps, Math.max(0, seconds));
-    setDoneMarks((m) => Object.fromEntries(Object.entries(m).filter(([i]) => Number(i) < target)));
     if (cuedRest.current >= target) cuedRest.current = -1;
     setClock(seekClock(clock, now, seconds));
   }, [clock, steps]);
-
-  /** EMOM: the reps are in. The clock runs on; the rest of the minute is rest. */
-  const markDone = () => {
-    const into = clockElapsed(clock, Date.now()) - (steps[stepIdx]?.at ?? 0);
-    setDoneMarks((m) => ({ ...m, [stepIdx]: Math.max(0, into) }));
-  };
 
   const togglePause = useCallback(() => {
     // Resuming is a user gesture, and it is the moment a context suspended
@@ -352,12 +346,11 @@ export default function WodPlayer({
   const attachHr = hr.attach;
 
   const logSession = useCallback(() => {
-    const doneAt = steps.map((_, i) => doneMarks[i]);
-    const session = attachHr(recordedSession(config, steps, { ...progress.current, doneAt }, startedAt, stoppedEarly));
+    const session = attachHr(recordedSession(config, steps, progress.current, startedAt, stoppedEarly));
     if (session.entries.length === 0) return null;
     update((d) => upsertSession(d, session));
     return session.id;
-  }, [config, steps, doneMarks, startedAt, stoppedEarly, update, attachHr]);
+  }, [config, steps, startedAt, stoppedEarly, update, attachHr]);
 
   /** Start over from the lead-in: nothing recorded so far is kept. */
   const restart = () => {
@@ -366,7 +359,6 @@ export default function WodPlayer({
     cuedRest.current = -1;
     cuedTick.current = "";
     wasAutoPaused.current = false;
-    setDoneMarks({});
     setRecordedDuration(0);
     setHasWork(false);
     setConfirmStop(false);
@@ -576,17 +568,6 @@ export default function WodPlayer({
       {track.audioElement}
 
       <div className="wod-controls">
-        {emom && (
-          // Always in an EMOM's layout so the transport never jumps; only
-          // live while a station's work is still going.
-          <button
-            className="btn primary wod-done"
-            disabled={!station || resting || paused}
-            onClick={markDone}
-          >
-            {resting ? "Resting" : "Done"}
-          </button>
-        )}
         <div className="btn-row">
           <button className="btn ghost" onClick={back} aria-label="Back">
             ◀

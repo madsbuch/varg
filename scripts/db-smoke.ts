@@ -539,16 +539,14 @@ for (const probe of METRIC_PROBES) {
 }
 
 // EMOMs run in the guided player: every station owns one whole minute,
-// work until Done (reps) or until its timed target has run, rest after.
-// So: every exercise resolves and is in exerciseIds (the details sheet's
-// cues), a station prescribes reps exactly when its exercise counts reps
-// and its target label says those numbers, timed work fits inside the
-// minute, and the scheme states the real total, warm-up, EMOM length,
+// its reps (or its timed work) first, rest after. So: every exercise
+// resolves and is in exerciseIds (the details sheet's cues), a station
+// prescribes reps exactly when its exercise counts reps, with one whole
+// count per round (never a range), timed work fits inside the minute, and the scheme states the real total, warm-up, EMOM length,
 // rounds and stations — the arithmetic the owner reads is what runs.
 {
   const exById = new Map(seedExercises().map((e) => [e.id, e]));
   const fmt = (t: number) => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
-  const range = (r: [number, number]) => (r[0] === r[1] ? String(r[0]) : `${String(r[0])}–${String(r[1])}`);
   for (const tpl of seedTemplates()) {
     const em = tpl.emom;
     if (!em) continue;
@@ -557,22 +555,29 @@ for (const probe of METRIC_PROBES) {
     assert(Number.isInteger(em.rounds) && em.rounds >= 1 && em.rounds <= 50, `${where}: rounds must be 1-50, got ${em.rounds}`);
     assert(em.stations.length >= 1 && em.stations.length * em.rounds <= 200, `${where}: needs 1-200 station minutes`);
     em.stations.forEach((st, i) => {
-      const at = `${where} station ${i + 1} ("${st.target}")`;
+      const at = `${where} station ${i + 1}`;
       const ex = exById.get(st.exerciseId);
       assert(ex, `${at}: exercise ${st.exerciseId} does not exist`);
       assert(tpl.exerciseIds.includes(st.exerciseId), `${at}: ${ex.name} missing from exerciseIds`);
-      assert((st.reps === undefined) !== (st.seconds === undefined), `${at}: needs exactly one of reps or seconds`);
+      assert((st.reps === undefined) !== (st.seconds === undefined), `${at} (${ex.name}): needs exactly one of reps or seconds`);
+      // One fixed count per round — never a range the athlete has to pick from.
+      const counts = st.reps ?? st.seconds ?? [];
+      assert(
+        counts.length === em.rounds,
+        `${at} (${ex.name}): ${counts.length} counts for ${em.rounds} rounds; give one count per round`,
+      );
       if (st.reps) {
-        const [lo, hi] = st.reps;
         assert(ex.metric === "reps" || ex.metric === "weight_reps", `${at}: ${ex.name} is a ${ex.metric} exercise, not counted in reps`);
-        assert(Number.isInteger(lo) && Number.isInteger(hi) && lo >= 1 && lo <= hi, `${at}: reps must be whole numbers, low to high`);
-        assert(st.target.includes(`${range(st.reps)} reps`), `${at}: target does not say "${range(st.reps)} reps"`);
+        assert(st.reps.every((n) => Number.isInteger(n) && n >= 1 && n <= 100), `${at} (${ex.name}): reps must be whole numbers 1-100`);
+        if (st.perSide) assert(st.reps.every((n) => n % 2 === 0), `${at} (${ex.name}): reps per ${st.perSide} must split evenly`);
       }
       if (st.seconds) {
-        const [lo, hi] = st.seconds;
         assert(ex.metric === "time", `${at}: ${ex.name} is a ${ex.metric} exercise, not timed`);
-        assert(Number.isInteger(lo) && Number.isInteger(hi) && lo >= 5 && lo <= hi && hi < em.minute, `${at}: timed work must be 5 s up to under the minute, low to high`);
-        assert(st.target.includes(`${range(st.seconds)} s`), `${at}: target does not say "${range(st.seconds)} s"`);
+        assert(st.perSide === undefined, `${at} (${ex.name}): perSide is for reps`);
+        assert(
+          st.seconds.every((n) => Number.isInteger(n) && n >= 5 && n < em.minute),
+          `${at} (${ex.name}): timed work must be whole seconds, 5 up to under the minute`,
+        );
       }
     });
     const warmup = em.warmup ?? [];

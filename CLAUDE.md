@@ -68,11 +68,14 @@ should shape what you build:
    logs. For an EMOM (every minute on the minute) give it `emom`: the
    stations in order, each owning one `minute`, `rounds`, and an optional
    timed `warmup` run back to back first. A station prescribes `reps`
-   (low–high; the athlete taps Done and the rest of the minute is rest)
-   or `seconds` (rest shows by itself after the top of the range), and a
-   `target` label stating those numbers. The minute is one player step,
-   so the boundaries are fixed by the clock; work and rest inside it are
-   a phase (`emomPhase` in `wod.ts`), never a timer of their own. For a yoga class — every pose its own hold, one-sided poses left
+   or `seconds` as ONE FIXED COUNT PER ROUND, never a range ("8-12
+   burpees" is not something to do mid-set): burpees 8, 10, 12 is
+   `reps: [8, 10, 12]`, `perSide` adds "· 8 per leg". There is no Done
+   button (the owner does not want one): a rep station shows its target
+   all minute, a timed one shows rest by itself once its seconds have
+   run. The minute is one player step, so the boundaries are fixed by the
+   clock; rest inside it is a phase (`emomPhase` in `wod.ts`), never a
+   timer of its own. For a yoga class — every pose its own hold, one-sided poses left
    then right — give it `flow` steps and a `transition` (seconds to move
    between poses): the guided player names each next pose as the move
    begins and shows its cues. A one-sided pose needs `side` declared on its `LIB`
@@ -132,7 +135,7 @@ should shape what you build:
    for-time stage prescribes the amount its exercise's metric measures and
    says so in its label, that a template's gear details name gear the
    workout actually uses, that an EMOM's stations prescribe what their
-   exercise counts and its scheme states its real total, warm-up, EMOM
+   exercise counts, one whole count per round, and its scheme states its real total, warm-up, EMOM
    length, rounds and stations, that a flow's sides are paired and its scheme states
    its real total, pose count and hold range, that every template has a level
    and a length (computed or estimated), and that every metric has a declared PR direction.

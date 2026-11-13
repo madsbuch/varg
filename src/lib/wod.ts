@@ -37,12 +37,20 @@ export interface WodConfig {
   trackKey?: string; // battle-track cache key — plays during the WOD if cached
 }
 
-/** An EMOM station with its exercise resolved. */
+/** An EMOM station with its exercise resolved: one count per round. */
 export interface EmomStationConfig {
   exercise: Exercise;
-  reps?: [number, number] | undefined;
-  seconds?: [number, number] | undefined;
-  target: string;
+  reps?: number[] | undefined;
+  seconds?: number[] | undefined;
+  perSide?: "leg" | "arm" | undefined;
+}
+
+/** What a station asks for in one round, as the athlete reads it: "8 reps", "16 reps · 8 per leg", "40 s". */
+export function emomTarget(st: { reps?: number[] | undefined; seconds?: number[] | undefined; perSide?: "leg" | "arm" | undefined }, round: number): string {
+  const reps = st.reps?.[round - 1];
+  if (reps !== undefined) return `${String(reps)} reps${st.perSide ? ` · ${String(reps / 2)} per ${st.perSide}` : ""}`;
+  const secs = st.seconds?.[round - 1];
+  return secs !== undefined ? `${String(secs)} s` : "";
 }
 
 export interface EmomConfig {
@@ -54,21 +62,33 @@ export interface EmomConfig {
 export type StepKind = "ready" | "work" | "rest";
 
 /**
+ * A station's counts over all its rounds, for the details sheet: "8 · 10 ·
+ * 12 reps", or once when every round is the same: "16 reps · 8 per leg".
+ */
+export function emomRoundsTarget(st: { reps?: number[] | undefined; seconds?: number[] | undefined; perSide?: "leg" | "arm" | undefined }): string {
+  const counts = st.reps ?? st.seconds ?? [];
+  if (counts.length > 0 && counts.every((n) => n === counts[0])) return emomTarget(st, 1);
+  return `${counts.join(" · ")} ${st.reps ? "reps" : "s"}`;
+}
+
+/**
  * What an EMOM step adds to a plain work step. A warm-up step is all
- * work. A station owns its whole minute: work until Done (reps) or until
- * `workSecs` have run (timed), then the rest of the minute is rest.
+ * work. A station owns its whole minute. A timed station works for
+ * `workSecs`, then the rest of the minute shows as rest. A rep station's
+ * rest is whenever the athlete finishes, which the player does not ask:
+ * its minute shows the target to the end.
  */
 export interface EmomStep {
   block: "warmup" | "station";
   /** 1-based position in its block: warm-up 1/3, station 1/6. */
   position: number;
   of: number;
-  /** What to do, as the athlete reads it: "8–12 reps", "40 s". */
+  /** What to do this round, as the athlete reads it: "8 reps", "40 s". */
   target: string;
   /** Timed station: seconds of work before rest shows by itself. */
   workSecs?: number | undefined;
-  /** Rep station: the athlete taps Done when the reps are in. */
-  reps?: [number, number] | undefined;
+  /** Rep station: this round's prescribed reps, logged when the minute is done. */
+  reps?: number | undefined;
 }
 
 export interface Step {
@@ -114,7 +134,7 @@ export function buildSteps(cfg: WodConfig): Step[] {
     // An EMOM: lead-in, the warm-up back to back, then one step per
     // station per round, each exactly a minute long. The work/rest split
     // inside the minute is the athlete's (Done) or the target's (timed),
-    // so it is a phase of the step, not a step of its own: the minute
+    // is a phase of the step, not a step of its own: the minute
     // boundaries can never move.
     const { minute, stations, warmup } = cfg.emom;
     push({ kind: "ready", exercise: warmup[0]?.exercise ?? stations[0]?.exercise, round: 1, secs: READY_SECS });
@@ -129,9 +149,9 @@ export function buildSteps(cfg: WodConfig): Step[] {
         push({
           kind: "work", exercise: st.exercise, round: r, secs: minute,
           emom: {
-            block: "station", position: i + 1, of: stations.length, target: st.target,
-            workSecs: st.seconds ? Math.min(minute, st.seconds[1]) : undefined,
-            reps: st.reps,
+            block: "station", position: i + 1, of: stations.length, target: emomTarget(st, r),
+            workSecs: st.seconds?.[r - 1],
+            reps: st.reps?.[r - 1],
           },
         });
       });
@@ -190,9 +210,12 @@ export function configForTemplate(tpl: Template, exById: Map<string, Exercise>):
     const resolve = (id: string) => exById.get(id);
     const stations = plan.stations.flatMap((st) => {
       const exercise = resolve(st.exerciseId);
-      return exercise ? [{ exercise, reps: st.reps, seconds: st.seconds, target: st.target }] : [];
+      return exercise ? [{ exercise, reps: st.reps, seconds: st.seconds, perSide: st.perSide }] : [];
     });
     if (stations.length !== plan.stations.length) return missing(stations.length, plan.stations.length, "stations");
+    // Every round needs its own count: never run a round with no target.
+    const short = stations.find((st) => (st.reps ?? st.seconds ?? []).length !== plan.rounds);
+    if (short) return `${tpl.name}: ${short.exercise.name} has no count for every one of its ${String(plan.rounds)} rounds.`;
     const wantWarmup = plan.warmup ?? [];
     const warmup = wantWarmup.flatMap((w) => {
       const exercise = resolve(w.exerciseId);
@@ -219,17 +242,28 @@ export function configForTemplate(tpl: Template, exById: Map<string, Exercise>):
 
 /**
  * Is the athlete working or resting at `into` seconds into this step? Only
- * an EMOM station splits its step: work until Done was tapped (`doneAt`,
- * seconds into the step) or its timed work has run, rest after. Every
- * other step is what its kind says.
+ * a timed EMOM station splits its step: work until its seconds have run,
+ * rest after. Every other step is what its kind says.
  */
-export function emomPhase(step: Step, into: number, doneAt?: number): "work" | "rest" {
+export function emomPhase(step: Step, into: number): "work" | "rest" {
   if (step.kind !== "work") return "rest";
   const e = step.emom;
-  if (e?.block !== "station") return "work";
-  if (doneAt !== undefined && into >= doneAt) return "rest";
-  if (e.workSecs !== undefined && into >= e.workSecs) return "rest";
+  if (e?.block === "station" && e.workSecs !== undefined && into >= e.workSecs) return "rest";
   return "work";
+}
+
+/** Seconds before a rep station's minute ends at which the voice names the next exercise. */
+export const EMOM_ANNOUNCE_SECS = 10;
+
+/**
+ * When, in seconds into an EMOM station, the voice names what the next
+ * minute starts with: as a timed station's rest begins, or ten seconds
+ * before a rep station's minute ends. Undefined for any other step.
+ */
+export function emomAnnounceAt(step: Step): number | undefined {
+  const e = step.emom;
+  if (step.kind !== "work" || e?.block !== "station") return undefined;
+  return e.workSecs ?? Math.max(0, step.secs - EMOM_ANNOUNCE_SECS);
 }
 
 /**
@@ -281,12 +315,10 @@ export interface WodProgress {
   position: number;
   duration: number; // excludes ready, pauses and skipped time; includes rests
   work: number[]; // seconds spent in each work step, including any replay
-  /** EMOM: seconds into each station step at which Done was tapped. */
-  doneAt: (number | undefined)[];
 }
 
 export function newWodProgress(): WodProgress {
-  return { position: 0, duration: 0, work: [], doneAt: [] };
+  return { position: 0, duration: 0, work: [] };
 }
 
 export function advanceProgress(progress: WodProgress, steps: Step[], elapsed: number): void {
@@ -302,11 +334,10 @@ export function recordedEntries(steps: Step[], progress: WodProgress): SessionEn
   const entries = new Map<string, SessionEntry>();
   for (const [index, step] of steps.entries()) {
     let seconds = progress.work[index] ?? 0;
-    // An EMOM station's rest is not work: log the time until Done, or the
-    // timed target, not the whole minute.
-    if (step.emom?.block === "station") {
-      seconds = Math.min(seconds, progress.doneAt[index] ?? step.emom.workSecs ?? step.secs);
-    }
+    // A timed EMOM station's rest is not work: log the timed target, not
+    // the whole minute.
+    const e = step.emom?.block === "station" ? step.emom : undefined;
+    if (e?.workSecs !== undefined) seconds = Math.min(seconds, e.workSecs);
     if (step.kind !== "work" || !step.exercise || seconds <= 0) continue;
     const ex = step.exercise;
     let entry = entries.get(ex.id);
@@ -316,7 +347,10 @@ export function recordedEntries(steps: Step[], progress: WodProgress): SessionEn
     }
     // The timer knows duration, not reps, weight, distance or hold performance.
     // Keep sets unchecked so elapsed station time cannot manufacture PRs.
-    entry.sets.push({ id: uid("set"), done: false, seconds });
+    // An EMOM minute that ran to its end logs the reps it prescribed. Still
+    // unchecked: they were prescribed, not counted, so no PR comes of them.
+    const reps = e?.reps !== undefined && seconds >= step.secs ? e.reps : undefined;
+    entry.sets.push({ id: uid("set"), done: false, seconds, ...(reps !== undefined ? { reps } : {}) });
   }
   return [...entries.values()];
 }

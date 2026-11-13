@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
-  advanceProgress, buildSteps, clockElapsed, configForTemplate, emomPhase, newWodProgress,
+  advanceProgress, buildSteps, clockElapsed, configForTemplate, emomAnnounceAt, emomPhase, emomRoundsTarget, newWodProgress,
   recordedEntries, recordedSession, seekClock, stepIndexAt, togglePauseClock,
 } from "../src/lib/wod";
 import type { Clock, WodConfig } from "../src/lib/wod";
@@ -224,11 +224,17 @@ describe("Full Body EMOM - 20 Minutes", () => {
       expect(round.map((st) => st.emom!.position)).toEqual([1, 2, 3, 4, 5, 6]);
       expect(round.map((st) => st.at - lead)).toEqual([0, 1, 2, 3, 4, 5].map((m) => 120 + (r * 6 + m) * 60));
     }
-    expect(stations.map((st) => st.emom!.target).slice(0, 6)).toEqual([
-      "8–12 reps", "16 reps · 8 per leg", "10–15 reps", "35–40 s", "12–15 reps", "10–16 reps",
+    // One fixed count per round, never a range: burpees 8, then 10, then 12.
+    const byRound = (n: number) => stations.slice((n - 1) * 6, n * 6).map((st) => st.emom!.target);
+    expect(byRound(1)).toEqual(["8 reps", "16 reps · 8 per leg", "10 reps", "35 s", "12 reps", "10 reps"]);
+    expect(byRound(2)).toEqual(["10 reps", "16 reps · 8 per leg", "12 reps", "38 s", "14 reps", "13 reps"]);
+    expect(byRound(3)).toEqual(["12 reps", "16 reps · 8 per leg", "15 reps", "40 s", "15 reps", "16 reps"]);
+    expect(stations.filter((st) => st.exercise!.name === "Burpee").map((st) => st.emom!.reps)).toEqual([8, 10, 12]);
+    expect(stations.filter((st) => st.exercise!.name === "High Knees").map((st) => st.emom!.workSecs)).toEqual([35, 38, 40]);
+    expect(stations.every((st) => !/[–-]\s*\d/.test(st.emom!.target))).toBe(true);
+    expect(tpl.emom!.stations.map(emomRoundsTarget)).toEqual([
+      "8 · 10 · 12 reps", "16 reps · 8 per leg", "10 · 12 · 15 reps", "35 · 38 · 40 s", "12 · 14 · 15 reps", "10 · 13 · 16 reps",
     ]);
-    expect(stations[3]!.emom!.workSecs).toBe(40);
-    expect(stations[0]!.emom!.reps).toEqual([8, 12]);
   });
 
   test("transitions happen on the minute, by the clock alone", () => {
@@ -246,18 +252,22 @@ describe("Full Body EMOM - 20 Minutes", () => {
     expect(name(steps.length - 1)).toBe("Dead Bug");
   });
 
-  test("work and rest inside a minute: Done for reps, automatic rest after timed work", () => {
-    const burpees = at(120), knees = at(300), warm = at(0);
+  test("rep minutes show their target to the end; timed work rests by itself", () => {
+    const burpees = at(120), knees = at(300), knees3 = at(120 + 15 * 60), warm = at(0);
     expect(emomPhase(warm, 39)).toBe("work");
-    expect(emomPhase(burpees, 59)).toBe("work"); // no Done: work all minute
-    expect(emomPhase(burpees, 24, 25)).toBe("work");
-    expect(emomPhase(burpees, 25, 25)).toBe("rest");
-    expect(emomPhase(burpees, 59, 25)).toBe("rest");
+    expect(emomPhase(burpees, 0)).toBe("work");
+    expect(emomPhase(burpees, 59.9)).toBe("work"); // no Done: the target stays up all minute
     expect(knees.exercise!.name).toBe("High Knees");
-    expect(emomPhase(knees, 39.9)).toBe("work");
-    expect(emomPhase(knees, 40)).toBe("rest");
-    expect(emomPhase(knees, 30, 30)).toBe("rest"); // Done ends timed work early
+    expect(emomPhase(knees, 34.9)).toBe("work"); // round 1: 35 s
+    expect(emomPhase(knees, 35)).toBe("rest");
+    expect([knees3.exercise!.name, knees3.round]).toEqual(["High Knees", 3]);
+    expect(emomPhase(knees3, 39.9)).toBe("work"); // round 3: 40 s
+    expect(emomPhase(knees3, 40)).toBe("rest");
     expect(emomPhase(steps[0]!, 1)).toBe("rest"); // lead-in is not work
+    // The next exercise is named as a timed rest begins, else 10 s before the minute ends.
+    expect(emomAnnounceAt(burpees)).toBe(50);
+    expect(emomAnnounceAt(knees)).toBe(35);
+    expect(emomAnnounceAt(warm)).toBeUndefined();
   });
 
   test("pause freezes the minute and resume continues it; standby lands on the right minute", () => {
@@ -283,16 +293,16 @@ describe("Full Body EMOM - 20 Minutes", () => {
   test("completion logs every exercise once per minute, the work not the rest, and no PRs", () => {
     const progress = newWodProgress();
     advanceProgress(progress, steps, lead + 1200);
-    const burpeeIdx = steps.findIndex((st) => st.exercise?.name === "Burpee");
-    progress.doneAt[burpeeIdx] = 22; // reps in at 0:22, the rest is rest
     const session = recordedSession(cfg, steps, progress, start, false);
     expect(progress.duration).toBe(1200);
-    const by = new Map(session.entries.map((e) => [exById.get(e.exerciseId)!.name, e.sets.map((x) => x.seconds)]));
-    expect(by.get("Run on the Spot")).toEqual([40]);
-    expect(by.get("Burpee")).toEqual([22, 60, 60]); // no Done: the whole minute
-    expect(by.get("High Knees")).toEqual([40, 40, 40]);
-    expect(by.get("Dead Bug")).toEqual([60, 60, 60]);
-    expect(session.entries.flatMap((e) => e.sets).every((x) => !x.done && x.reps === undefined)).toBe(true);
+    const by = new Map(session.entries.map((e) => [exById.get(e.exerciseId)!.name, e.sets.map((x) => [x.seconds, x.reps ?? null])]));
+    expect(by.get("Run on the Spot")).toEqual([[40, null]]);
+    // A finished minute logs its prescribed reps; a timed one its seconds of work.
+    expect(by.get("Burpee")).toEqual([[60, 8], [60, 10], [60, 12]]);
+    expect(by.get("High Knees")).toEqual([[35, null], [38, null], [40, null]]);
+    expect(by.get("Dead Bug")).toEqual([[60, 10], [60, 13], [60, 16]]);
+    // Prescribed, not counted: unchecked, so no record is minted from them.
+    expect(session.entries.flatMap((e) => e.sets).every((x) => !x.done)).toBe(true);
     expect(session.templateId).toBe("tpl-full-body-emom-20");
     expect(session.note).toContain("Finished");
     expect(session.note).toContain("2:00 warm-up + 3 rounds of 6 stations EMOM");
@@ -305,6 +315,7 @@ describe("Full Body EMOM - 20 Minutes", () => {
     const session = recordedSession(cfg, steps, progress, start, true);
     expect(session.entries.map((e) => exById.get(e.exerciseId)!.name)).toEqual(["Run on the Spot", "Arm Circles", "Air Squat", "Burpee"]);
     expect(session.entries[3]!.sets[0]!.seconds).toBe(15);
+    expect(session.entries[3]!.sets[0]!.reps).toBeUndefined(); // a minute cut short claims no reps
     expect(session.note).toContain("Stopped early");
   });
 
@@ -316,7 +327,7 @@ describe("Full Body EMOM - 20 Minutes", () => {
         ...plan,
         rounds: 2,
         warmup: undefined,
-        stations: plan.stations.map((st) => (st.seconds ? { ...st, seconds: [20, 30] as [number, number], target: "20–30 s" } : { ...st, reps: [5, 5] as [number, number], target: "5 reps" })),
+        stations: plan.stations.map((st) => (st.seconds ? { ...st, seconds: [20, 30] } : { ...st, reps: [6, 8] })),
       },
     };
     const v = cfgOf(variant);
@@ -326,8 +337,14 @@ describe("Full Body EMOM - 20 Minutes", () => {
     expect(vs[1]!.exercise!.name).toBe("Burpee"); // no warm-up: the first minute follows the lead-in
     expect(vs.filter((st) => st.emom?.block === "warmup")).toHaveLength(0);
     expect(vs.filter((st) => st.emom?.block === "station")).toHaveLength(12);
-    expect(vs.find((st) => st.exercise?.name === "High Knees")!.emom!.workSecs).toBe(30);
-    expect(vs[1]!.emom!.reps).toEqual([5, 5]);
+    expect(vs.filter((st) => st.exercise?.name === "High Knees").map((st) => st.emom!.workSecs)).toEqual([20, 30]);
+    expect(vs.filter((st) => st.emom?.block === "station" && st.exercise?.name === "Burpee").map((st) => st.emom!.target)).toEqual(["6 reps", "8 reps"]);
+  });
+
+  test("a station without a count for every round refuses to start", () => {
+    const plan = tpl.emom!;
+    const short: Template = { ...tpl, emom: { ...plan, stations: plan.stations.map((st, i) => (i === 0 ? { ...st, reps: [8, 10] } : st)) } };
+    expect(configForTemplate(short, exById)).toContain("Burpee has no count for every one of its 3 rounds");
   });
 
   test("a missing exercise refuses to start instead of running a short EMOM", () => {
@@ -358,14 +375,15 @@ describe("Kettlebell EMOM - 20 Minutes", () => {
     expect(templateLength(tpl)).toEqual({ seconds: 1200, exact: true });
     const stations = steps.filter((st) => st.emom?.block === "station");
     expect(stations).toHaveLength(18);
-    expect(stations.slice(0, 6).map((st) => [st.exercise!.name, st.emom!.target])).toEqual([
-      ["Kettlebell Swing", "15–20 reps"],
-      ["Goblet Squat", "10–12 reps"],
+    expect(tpl.emom!.stations.map((st) => [exById.get(st.exerciseId)!.name, emomRoundsTarget(st)])).toEqual([
+      ["Kettlebell Swing", "15 · 18 · 20 reps"],
+      ["Goblet Squat", "10 · 11 · 12 reps"],
       ["Kettlebell Clean & Press", "10 reps · 5 per arm"],
-      ["High Knees", "35–40 s"],
+      ["High Knees", "35 · 38 · 40 s"],
       ["Single-Arm Kettlebell Row", "16 reps · 8 per arm"],
-      ["Dead Bug", "10–16 reps"],
+      ["Dead Bug", "10 · 13 · 16 reps"],
     ]);
+    expect(stations[0]!.emom!.target).toBe("15 reps");
     expect(stations.map((st) => st.at - steps[0]!.secs)).toEqual(stations.map((_, i) => 120 + i * 60));
   });
 });

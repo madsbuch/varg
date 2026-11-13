@@ -3,6 +3,7 @@ import { exerciseGear, libraryFor } from "../lib/library";
 import { templateGear } from "../lib/gear";
 import { emomSeconds, LEVEL_LABEL } from "../lib/catalog";
 import { formatSeconds } from "../lib/units";
+import { emomRoundsTarget } from "../lib/wod";
 import { BattleTrack } from "./BattleTrack";
 import { MusicPicker } from "./MusicPicker";
 import ExerciseAnim from "./ExerciseAnim";
@@ -30,7 +31,7 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
     const w = emom.warmup?.[i];
     if (w) return `${String(w.seconds)} s · `;
     const st = emom.stations[i - warmupCount];
-    return st ? `${st.target}${st.focus ? ` · ${st.focus}` : ""} · ` : "";
+    return st ? `${emomRoundsTarget(st)}${st.focus ? ` · ${st.focus}` : ""} · ` : "";
   };
   const stations = ids.map(id => byId.get(id));
   const missing = stations.some(ex => !ex);
@@ -72,7 +73,7 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
           {formatSeconds(emomSeconds(emom))} in all.
           {warmupCount > 0 ? ` Warm up first, ${String(warmupCount)} movements back to back.` : ""}
           {` Then a new station at the top of every minute, ${String(emom.stations.length)} stations, ${emom.rounds === 1 ? "once" : `${String(emom.rounds)} rounds`}.`}
-          {" Do the target, then rest until the minute ends. Tap Done when the reps are in; timed stations rest by themselves."}
+          {" Do the reps for that round, then rest until the minute ends. Timed stations show their rest by themselves."}
         </p>}
         {flow && <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
           A guided flow of {flow.steps.length} poses, each held for its own time. Between

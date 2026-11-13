@@ -1106,9 +1106,8 @@ export function seedTemplates(): Template[] {
       description:
         "Two minutes of warm-up, then 18 minutes on the minute: a new " +
         "exercise at the top of every minute, whatever is left of the minute " +
-        "is rest. Six stations, three rounds. Tap Done when the reps are in; " +
-        "high knees rest by themselves. Rows need a resistance band or a " +
-        "loaded backpack, nothing else.",
+        "is rest. Six stations, three rounds, the reps climbing each round. " +
+        "Rows need a resistance band or a loaded backpack, nothing else.",
       // Warm-up 3 × 40 s = 120 s, then 3 rounds × 6 stations × 60 s =
       // 1080 s: 1200 s, exactly 20:00. The 5 s get-ready lead-in every
       // guided workout has is not workout time.
@@ -1127,12 +1126,12 @@ export function seedTemplates(): Template[] {
           { exerciseId: EX.airSquat, seconds: 40 },
         ],
         stations: [
-          { exerciseId: EX.burpee, reps: [8, 12], target: "8–12 reps", focus: "Cardio, explosiveness" },
-          { exerciseId: EX.reverseLunge, reps: [16, 16], target: "16 reps · 8 per leg", focus: "Legs, glutes, balance" },
-          { exerciseId: EX.pushUp, reps: [10, 15], target: "10–15 reps", focus: "Chest, shoulders, triceps" },
-          { exerciseId: EX.highKnees, seconds: [35, 40], target: "35–40 s", focus: "Cardio" },
-          { exerciseId: EX.packRow, reps: [12, 15], target: "12–15 reps", focus: "Back, biceps" },
-          { exerciseId: EX.deadBug, reps: [10, 16], target: "10–16 reps", focus: "Core, stability" },
+          { exerciseId: EX.burpee, reps: [8, 10, 12], focus: "Cardio, explosiveness" },
+          { exerciseId: EX.reverseLunge, reps: [16, 16, 16], perSide: "leg", focus: "Legs, glutes, balance" },
+          { exerciseId: EX.pushUp, reps: [10, 12, 15], focus: "Chest, shoulders, triceps" },
+          { exerciseId: EX.highKnees, seconds: [35, 38, 40], focus: "Cardio" },
+          { exerciseId: EX.packRow, reps: [12, 14, 15], focus: "Back, biceps" },
+          { exerciseId: EX.deadBug, reps: [10, 13, 16], focus: "Core, stability" },
         ],
       },
       music: {
@@ -1148,8 +1147,8 @@ export function seedTemplates(): Template[] {
       description:
         "One kettlebell, twenty minutes. Two minutes of warm-up, then 18 " +
         "minutes on the minute: swings, goblet squats, clean and press, " +
-        "high knees to breathe, rows, dead bugs. Three rounds. Tap Done " +
-        "when the reps are in; the rest of the minute is rest.",
+        "high knees to breathe, rows, dead bugs. Three rounds, the reps " +
+        "climbing each round; the rest of the minute is rest.",
       // Warm-up 3 × 40 s = 120 s, then 3 rounds × 6 stations × 60 s =
       // 1080 s: 1200 s, exactly 20:00 after the 5 s lead-in.
       scheme: "20:00 · 2:00 warm-up · 18:00 EMOM · 3 rounds · 6 stations",
@@ -1168,12 +1167,12 @@ export function seedTemplates(): Template[] {
           { exerciseId: EX.airSquat, seconds: 40 },
         ],
         stations: [
-          { exerciseId: EX.kettlebellSwing, reps: [15, 20], target: "15–20 reps", focus: "Hips, posterior chain, power" },
-          { exerciseId: EX.gobletSquat, reps: [10, 12], target: "10–12 reps", focus: "Legs, glutes, core" },
-          { exerciseId: EX.kbCleanPress, reps: [10, 10], target: "10 reps · 5 per arm", focus: "Shoulders, full body" },
-          { exerciseId: EX.highKnees, seconds: [35, 40], target: "35–40 s", focus: "Cardio" },
-          { exerciseId: EX.kbRow, reps: [16, 16], target: "16 reps · 8 per arm", focus: "Back, biceps" },
-          { exerciseId: EX.deadBug, reps: [10, 16], target: "10–16 reps", focus: "Core, stability" },
+          { exerciseId: EX.kettlebellSwing, reps: [15, 18, 20], focus: "Hips, posterior chain, power" },
+          { exerciseId: EX.gobletSquat, reps: [10, 11, 12], focus: "Legs, glutes, core" },
+          { exerciseId: EX.kbCleanPress, reps: [10, 10, 10], perSide: "arm", focus: "Shoulders, full body" },
+          { exerciseId: EX.highKnees, seconds: [35, 38, 40], focus: "Cardio" },
+          { exerciseId: EX.kbRow, reps: [16, 16, 16], perSide: "arm", focus: "Back, biceps" },
+          { exerciseId: EX.deadBug, reps: [10, 13, 16], focus: "Core, stability" },
         ],
       },
       music: {

@@ -176,21 +176,21 @@ export interface FlowPlan {
 
 /**
  * One station of an EMOM: it owns one whole minute. The athlete does the
- * prescribed work from the top of the minute, and whatever is left of the
+ * prescribed work from the top of the minute; whatever is left of the
  * minute is rest.
  *
- * Exactly one of `reps` or `seconds`:
- *  - `reps`: a rep target, low to high (equal for a fixed count). The
- *    athlete taps Done when the reps are in; the clock keeps running.
- *  - `seconds`: timed work, low to high. Rest is shown automatically once
- *    the top of the range has run; Done ends it early.
+ * Exactly one of `reps` or `seconds`, ONE NUMBER PER ROUND — never a range:
+ * a range is not a prescription anyone can do mid-set. Burpees 8, 10, 12
+ * is `reps: [8, 10, 12]`; the same count every round repeats it.
+ *  - `reps`: the athlete does them and the rest of the minute is theirs.
+ *  - `seconds`: timed work; the player shows rest by itself after it.
  */
 export interface EmomStation {
   exerciseId: string;
-  reps?: [number, number] | undefined;
-  seconds?: [number, number] | undefined;
-  /** What the athlete reads under the name: "8–12 reps", "35–40 s". */
-  target: string;
+  reps?: number[] | undefined;
+  seconds?: number[] | undefined;
+  /** Reps split over two sides: "16 reps · 8 per leg". The count must be even. */
+  perSide?: "leg" | "arm" | undefined;
   /** What the station trains, for the details sheet: "Cardio, explosiveness". */
   focus?: string | undefined;
 }

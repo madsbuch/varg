@@ -269,8 +269,9 @@ export function cueLine(step: Step): string {
 }
 
 /**
- * EMOM: what the player says as a station's rest begins (Done tapped, or
- * the timed work ran out): the exercise the next minute starts with. A
+ * EMOM: what the player says ahead of the next minute — as a timed
+ * station's rest begins, or ten seconds before a rep station's minute
+ * ends (`emomAnnounceAt`): the exercise the next minute starts with. A
  * station minute has no rest step of its own, so this is keyed on the
  * station's index in the steps.
  */
