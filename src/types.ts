@@ -126,6 +126,13 @@ export interface MusicProfile {
    * owner picks another on the workout's page (music-choice.ts).
    */
   set?: "techno" | "jazz-house" | "anthems" | undefined;
+  /**
+   * When the workout plays a song set (not its own track): the intensity
+   * of its main part. The music follows the workout's shape on a high
+   * level only (workout-music.ts): an EMOM's warm-up and every yoga flow
+   * play Low, everything else this. Default Peak; mobility work sets Low.
+   */
+  energy?: Intensity | undefined;
 }
 
 /** Interval prescription for circuit templates that run guided. */

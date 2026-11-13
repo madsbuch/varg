@@ -1,33 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { MusicProfile } from "../types";
 import {
-  MAX_FAILED_ATTEMPTS,
   SUNO_MODELS,
-  clearMusicLog,
-  clearProfileOverride,
-  clearTrackFailure,
-  deleteCachedTrack,
   ensureAllTracks,
-  generateTrack,
-  getCachedTrack,
   loadMusicSettings,
-  loadTrackFailures,
   onEnsureStatus,
-  onMusicLog,
-  putCachedTrack,
-  readMusicLog,
   saveMusicSettings,
-  saveProfileOverride,
-  workoutMusicList,
-  type CachedTrack,
   type EnsureStatus,
-  type MusicLogEntry,
-  type TrackFailure,
-  type WorkoutMusic,
 } from "../lib/music";
 import { SETS } from "../lib/songs";
-import { MusicLibrary } from "../components/MusicLibrary";
-import { parseDecimal } from "../lib/units";
+import { MusicScreen, type MusicRoute } from "./Music";
+import { choiceLabel } from "../components/MusicPicker";
+import { loadDefaultChoice } from "../lib/music-choice";
+import { useBackHandler } from "../lib/back";
+import { scrollContentTop } from "../lib/scroll";
 import type { VoiceRole } from "../lib/wod";
 import { loadFtp, saveFtp, targetWatts } from "../lib/ride";
 import { loadBike, saveBike } from "../lib/bike";
@@ -50,43 +35,24 @@ import {
   previewUrl,
   saveVoiceSettings,
 } from "../lib/voice-clips";
-import { ConfirmSheet, Field, Segmented, Sheet } from "../components/ui";
+import { Field, Segmented } from "../components/ui";
 import { loadTheme, saveTheme, type ThemeChoice } from "../lib/theme";
 import { loadGarminKey, saveGarminKey, setFollowFtp, syncGarmin, useGarmin } from "../lib/garmin";
 import { formatDate, formatRelative } from "../lib/units";
-import { IconCheck, IconMusic } from "../components/icons";
+import { IconCheck } from "../components/icons";
 
 export default function Settings() {
   const [settings, setSettings] = useState(loadMusicSettings);
   const [status, setStatus] = useState<EnsureStatus | null>(null);
-  // Songs live in the music library; this list is the workouts' own tracks.
-  const [workouts, setWorkouts] = useState<WorkoutMusic[]>(() => workoutMusicList().filter((w) => !w.key.startsWith("song:")));
-  const [cached, setCached] = useState<ReadonlySet<string>>(new Set());
-  const [failures, setFailures] = useState<Record<string, TrackFailure>>(
-    loadTrackFailures,
-  );
-  const [editing, setEditing] = useState<WorkoutMusic | null>(null);
-  const [library, setLibrary] = useState(false);
+  // The music screens, as a stack on top of this page: Back pops one.
+  const [stack, setStack] = useState<MusicRoute[]>([]);
+  const push = useCallback((r: MusicRoute) => { setStack((s) => [...s, r]); }, []);
+  const pop = useCallback(() => { setStack((s) => s.slice(0, -1)); }, []);
+  useBackHandler(stack.length > 0, useCallback(() => { pop(); return true; }, [pop]));
+  const route = stack[stack.length - 1];
+  useEffect(() => { scrollContentTop(); }, [route]);
 
   useEffect(() => onEnsureStatus(setStatus), []);
-
-  const refresh = useCallback(() => {
-    void (async () => {
-      const list = workoutMusicList().filter((w) => !w.key.startsWith("song:"));
-      const have = new Set<string>();
-      for (const w of list) {
-        if (await getCachedTrack(w.key)) have.add(w.key);
-      }
-      setWorkouts(list);
-      setCached(have);
-      setFailures(loadTrackFailures());
-    })();
-  }, []);
-
-  // Re-check the cache whenever the background composer reports progress.
-  useEffect(() => {
-    refresh();
-  }, [refresh, status?.ready, status?.running, status?.error]);
 
   const save = () => {
     saveMusicSettings(settings);
@@ -95,12 +61,26 @@ export default function Settings() {
     ensureVoiceClips().catch(() => undefined);
   };
 
+  if (route) return <MusicScreen route={route} push={push} pop={pop} />;
+
   return (
     <div className="screen">
       <div className="eyebrow">Skipan · Old Norse for order</div>
       <h2 className="screen-title">Settings</h2>
 
       <ThemeSetting />
+
+      <div className="section-label">Music</div>
+      <button className="list-item" onClick={() => { push({ page: "music" }); }}>
+        <div>
+          <div className="title">Music</div>
+          <div className="sub">
+            Default · {choiceLabel(loadDefaultChoice())} · {SETS.map((s) => s.name).join(" · ")} · own tracks
+            {status?.running ? ` · composing ${String(status.ready)}/${String(status.total)}` : ""}
+          </div>
+        </div>
+        {status?.error ? <span className="chip danger">Error</span> : <span className="chip">›</span>}
+      </button>
 
       <GpsSetting />
 
@@ -155,74 +135,6 @@ export default function Settings() {
         hasKey={settings.apiKey.trim() !== ""}
         saveKey={() => { saveMusicSettings(settings); }}
       />
-
-      <ComposerStatus status={status} />
-
-      <div className="section-label">Music library</div>
-      <button className="list-item" onClick={() => { setLibrary(true); }}>
-        <div>
-          <div className="title">Songs for adaptive rides</div>
-          <div className="sub">{SETS.map((s) => s.name).join(" · ")} · play, check, make your own</div>
-        </div>
-        <span className="chip">Open</span>
-      </button>
-
-      <div className="section-label">
-        Battle tracks · {workouts.filter((w) => cached.has(w.key)).length}/{workouts.length} ready
-      </div>
-      {workouts.map((w) => {
-        const ready = cached.has(w.key);
-        const failure = ready ? undefined : failures[w.key];
-        return (
-          <div key={w.key}>
-            <button
-              className="list-item"
-              onClick={() => {
-                setEditing(w);
-              }}
-            >
-              <div>
-                <div className="title">{w.name}</div>
-                <div className="sub">
-                  {w.profile.bpm} BPM · {w.profile.style}
-                  {w.isCustom ? " · customised" : ""}
-                </div>
-              </div>
-              <span
-                className={`chip ${ready ? "accent" : failure ? "danger" : ""}`}
-                style={{ flexShrink: 0 }}
-              >
-                {ready ? "Ready" : failure ? "Failed" : "No track"}
-              </span>
-            </button>
-            {failure && (
-              <TrackFailureCard
-                failure={failure}
-                onRetry={() => {
-                  clearTrackFailure(w.key);
-                  refresh();
-                  void ensureAllTracks();
-                }}
-              />
-            )}
-          </div>
-        );
-      })}
-
-      <ComposerLog />
-
-      {library && <MusicLibrary onClose={() => { setLibrary(false); }} />}
-
-      {editing && (
-        <WorkoutMusicSheet
-          workout={editing}
-          hasTrack={cached.has(editing.key)}
-          onClose={() => {
-            setEditing(null);
-            refresh();
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -740,438 +652,3 @@ function GpsSetting() {
 }
 
 /** Composer state, loudly: progress while running, red error when broken. */
-function ComposerStatus({ status }: { status: EnsureStatus | null }) {
-  if (!status || status.total === 0) return null;
-  if (status.running) {
-    return (
-      <div className="card" style={{ marginTop: 10 }}>
-        <div className="muted" style={{ fontSize: 13 }}>
-          Composing tracks: {status.ready}/{status.total} ready
-          {status.pending ? ` · ${status.pending} composing on the server` : ""}
-          {status.current ? `, requesting: ${status.current}` : ""}…
-        </div>
-        <div className="faint" style={{ fontSize: 12, marginTop: 6 }}>
-          Composing happens on Suno's servers. Locking your phone or leaving
-          the app is fine. Finished tracks are picked up next time Varg is
-          open.
-        </div>
-        {status.error && <ErrorText text={status.error} />}
-      </div>
-    );
-  }
-  if (status.error) {
-    return (
-      <div
-        className="card"
-        style={{ marginTop: 10, borderColor: "var(--danger)" }}
-      >
-        <ErrorText text={`Composing stopped: ${status.error}`} />
-        <div className="faint" style={{ fontSize: 12, marginTop: 6 }}>
-          Full details are in the composer log below.
-        </div>
-        <button
-          className="btn sm"
-          style={{ marginTop: 10 }}
-          onClick={() => {
-            void ensureAllTracks();
-          }}
-        >
-          Retry now
-        </button>
-      </div>
-    );
-  }
-  if (status.pending) {
-    return (
-      <div className="card" style={{ marginTop: 10 }}>
-        <div className="muted" style={{ fontSize: 13 }}>
-          {status.pending} track{status.pending === 1 ? " is" : "s are"} still
-          composing on Suno's servers. They're picked up automatically while
-          the app is open, or check right now.
-        </div>
-        <button
-          className="btn sm"
-          style={{ marginTop: 10 }}
-          onClick={() => {
-            void ensureAllTracks();
-          }}
-        >
-          Check now
-        </button>
-      </div>
-    );
-  }
-  return null;
-}
-
-/** The composer's full activity log — every request, response, poll status
- * and error body, timestamped — so failures can be diagnosed on-device
- * instead of guessed at. Newest entries first. */
-function ComposerLog() {
-  const [entries, setEntries] = useState<MusicLogEntry[]>(readMusicLog);
-  const [expanded, setExpanded] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  useEffect(
-    () =>
-      onMusicLog(() => {
-        setEntries(readMusicLog());
-      }),
-    [],
-  );
-
-  const copy = () => {
-    const text = entries.map((e) => `${e.at} ${e.msg}`).join("\n");
-    try {
-      void navigator.clipboard
-        .writeText(text)
-        .then(() => {
-          setCopied(true);
-          setTimeout(() => {
-            setCopied(false);
-          }, 1500);
-        })
-        .catch(() => undefined);
-    } catch {
-      // clipboard unavailable (insecure context) — nothing to do
-    }
-  };
-
-  return (
-    <>
-      <div className="section-label">Composer log</div>
-      <div className="card">
-        {entries.length === 0 ? (
-          <div className="muted" style={{ fontSize: 13 }}>
-            Nothing logged yet. The composer records every request, response
-            and error here.
-          </div>
-        ) : (
-          <>
-            <div
-              style={{
-                maxHeight: expanded ? undefined : 200,
-                overflowY: "auto",
-              }}
-            >
-              {[...entries].reverse().map((e, i) => (
-                <div
-                  key={`${e.at}-${String(i)}`}
-                  style={{
-                    fontFamily: "ui-monospace, monospace",
-                    fontSize: 11,
-                    lineHeight: 1.5,
-                    overflowWrap: "anywhere",
-                  }}
-                >
-                  <span className="faint">
-                    {new Date(e.at).toLocaleTimeString()}
-                  </span>{" "}
-                  {e.msg}
-                </div>
-              ))}
-            </div>
-            <div className="btn-row" style={{ marginTop: 10 }}>
-              <button className="btn sm" onClick={copy}>
-                {copied ? "Copied" : "Copy log"}
-              </button>
-              <button
-                className="btn sm"
-                onClick={() => {
-                  setExpanded(!expanded);
-                }}
-              >
-                {expanded ? "Collapse" : "Expand"}
-              </button>
-              <button
-                className="link faint"
-                style={{ fontSize: 12 }}
-                onClick={() => {
-                  clearMusicLog();
-                }}
-              >
-                clear
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </>
-  );
-}
-
-/** Why a workout has no track, and the only way back. Once a workout hits
- * the attempt ceiling the composer stops spending generations on it — that
- * has to be visible, or the user just sees "No track" forever. */
-function TrackFailureCard({
-  failure,
-  onRetry,
-}: {
-  failure: TrackFailure;
-  onRetry: () => void;
-}) {
-  const capped = failure.attempts >= MAX_FAILED_ATTEMPTS;
-  return (
-    <div
-      className="card"
-      style={{ marginTop: 6, borderColor: "var(--danger)" }}
-    >
-      <ErrorText text={`Failed: ${failure.reason}`} />
-      <div className="faint" style={{ fontSize: 12, marginTop: 6 }}>
-        {failure.attempts} attempt{failure.attempts === 1 ? "" : "s"}, last{" "}
-        {new Date(failure.lastAt).toLocaleString()}.{" "}
-        {capped
-          ? "Automatic retries are paused so it stops costing a generation every time the app opens."
-          : "The composer retries this one on its own in the background."}
-      </div>
-      <button className="btn sm" style={{ marginTop: 10 }} onClick={onRetry}>
-        Retry this track
-      </button>
-    </div>
-  );
-}
-
-function ErrorText({ text }: { text: string }) {
-  return (
-    <div style={{ color: "var(--danger)", fontSize: 13, fontWeight: 700 }}>
-      {text}
-    </div>
-  );
-}
-
-function WorkoutMusicSheet({
-  workout,
-  hasTrack,
-  onClose,
-}: {
-  workout: WorkoutMusic;
-  hasTrack: boolean;
-  onClose: () => void;
-}) {
-  const [bpm, setBpm] = useState(String(workout.profile.bpm));
-  const [style, setStyle] = useState(workout.profile.style);
-  const [theme, setTheme] = useState(workout.profile.theme);
-  const [track, setTrack] = useState<CachedTrack | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [statusMsg, setStatusMsg] = useState("");
-  const [error, setError] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [confirmRegen, setConfirmRegen] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    void getCachedTrack(workout.key).then((t) => {
-      if (alive) setTrack(t ?? null);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [workout.key]);
-
-  const url = useMemo(
-    () => (track ? URL.createObjectURL(track.blob) : null),
-    [track],
-  );
-  useEffect(
-    () => () => {
-      if (url) URL.revokeObjectURL(url);
-    },
-    [url],
-  );
-
-  const currentProfile = (): MusicProfile | null => {
-    const n = parseDecimal(bpm);
-    if (n === undefined || n < 40 || n > 260) {
-      setError("BPM must be a number between 40 and 260.");
-      return null;
-    }
-    if (!style.trim() || !theme.trim()) {
-      setError("Style and theme must not be empty.");
-      return null;
-    }
-    return { bpm: Math.round(n), style: style.trim(), theme: theme.trim() };
-  };
-
-  const saveProfile = () => {
-    setError("");
-    const p = currentProfile();
-    if (!p) return;
-    saveProfileOverride(workout.key, p);
-    onClose();
-  };
-
-  const regenerate = async () => {
-    setError("");
-    const p = currentProfile();
-    if (!p) return;
-    const settings = loadMusicSettings();
-    if (!settings.apiKey) {
-      setError("No API key set. Add it in the Suno section first.");
-      return;
-    }
-    saveProfileOverride(workout.key, p);
-    setBusy(true);
-    // The delete is load-bearing: leaving the old track cached makes the
-    // background composer prune the new pending task, and generateTrack then
-    // returns the old track as a success — a burned credit with no error.
-    // So the paid track is stashed and restored if the new one never lands.
-    const previous = track;
-    try {
-      await deleteCachedTrack(workout.key);
-      setTrack(null);
-      setTrack(
-        await generateTrack(workout.key, workout.name, p, settings, setStatusMsg),
-      );
-    } catch (e) {
-      if (previous) {
-        await putCachedTrack(previous);
-        setTrack(previous);
-      }
-      setError(e instanceof Error ? e.message : "Track generation failed.");
-    } finally {
-      setBusy(false);
-      setStatusMsg("");
-    }
-  };
-
-  const resetToDefault = () => {
-    clearProfileOverride(workout.key);
-    onClose();
-  };
-
-  return (
-    <Sheet title={workout.name} onClose={onClose}>
-      {track && url && (
-        <div style={{ marginBottom: 14 }}>
-          <audio controls src={url} style={{ width: "100%" }} />
-          <div className="faint" style={{ fontSize: 12, marginTop: 4 }}>
-            "{track.title}" · composed {track.createdAt.slice(0, 10)}
-          </div>
-        </div>
-      )}
-      {!track && !busy && (
-        <div className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
-          {hasTrack ? "Loading track…" : "No track composed yet."}
-        </div>
-      )}
-
-      <Field label="BPM">
-        <input
-          inputMode="numeric"
-          value={bpm}
-          onChange={(e) => {
-            setBpm(e.target.value);
-          }}
-        />
-      </Field>
-      <Field label="Style (genre, instrumentation)">
-        <input
-          value={style}
-          onChange={(e) => {
-            setStyle(e.target.value);
-          }}
-        />
-      </Field>
-      <Field label="Theme (what the track is about)">
-        <textarea
-          rows={3}
-          value={theme}
-          onChange={(e) => {
-            setTheme(e.target.value);
-          }}
-        />
-      </Field>
-
-      {busy ? (
-        <div className="muted" style={{ fontSize: 13, margin: "8px 0" }}>
-          {statusMsg ||
-            "Composing on Suno's servers, usually 1–3 minutes. Locking your phone is fine."}
-        </div>
-      ) : (
-        <div className="btn-row" style={{ marginTop: 8 }}>
-          <button className="btn grow" onClick={saveProfile}>
-            Save profile
-          </button>
-          <button
-            className="btn primary grow"
-            onClick={() => {
-              // Validate before asking: a bad BPM should say so, not open a
-              // dialog that promises to spend a generation.
-              setError("");
-              if (currentProfile()) setConfirmRegen(true);
-            }}
-          >
-            <IconMusic /> Regenerate
-          </button>
-        </div>
-      )}
-
-      {error && (
-        <div
-          style={{
-            color: "var(--danger)",
-            fontSize: 13,
-            fontWeight: 700,
-            marginTop: 10,
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      <div className="btn-row" style={{ marginTop: 14 }}>
-        {workout.isCustom && (
-          <button className="link faint" style={{ fontSize: 12 }} onClick={resetToDefault}>
-            reset to default profile
-          </button>
-        )}
-        {track && !busy && (
-          <button
-            className="link faint"
-            style={{ fontSize: 12, color: "var(--danger)" }}
-            onClick={() => {
-              setConfirmDelete(true);
-            }}
-          >
-            delete track
-          </button>
-        )}
-      </div>
-
-      {confirmRegen && (
-        <ConfirmSheet
-          title="Regenerate track"
-          message={
-            track
-              ? `Compose a new track for "${workout.name}"? That costs one Suno generation and replaces the current track; the current one is kept if the new one fails.`
-              : `Compose a track for "${workout.name}"? That costs one Suno generation.`
-          }
-          confirmLabel="Regenerate"
-          danger={false}
-          onConfirm={() => {
-            void regenerate();
-          }}
-          onClose={() => {
-            setConfirmRegen(false);
-          }}
-        />
-      )}
-
-      {confirmDelete && (
-        <ConfirmSheet
-          title="Delete track"
-          message={`Delete the composed track for "${workout.name}"? It will be re-composed on the next background run.`}
-          confirmLabel="Delete"
-          onConfirm={() => {
-            void deleteCachedTrack(workout.key).then(() => {
-              setTrack(null);
-            });
-          }}
-          onClose={() => {
-            setConfirmDelete(false);
-          }}
-        />
-      )}
-    </Sheet>
-  );
-}

@@ -37,7 +37,9 @@ import { loadVoiceOn, saveVoiceOn, speak } from "../lib/voice";
 import { cueLine, playClip, prepareClips, restLine, stepLines, voiceConfigured } from "../lib/voice-clips";
 import ExerciseAnim from "./ExerciseAnim";
 import { IconCheck, IconClose, IconVoice } from "./icons";
-import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
+import { useWorkoutWakeLock } from "./battle-track";
+import { useWorkoutMusic } from "./workout-music";
+import { mainEnergy, templateById, wodSections } from "../lib/workout-music";
 import { useHeartRate } from "./HeartRate";
 import { Slot, TopTitle } from "./TopBar";
 import { formatSeconds } from "../lib/units";
@@ -340,7 +342,16 @@ export default function WodPlayer({
   };
 
   // --- Battle track & wake lock -------------------------------------------
-  const track = useBattleTrack(config.trackKey, paused, done);
+  // The own track, or songs following the workout's shape (warm-up Low,
+  // the rest High): the owner's choice, fixed at the start.
+  const sections = useMemo(
+    () => wodSections(config, mainEnergy(templateById(config.trackKey)), workTotal),
+    [config, workTotal],
+  );
+  const track = useWorkoutMusic({
+    templateId: config.trackKey, trackKey: config.trackKey, sections,
+    anchor: clock.anchor, pausedAt: clock.pausedAt, lead: leadIn, done,
+  });
   useWorkoutWakeLock(done);
   const hr = useHeartRate(config.title ?? "Workout", done, withHr);
   const attachHr = hr.attach;
@@ -527,6 +538,7 @@ export default function WodPlayer({
             {libraryFor(step.exercise).cues.slice(0, flow ? 2 : 1).map((c) => <li key={c}>{c}</li>)}
           </ul>
         )}
+        {track.problem && <div className="wod-voice-error">{track.problem}</div>}
         {voiced && voiceOn && voiceError && (
           <div className="wod-voice-error">Voice unavailable: {voiceError}</div>
         )}

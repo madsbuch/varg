@@ -1954,3 +1954,19 @@ textarea {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+
+/* Music screens (Skipan → Music): a page with its own Back, not a sheet. */
+.page-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.page-head .screen-title { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-back {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  font-size: 26px;
+  line-height: 1;
+}

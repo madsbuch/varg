@@ -27,7 +27,9 @@ import { cueFinish, cueTick, cueWork, unlockAudio } from "../lib/beep";
 import { formatSeconds } from "../lib/units";
 import ExerciseAnim from "./ExerciseAnim";
 import { IconCheck, IconClose } from "./icons";
-import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
+import { useWorkoutWakeLock } from "./battle-track";
+import { useWorkoutMusic } from "./workout-music";
+import { mainEnergy, openSections, templateById } from "../lib/workout-music";
 import { useHeartRate } from "./HeartRate";
 import { Slot, TopTitle } from "./TopBar";
 import type { GpsStatus } from "../lib/gps";
@@ -274,7 +276,12 @@ export default function ForTimePlayer({
   useBackHandler(true, onBack);
 
   // --- Music & wake lock -----------------------------------------------------
-  const track = useBattleTrack(config.templateId, paused, done);
+  // No known end: songs (if chosen) play the main energy until it is over.
+  const sections = useMemo(() => openSections(mainEnergy(templateById(config.templateId))), [config.templateId]);
+  const track = useWorkoutMusic({
+    templateId: config.templateId, trackKey: config.templateId, sections,
+    anchor: clock.anchor, pausedAt: clock.pausedAt, lead: FOR_TIME_READY_SECS, done,
+  });
   useWorkoutWakeLock(done);
   const hr = useHeartRate(config.title, done, withHr);
   const attachHr = hr.attach;
@@ -423,6 +430,7 @@ export default function ForTimePlayer({
         <div className="wod-anim">
           <ExerciseAnim anim={exercise ? libraryFor(exercise).anim : "rest"} size={170} />
         </div>
+        {track.problem && <div className="wod-voice-error">{track.problem}</div>}
         <div className="wod-exname">{stage.label}</div>
         <div className="muted fortime-stage-time">
           {ready ? "First up" : `This stage ${formatSeconds(Math.max(0, work - stageStart))}`}

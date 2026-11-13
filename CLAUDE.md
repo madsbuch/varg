@@ -216,6 +216,22 @@ joints and makes limbs shrink in the intermediate frames.
   `react-hooks/refs`. `Date.now()` and `ref.current` cannot be read during
   render. Put the impure read in an event handler or an effect and pass the
   value in.
+- **Music choice.** Every workout plays either its own battle track or
+  songs from a set (`music-choice.ts`): its own choice from the picker on
+  its page, else the default the owner sets in Skipan → Music (until he
+  picks one, each workout's own track). Songs follow the workout's shape
+  on a high level only (`workout-music.ts`): an EMOM's warm-up and every
+  yoga flow play Low, the rest plays the template's `music.energy`
+  (default Peak; mobility Low; a ride without intensities Mid). A long
+  stretch is cut into 2-minute blocks so the set's songs rotate rather
+  than one 16-bar loop playing for 18 minutes. Those blocks are the same
+  `MusicPlan` a ride books, so the same mixer and native player
+  (`useWorkoutMusic`) play them. A section boundary inside a workout must
+  sit on the 20 s bar grid (db:smoke checks EMOM warm-ups). Never follow
+  each station: a 10 s rest has no room for the 3-2-1 crossfade.
+- **Music screens.** Skipan → Music is a stack of real screens (`views/Music.tsx`:
+  default, sets, a set's songs, new song, own tracks, one track), owned by
+  Settings so Back pops one screen. Don't bring back sheets for it.
 - **Audio.** The countdown cues and the battle track share one
   `AudioContext`, unlocked from the Start tap (an adaptive ride in the
   Android app plays its music natively instead; see The bike). Music ducks under cues and its

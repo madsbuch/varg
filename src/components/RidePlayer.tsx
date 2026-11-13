@@ -38,6 +38,7 @@ import { IconCheck, IconClose, IconMusic, IconSkipBack, IconSkipNext, IconVoice 
 import { useBattleTrack, useWorkoutWakeLock } from "./battle-track";
 import { useAdaptiveTrack } from "./adaptive-track";
 import { loadMixChoice, resolveMix } from "../lib/music-choice";
+import { mainEnergy, openSections, sectionsPlan, templateById } from "../lib/workout-music";
 import { INTENSITY_NAMES } from "../lib/songs";
 import { musicProfileFor } from "../lib/music";
 import { useHeartRate } from "./HeartRate";
@@ -397,26 +398,35 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
   // Where this ride starts in each intensity's rotation (and which set a
   // shuffle plays): rides differ.
   const [seed] = useState(() => Math.floor(Date.now() / 1000) % 997);
-  // The owner's music choice for this workout, fixed for the ride.
-  const [mix] = useState(() =>
-    adaptive ? resolveMix(loadMixChoice(config.templateId, musicProfileFor(config.templateId).set ?? "techno"), seed).mix : undefined);
-  const single = useBattleTrack(adaptive ? undefined : config.templateId, paused, done);
+  // The owner's music choice for this workout, fixed for the ride. An
+  // adaptive ride always plays songs (its own set when the choice is "own
+  // track"); any other ride plays its own track or songs at one energy.
+  const [mix] = useState(() => {
+    const choice = loadMixChoice(config.templateId, adaptive ? musicProfileFor(config.templateId).set ?? "techno" : undefined);
+    return choice.mode === "track" ? undefined : resolveMix(choice, seed).mix;
+  });
+  const energy = mainEnergy(templateById(config.templateId));
+  const single = useBattleTrack(mix ? undefined : config.templateId, paused, done);
   const mixed = useAdaptiveTrack(mix, seed, done);
   // A custom choice can leave an intensity the ride uses without songs:
   // its blocks would be silent, so say so.
-  const gap = mix ? ([1, 2, 3] as const).filter((l) => config.segments.some((sg) => sg.intensity === l) && mix[l].length === 0) : [];
-  const musicProblem = mixed.problem ?? (gap.length ? `Music · no ${gap.map((l) => INTENSITY_NAMES[l]).join(" or ")} songs` : null);
-  const musicButton = adaptive ? mixed.musicButton : single.musicButton;
+  const used = adaptive ? ([1, 2, 3] as const).filter((l) => config.segments.some((sg) => sg.intensity === l)) : [energy];
+  const gap = mix ? used.filter((l) => mix[l].length === 0) : [];
+  const musicProblem = mix ? mixed.problem ?? (gap.length ? `Music · no ${gap.map((l) => INTENSITY_NAMES[l]).join(" or ")} songs` : null) : null;
+  const musicButton = mix ? mixed.musicButton : single.musicButton;
   useWorkoutWakeLock(done);
   // Hand the mixer every move of the clock and the blocks: it books the
   // changes ahead on the audio clock and keeps the music on ride time.
   const { setPlan } = mixed;
   useEffect(() => {
-    if (!adaptive) return;
+    if (!mix) return;
     const r = run.current;
     const c = clockRef.current;
-    setPlan(musicPlan(config.segments, r.idx, c.anchor + c.lead * 1000, r.segmentStart, c.pausedAt !== null));
-  }, [adaptive, view.idx, jumps, clock, done, config.segments, setPlan]);
+    const origin = c.anchor + c.lead * 1000;
+    if (adaptive) setPlan(musicPlan(config.segments, r.idx, origin, r.segmentStart, c.pausedAt !== null));
+    // Songs under a ride without intensities: its energy, ride time 0 on.
+    else setPlan(sectionsPlan(openSections(energy), origin, ((c.pausedAt ?? Date.now()) - origin) / 1000, c.pausedAt !== null));
+  }, [mix, adaptive, energy, view.idx, jumps, clock, done, config.segments, setPlan]);
   const attachHr = hr.attach;
 
   // --- Logging ---------------------------------------------------------------

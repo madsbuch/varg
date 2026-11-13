@@ -20,6 +20,7 @@ import * as t from "../src/db/schema";
 import { EX, seedExercises, seedTemplates } from "../src/lib/seed";
 import { exerciseGear, hasLibraryEntry, libraryFor } from "../src/lib/library";
 import { GEAR, templateExerciseIds, templateGear } from "../src/lib/gear";
+import { BAR_GRID_S } from "../src/lib/workout-music";
 import type { GearId } from "../src/lib/gear";
 import { buildSongStyle, buildStyle, STYLE_LIMIT } from "../src/lib/music";
 import { BUILT_IN_SONGS, INTENSITY_NAMES, SETS, setById } from "../src/lib/songs";
@@ -589,6 +590,9 @@ for (const probe of METRIC_PROBES) {
       assert(Number.isInteger(w.seconds) && w.seconds >= 10 && w.seconds <= 600, `${at}: 10-600 whole seconds, got ${w.seconds}`);
     });
     const warm = warmup.reduce((a, w) => a + w.seconds, 0);
+    // Played on a song set, the warm-up is Low and the rest High: the change
+    // between them must land on a whole bar at every set's tempo.
+    assert(warm % BAR_GRID_S === 0, `${where}: the warm-up runs ${warm} s; make it a multiple of ${BAR_GRID_S} s so the music changes on the bar`);
     const main = em.rounds * em.stations.length * em.minute;
     const expected = [
       fmt(warm + main),
@@ -606,6 +610,11 @@ for (const probe of METRIC_PROBES) {
 // exercise implies: a detail for gear the workout does not use ("24 kg"
 // for a kettlebell nobody swings) would print a line the list never shows,
 // and an extra that an exercise already brings is a second source of truth.
+for (const tpl of seedTemplates()) {
+  const e = tpl.music.energy;
+  assert(e === undefined || e === 1 || e === 2 || e === 3, `template "${tpl.name}": music.energy must be 1, 2 or 3`);
+}
+
 for (const tpl of seedTemplates()) {
   const where = `template "${tpl.name}" gear`;
   const derived = new Set<GearId>(templateExerciseIds(tpl).flatMap((id) => exerciseGear(id)));

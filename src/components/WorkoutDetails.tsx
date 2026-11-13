@@ -4,7 +4,6 @@ import { templateGear } from "../lib/gear";
 import { emomSeconds, LEVEL_LABEL } from "../lib/catalog";
 import { formatSeconds } from "../lib/units";
 import { emomRoundsTarget } from "../lib/wod";
-import { BattleTrack } from "./BattleTrack";
 import { MusicPicker } from "./MusicPicker";
 import ExerciseAnim from "./ExerciseAnim";
 import { Sheet } from "./ui";
@@ -89,13 +88,7 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
         </p>}
       </div>
 
-      {template.music.set && template.ride
-        ? <MusicPicker
-            templateId={template.id}
-            defaultSet={template.music.set}
-            used={([1, 2, 3] as const).filter((l) => template.ride?.segments.some((sg) => sg.intensity === l))}
-          />
-        : <BattleTrack cacheKey={template.id} workoutName={template.name} profile={template.music} />}
+      <MusicPicker template={template} />
 
       <div className="section-label">{plan ? "Stations in each round" : emom ? (warmupCount > 0 ? "Warm-up, then one station a minute" : "One station a minute") : forTime ? "Movements" : flow ? "Poses" : "Exercise sequence"}</div>
       <ol className="workout-stations">

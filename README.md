@@ -54,7 +54,10 @@ documented in [CLAUDE.md](CLAUDE.md).
 - **Battle tracks (Suno) and spoken cues (ElevenLabs), one key** — both are
   generated through [kie.ai](https://kie.ai) with your own API key, set once
   in Settings. Each workout gets an instrumental Suno V6 track (up to six
-  minutes) matched to its BPM, style and theme; the yoga flows get every
+  minutes) matched to its BPM, style and theme, or plays a song set
+  (Techno, Jazz house, Anthems) mixed to its shape: warm-up Low, the rest
+  High. A default for every workout is set in Skipan → Music, and each
+  workout's page can override it; the yoga flows get every
   pose name spoken in an ElevenLabs voice of your choice. Everything is
   downloaded and cached in IndexedDB, so each track and line is generated
   exactly once and workouts never need the network.

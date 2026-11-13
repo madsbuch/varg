@@ -1254,6 +1254,7 @@ export function seedTemplates(): Template[] {
       ],
       interval: { work: 50, rest: 0, rounds: 1 },
       music: {
+        energy: 1,
         bpm: 90,
         style: "calm ambient, soft pads, minimal percussion, no vocals",
         theme:
@@ -1283,6 +1284,7 @@ export function seedTemplates(): Template[] {
       ],
       interval: { work: 50, rest: 0, rounds: 3 },
       music: {
+        energy: 1,
         bpm: 80,
         style:
           "spacious ambient drone, slow evolving textures, gentle rhythmic pulse, no vocals",

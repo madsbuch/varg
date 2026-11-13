@@ -80,3 +80,97 @@ describe("the music choice per workout", () => {
     if (set) expect(mix).toEqual(setMix(set));
   });
 });
+
+const { clearMixChoice, loadDefaultChoice, loadOwnChoice, saveDefaultChoice } = await import("../src/lib/music-choice");
+const { BAR_GRID_S, CHUNK_S, mainEnergy, openSections, sectionsPlan, templateSections, wodSections, workoutMix } = await import("../src/lib/workout-music");
+const { seedExercises, seedTemplates } = await import("../src/lib/seed");
+const { buildSteps, configForTemplate } = await import("../src/lib/wod");
+
+describe("the default and per-workout music", () => {
+  test("until a default is picked every workout plays its own track", () => {
+    expect(loadDefaultChoice()).toEqual({ mode: "track" });
+    expect(loadMixChoice("tpl-varg-18")).toEqual({ mode: "track" });
+    expect(workoutMix("tpl-varg-18", 0)).toBeNull();
+  });
+
+  test("a default set plays everywhere without a choice of its own; a workout can override and go back", () => {
+    saveDefaultChoice({ mode: "set", set: "anthems" });
+    expect(loadMixChoice("tpl-varg-18")).toEqual({ mode: "set", set: "anthems" });
+    expect(workoutMix("tpl-varg-18", 0)).toEqual(setMix("anthems"));
+    saveMixChoice("tpl-varg-18", { mode: "track" });
+    expect(workoutMix("tpl-varg-18", 0)).toBeNull();
+    expect(loadMixChoice("tpl-full-body-emom-20")).toEqual({ mode: "set", set: "anthems" });
+    clearMixChoice("tpl-varg-18");
+    expect(loadOwnChoice("tpl-varg-18")).toBeUndefined();
+    expect(loadMixChoice("tpl-varg-18")).toEqual({ mode: "set", set: "anthems" });
+  });
+
+  test("an adaptive ride has no own track: 'own track' plays its set, a default set replaces it", () => {
+    expect(loadMixChoice("tpl-ride-sit-stand-accelerate", "techno")).toEqual({ mode: "set", set: "techno" });
+    saveDefaultChoice({ mode: "set", set: "jazz-house" });
+    expect(loadMixChoice("tpl-ride-sit-stand-accelerate", "techno")).toEqual({ mode: "set", set: "jazz-house" });
+  });
+
+  test("a stored choice naming a set that no longer exists falls back to the default", () => {
+    store.set("varg.music.choice.v1", JSON.stringify({ "tpl-varg-18": { mode: "set", set: "polka" } }));
+    store.set("varg.music.default.v1", JSON.stringify({ mode: "bogus" }));
+    expect(loadMixChoice("tpl-varg-18")).toEqual({ mode: "track" });
+  });
+});
+
+describe("music that follows the workout's shape", () => {
+  const exById = new Map(seedExercises().map((e) => [e.id, e]));
+  const tpl = (id: string) => seedTemplates().find((t) => t.id === id)!;
+  const guided = (id: string) => {
+    const cfg = configForTemplate(tpl(id), exById);
+    if (typeof cfg === "string") throw new Error(cfg);
+    const steps = buildSteps(cfg);
+    const total = steps.reduce((a, s) => a + s.secs, 0) - steps[0]!.secs;
+    return wodSections(cfg, mainEnergy(tpl(id)), total);
+  };
+  const origin = 1_000_000;
+  const shape = (blocks: { level: number; at: number; until: number | null }[]) =>
+    blocks.map((b) => [b.level, (b.at - origin) / 1000, b.until === null ? null : (b.until - origin) / 1000]);
+
+  test("an EMOM: the warm-up Low, the 18 minutes High, a new song every two minutes", () => {
+    const sections = guided("tpl-full-body-emom-20");
+    expect(sections).toEqual([{ level: 1, seconds: 120 }, { level: 3, seconds: 1080 }]);
+    const plan = sectionsPlan(sections, origin, 0, false);
+    expect(shape(plan.blocks)).toEqual([
+      [1, 0, 120],
+      ...Array.from({ length: 9 }, (_, i) => [3, 120 + i * CHUNK_S, 240 + i * CHUNK_S]),
+    ]);
+    // The n-th block at an intensity plays the n-th song: they rotate.
+    expect(plan.blocks.map((b) => b.n)).toEqual([0, 0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    // Every change lands on a whole bar at every set's tempo.
+    expect(plan.blocks.every((b) => ((b.at - origin) / 1000) % BAR_GRID_S === 0)).toBe(true);
+  });
+
+  test("mid-workout the plan starts at the block playing now and keeps its numbering", () => {
+    const plan = sectionsPlan(guided("tpl-full-body-emom-20"), origin, 400, false);
+    expect(plan.blocks[0]).toMatchObject({ level: 3, n: 2, at: origin + 360_000 });
+    expect(plan.blocks).toHaveLength(7);
+    expect(sectionsPlan(guided("tpl-full-body-emom-20"), origin, 400, true).paused).toBe(true);
+  });
+
+  test("intervals play High throughout; yoga and mobility Low", () => {
+    expect(guided("tpl-varg-18")).toEqual([{ level: 3, seconds: 1070 }]);
+    expect(guided("tpl-varg-yoga-10")[0]?.level).toBe(1);
+    expect(guided("tpl-varg-mobility-20")[0]?.level).toBe(1);
+    // The last block simply ends with the workout.
+    expect(shape(sectionsPlan(guided("tpl-varg-18"), origin, 0, false).blocks).at(-1)).toEqual([3, 960, 1070]);
+  });
+
+  test("for time and plain rides have no known end: booked hours ahead at one energy", () => {
+    expect(openSections(mainEnergy(tpl("tpl-fran")))).toEqual([{ level: 3, seconds: null }]);
+    expect(mainEnergy(tpl("tpl-ride-z2-40"))).toBe(2);
+    const plan = sectionsPlan(openSections(2), origin, 0, false);
+    expect(plan.blocks.length).toBe(90);
+    expect(plan.blocks.every((b) => b.level === 2)).toBe(true);
+  });
+
+  test("the workout page shows the intensities a workout will use", () => {
+    expect(templateSections(tpl("tpl-kettlebell-emom-20")).map((s) => s.level)).toEqual([1, 3]);
+    expect(templateSections(tpl("tpl-varg-yoga-20")).map((s) => s.level)).toEqual([1]);
+  });
+});
