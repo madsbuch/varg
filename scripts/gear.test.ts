@@ -13,12 +13,12 @@ describe("workout kit lists", () => {
   test("derived from the exercises the workout runs, in catalogue order", () => {
     // Bench dips are one station of twelve: the bench must still be on the list.
     expect(kit("tpl-varg-18")).toEqual(["Bench", "Mat"]);
-    expect(kit("tpl-full-body-emom-20")).toEqual(["Band or loaded backpack", "Mat"]);
+    expect(kit("tpl-full-body-emom-20")).toEqual(["Band or loaded backpack", "Jump rope", "Mat"]);
     expect(kit("tpl-varg-yoga-10")).toEqual(["Mat"]);
   });
 
   test("a template qualifies its gear and adds what no exercise implies", () => {
-    expect(kit("tpl-kettlebell-emom-20")).toEqual(["Kettlebell · 12–24 kg", "Mat"]);
+    expect(kit("tpl-kettlebell-emom-20")).toEqual(["Kettlebell · 12–24 kg", "Jump rope", "Mat"]);
     expect(kit("tpl-helen")).toEqual(["Kettlebell · 24/16 kg", "Pull-up bar"]);
     expect(kit("tpl-murph")).toEqual(["Pull-up bar", "Weight vest · 9 kg · traditional"]);
     expect(kit("tpl-chad")).toEqual(["Box or sturdy step · 50 cm", "Rucksack · 20/16 kg"]);

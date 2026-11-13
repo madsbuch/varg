@@ -215,7 +215,7 @@ describe("Full Body EMOM - 20 Minutes", () => {
   });
 
   test("three complete rounds of the six stations, in order, with targets", () => {
-    const order = ["Burpee", "Reverse Lunge", "Push-up", "High Knees", "Band or Backpack Row", "Dead Bug"];
+    const order = ["Burpee", "Reverse Lunge", "Push-up", "Single-Under", "Band or Backpack Row", "Dead Bug"];
     const stations = steps.filter((st) => st.emom?.block === "station");
     for (let r = 0; r < 3; r++) {
       const round = stations.slice(r * 6, r * 6 + 6);
@@ -226,14 +226,15 @@ describe("Full Body EMOM - 20 Minutes", () => {
     }
     // One fixed count per round, never a range: burpees 8, then 10, then 12.
     const byRound = (n: number) => stations.slice((n - 1) * 6, n * 6).map((st) => st.emom!.target);
-    expect(byRound(1)).toEqual(["8 reps", "16 reps · 8 per leg", "10 reps", "35 s", "12 reps", "10 reps"]);
-    expect(byRound(2)).toEqual(["10 reps", "16 reps · 8 per leg", "12 reps", "38 s", "14 reps", "13 reps"]);
-    expect(byRound(3)).toEqual(["12 reps", "16 reps · 8 per leg", "15 reps", "40 s", "15 reps", "16 reps"]);
+    expect(byRound(1)).toEqual(["8 reps", "16 reps · 8 per leg", "10 reps", "50 reps", "12 reps", "10 reps"]);
+    expect(byRound(2)).toEqual(["10 reps", "16 reps · 8 per leg", "12 reps", "60 reps", "14 reps", "13 reps"]);
+    expect(byRound(3)).toEqual(["12 reps", "16 reps · 8 per leg", "15 reps", "70 reps", "15 reps", "16 reps"]);
     expect(stations.filter((st) => st.exercise!.name === "Burpee").map((st) => st.emom!.reps)).toEqual([8, 10, 12]);
-    expect(stations.filter((st) => st.exercise!.name === "High Knees").map((st) => st.emom!.workSecs)).toEqual([35, 38, 40]);
+    // Skipping is a count to finish like every other minute, not a timed block.
+    expect(stations.filter((st) => st.exercise!.name === "Single-Under").map((st) => [st.emom!.reps, st.emom!.workSecs])).toEqual([[50, undefined], [60, undefined], [70, undefined]]);
     expect(stations.every((st) => !/[–-]\s*\d/.test(st.emom!.target))).toBe(true);
     expect(tpl.emom!.stations.map(emomRoundsTarget)).toEqual([
-      "8 · 10 · 12 reps", "16 reps · 8 per leg", "10 · 12 · 15 reps", "35 · 38 · 40 s", "12 · 14 · 15 reps", "10 · 13 · 16 reps",
+      "8 · 10 · 12 reps", "16 reps · 8 per leg", "10 · 12 · 15 reps", "50 · 60 · 70 reps", "12 · 14 · 15 reps", "10 · 13 · 16 reps",
     ]);
   });
 
@@ -253,21 +254,24 @@ describe("Full Body EMOM - 20 Minutes", () => {
   });
 
   test("rep minutes show their target to the end; timed work rests by itself", () => {
-    const burpees = at(120), knees = at(300), knees3 = at(120 + 15 * 60), warm = at(0);
+    const burpees = at(120), skips = at(300), warm = at(0);
     expect(emomPhase(warm, 39)).toBe("work");
     expect(emomPhase(burpees, 0)).toBe("work");
     expect(emomPhase(burpees, 59.9)).toBe("work"); // no Done: the target stays up all minute
-    expect(knees.exercise!.name).toBe("High Knees");
-    expect(emomPhase(knees, 34.9)).toBe("work"); // round 1: 35 s
-    expect(emomPhase(knees, 35)).toBe("rest");
-    expect([knees3.exercise!.name, knees3.round]).toEqual(["High Knees", 3]);
-    expect(emomPhase(knees3, 39.9)).toBe("work"); // round 3: 40 s
-    expect(emomPhase(knees3, 40)).toBe("rest");
+    expect(skips.exercise!.name).toBe("Single-Under");
+    expect(emomPhase(skips, 59.9)).toBe("work");
     expect(emomPhase(steps[0]!, 1)).toBe("rest"); // lead-in is not work
-    // The next exercise is named as a timed rest begins, else 10 s before the minute ends.
+    // The next exercise is named 10 s before a rep minute ends.
     expect(emomAnnounceAt(burpees)).toBe(50);
-    expect(emomAnnounceAt(knees)).toBe(35);
     expect(emomAnnounceAt(warm)).toBeUndefined();
+    // A timed station (none ships today, the model still allows one) rests
+    // by itself once its round's seconds have run, and is announced then.
+    const plan = tpl.emom!;
+    const timed: Template = { ...tpl, emom: { ...plan, stations: plan.stations.map((st, i) => (i === 3 ? { exerciseId: "ex-high-knees", seconds: [35, 38, 40] } : st)) } };
+    const ts = buildSteps(cfgOf(timed)).filter((st) => st.exercise?.name === "High Knees" && st.emom?.block === "station");
+    expect(ts.map((st) => st.emom!.target)).toEqual(["35 s", "38 s", "40 s"]);
+    expect([emomPhase(ts[0]!, 34.9), emomPhase(ts[0]!, 35), emomPhase(ts[2]!, 39.9), emomPhase(ts[2]!, 40)]).toEqual(["work", "rest", "work", "rest"]);
+    expect(emomAnnounceAt(ts[0]!)).toBe(35);
   });
 
   test("pause freezes the minute and resume continues it; standby lands on the right minute", () => {
@@ -299,7 +303,7 @@ describe("Full Body EMOM - 20 Minutes", () => {
     expect(by.get("Run on the Spot")).toEqual([[40, null]]);
     // A finished minute logs its prescribed reps; a timed one its seconds of work.
     expect(by.get("Burpee")).toEqual([[60, 8], [60, 10], [60, 12]]);
-    expect(by.get("High Knees")).toEqual([[35, null], [38, null], [40, null]]);
+    expect(by.get("Single-Under")).toEqual([[60, 50], [60, 60], [60, 70]]);
     expect(by.get("Dead Bug")).toEqual([[60, 10], [60, 13], [60, 16]]);
     // Prescribed, not counted: unchecked, so no record is minted from them.
     expect(session.entries.flatMap((e) => e.sets).every((x) => !x.done)).toBe(true);
@@ -327,7 +331,7 @@ describe("Full Body EMOM - 20 Minutes", () => {
         ...plan,
         rounds: 2,
         warmup: undefined,
-        stations: plan.stations.map((st) => (st.seconds ? { ...st, seconds: [20, 30] } : { ...st, reps: [6, 8] })),
+        stations: plan.stations.map((st, i) => (i === 3 ? { exerciseId: "ex-high-knees", seconds: [20, 30] } : { ...st, reps: [6, 8] })),
       },
     };
     const v = cfgOf(variant);
@@ -379,7 +383,7 @@ describe("Kettlebell EMOM - 20 Minutes", () => {
       ["Kettlebell Swing", "15 · 18 · 20 reps"],
       ["Goblet Squat", "10 · 11 · 12 reps"],
       ["Kettlebell Clean & Press", "10 reps · 5 per arm"],
-      ["High Knees", "35 · 38 · 40 s"],
+      ["Single-Under", "50 · 60 · 70 reps"],
       ["Single-Arm Kettlebell Row", "16 reps · 8 per arm"],
       ["Dead Bug", "10 · 13 · 16 reps"],
     ]);
