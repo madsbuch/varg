@@ -134,7 +134,7 @@ function MusicHome({ push, pop }: { push: (r: MusicRoute) => void; pop: () => vo
   const hasKey = !!loadMusicSettings().apiKey;
 
   return (
-    <div className="screen">
+    <div className="screen settings-screen">
       <PageHead eyebrow="Skipan" title="Music" onBack={pop} />
 
       <div className="section-label" style={{ marginTop: 0 }}>Default for every workout</div>
@@ -198,7 +198,7 @@ function SetScreen({ set: setId, push, pop }: { set: SetId; push: (r: MusicRoute
   if (!set) return null;
 
   return (
-    <div className="screen">
+    <div className="screen settings-screen">
       <PageHead eyebrow="Music · song set" title={set.name} onBack={pop} />
       <div className="muted" style={{ fontSize: 13 }}>{set.sound}</div>
       {([1, 2, 3] as const).map((l: Intensity) => (
@@ -268,7 +268,7 @@ function NewSongScreen({ set: initialSet, pop }: { set: SetId; pop: () => void }
   };
 
   return (
-    <div className="screen">
+    <div className="screen settings-screen">
       <PageHead eyebrow={`Music · ${setById(initialSet)?.name ?? ""}`} title="New song" onBack={pop} />
       <Field label="Name">
         <input value={name} maxLength={40} placeholder="Midnight brass" onChange={(e) => { setName(e.target.value); }} />
@@ -327,7 +327,7 @@ function NewSongScreen({ set: initialSet, pop }: { set: SetId; pop: () => void }
 function TracksScreen({ push, pop }: { push: (r: MusicRoute) => void; pop: () => void }) {
   const { workouts, cached, failures, refresh } = useTrackCache();
   return (
-    <div className="screen">
+    <div className="screen settings-screen">
       <PageHead eyebrow="Music" title="Own tracks" onBack={pop} />
       <div className="section-label" style={{ marginTop: 0 }}>
         {workouts.filter((w) => cached.has(w.key)).length}/{workouts.length} ready
@@ -370,7 +370,7 @@ function TrackRoute({ trackKey, pop }: { trackKey: string; pop: () => void }) {
   const workout = workoutMusicList().find((w) => w.key === trackKey);
   if (!workout) return null;
   return (
-    <div className="screen">
+    <div className="screen settings-screen">
       <PageHead eyebrow="Music · own track" title={workout.name} onBack={pop} />
       <TrackScreen key={trackKey} workout={workout} onClose={pop} />
     </div>

@@ -78,72 +78,80 @@ export default function Home({ goto }: { goto: (t: Tab, view?: SagaView) => void
         Feed the wolf
       </h2>
 
-      <div className="stat-grid">
-        <Stat n={finished.length} l="Sessions" />
-        <Stat n={thisWeek} l="This week" />
-        <Stat
-          n={
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-              {streak}
-              <IconFlame style={{ width: 20, height: 20 }} />
-            </span>
-          }
-          l="Day streak"
-        />
-      </div>
-
-      <button
-        className="btn primary"
-        style={{ marginTop: 16 }}
-        onClick={() => { goto("train"); }}
-      >
-        Start a session
-      </button>
-
-      {hasGarmin && (garmin.readiness ?? garmin.error) && (
-        <ReadinessCard
-          readiness={garmin.readiness}
-          stale={!!garmin.readiness && garmin.readiness.date !== today}
-          error={garmin.error}
-        />
-      )}
-
-      <div className="section-label">Recent sessions</div>
-      {recent.length === 0 ? (
-        <div className="card">
-          <div className="muted">
-            No sessions logged yet. Head to{" "}
-            <span className="link" onClick={() => { goto("train"); }}>
-              Hunt
-            </span>{" "}
-            to begin.
+      <div className="home-layout">
+        <section>
+          <div className="stat-grid">
+            <Stat n={finished.length} l="Sessions" />
+            <Stat n={thisWeek} l="This week" />
+            <Stat
+              n={
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  {streak}
+                  <IconFlame style={{ width: 20, height: 20 }} />
+                </span>
+              }
+              l="Day streak"
+            />
           </div>
-        </div>
-      ) : (
-        <>
-          {recent.map((s) => (
-            <SessionRow key={s.id} session={s} watch={matches.get(s.id)} onOpen={() => { setOpenId(s.id); }} />
-          ))}
-          {finished.length > recent.length && (
-            <button
-              className="btn ghost"
-              style={{ marginTop: 8 }}
-              onClick={() => { goto("history", "sessions"); }}
-            >
-              All {finished.length} sessions in the Saga
-            </button>
-          )}
-        </>
-      )}
 
-      <div className="section-label">Records</div>
-      <button className="list-item" onClick={() => { goto("history", "records"); }}>
-        <div>
-          <div className="title">Personal records</div>
-          <div className="sub">{prCount} tracked</div>
-        </div>
-        <span className="chip accent">View</span>
-      </button>
+          <button
+            className="btn primary"
+            style={{ marginTop: 16 }}
+            onClick={() => { goto("train"); }}
+          >
+            Start a session
+          </button>
+
+          {hasGarmin && (garmin.readiness ?? garmin.error) && (
+            <ReadinessCard
+              readiness={garmin.readiness}
+              stale={!!garmin.readiness && garmin.readiness.date !== today}
+              error={garmin.error}
+            />
+          )}
+        </section>
+
+        <section className="home-recent">
+          <div className="section-label">Recent sessions</div>
+          {recent.length === 0 ? (
+            <div className="card">
+              <div className="muted">
+                No sessions logged yet. Head to{" "}
+                <span className="link" onClick={() => { goto("train"); }}>
+                  Hunt
+                </span>{" "}
+                to begin.
+              </div>
+            </div>
+          ) : (
+            <>
+              {recent.map((s) => (
+                <SessionRow key={s.id} session={s} watch={matches.get(s.id)} onOpen={() => { setOpenId(s.id); }} />
+              ))}
+              {finished.length > recent.length && (
+                <button
+                  className="btn ghost"
+                  style={{ marginTop: 8 }}
+                  onClick={() => { goto("history", "sessions"); }}
+                >
+                  All {finished.length} sessions in the Saga
+                </button>
+              )}
+            </>
+          )}
+        </section>
+
+        <section className="home-records">
+          <div className="section-label">Records</div>
+          <button className="list-item" onClick={() => { goto("history", "records"); }}>
+            <div>
+              <div className="title">Personal records</div>
+              <div className="sub">{prCount} tracked</div>
+            </div>
+            <span className="chip accent">View</span>
+          </button>
+        </section>
+      </div>
 
       {open && <SessionDetails session={open} onClose={() => { setOpenId(null); }} />}
     </div>

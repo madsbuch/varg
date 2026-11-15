@@ -135,18 +135,20 @@ export default function History({ view, setView }: {
             <div className="section-label">
               {m.label} · {m.entries.length}
             </div>
-            {m.entries.map((e) =>
-              e.kind === "session" ? (
-                <SessionRow
-                  key={e.session.id}
-                  session={e.session}
-                  watch={matches.get(e.session.id)}
-                  onOpen={() => { setOpenId(e.session.id); }}
-                />
-              ) : (
-                <WatchRow key={`w${String(e.activity.id)}`} activity={e.activity} onOpen={() => { setOpenWatch(e.activity); }} />
-              ),
-            )}
+            <div className="card-grid">
+              {m.entries.map((e) =>
+                e.kind === "session" ? (
+                  <SessionRow
+                    key={e.session.id}
+                    session={e.session}
+                    watch={matches.get(e.session.id)}
+                    onOpen={() => { setOpenId(e.session.id); }}
+                  />
+                ) : (
+                  <WatchRow key={`w${String(e.activity.id)}`} activity={e.activity} onOpen={() => { setOpenWatch(e.activity); }} />
+                ),
+              )}
+            </div>
           </div>
         ))
       )}

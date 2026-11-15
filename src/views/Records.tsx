@@ -64,9 +64,11 @@ export default function Records() {
           </div>
         </div>
       ) : (
-        grouped.map(({ exercise, rows }) => (
-          <PRGroup key={exercise.id} exercise={exercise} rows={rows} />
-        ))
+        <div className="card-grid">
+          {grouped.map(({ exercise, rows }) => (
+            <PRGroup key={exercise.id} exercise={exercise} rows={rows} />
+          ))}
+        </div>
       )}
 
       {adding && <AddPRSheet onClose={() => { setAdding(false); }} />}
@@ -84,7 +86,7 @@ function PRGroup({
   const { update } = useApp();
   const [deleting, setDeleting] = useState<PersonalRecord | null>(null);
   return (
-    <div className="card" style={{ marginBottom: 10 }}>
+    <div className="card record-card">
       <div className="row">
         <h3 style={{ fontSize: 17 }}>{exercise.name}</h3>
       </div>

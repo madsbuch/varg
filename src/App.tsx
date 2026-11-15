@@ -18,6 +18,7 @@ import {
   IconGear,
   IconHome,
   IconScroll,
+  Mark,
 } from "./components/icons";
 
 export type Tab =
@@ -64,7 +65,7 @@ function SaveFailureBanner() {
   const { saveFailure } = useApp();
   if (!saveFailure) return null;
   return (
-    <div style={{ padding: "0 16px" }}>
+    <div className="save-failure">
       <div className="persist-error" role="status">
         <IconFlag />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -174,12 +175,17 @@ export default function App() {
         {tab === "settings" && <Settings />}
       </main>
 
-      <nav className="tabbar">
+      <nav className="tabbar" aria-label="Main navigation">
+        <div className="nav-brand" aria-label="Varg">
+          <Mark />
+          <span>Varg</span>
+        </div>
         <div className="inner">
           {TABS.map(({ id, label, Icon }) => (
             <button
               key={id}
               className={`tab ${tab === id ? "active" : ""}`}
+              aria-current={tab === id ? "page" : undefined}
               onClick={() => { setTab(id); }}
             >
               <Icon />

@@ -1,0 +1,281 @@
+/* On phones the ride's status lines retain their original flex positions. */
+.ride-alerts { display: contents; }
+
+/* Keep the workout readable at a distance on a tablet, with the next
+   stations and transport beside the current station. The grid responds to
+   the available window width, including Android split-screen resizing. */
+@media (min-width: 600px) {
+  .wod.wod-player,
+  .wod.ride-player,
+  .wod.wod-complete {
+    max-width: none;
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+  }
+
+  .wod.wod-player .wod-top .check,
+  .wod.wod-complete .wod-top .check {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+}
+
+@media (min-width: 768px) {
+  .wod.wod-player,
+  .wod.ride-player,
+  .wod.wod-complete {
+    max-width: none;
+    padding: calc(var(--safe-top) + 24px)
+      max(24px, env(safe-area-inset-right), calc((100vw - 1200px) / 2))
+      calc(var(--safe-bottom) + 24px)
+      max(24px, env(safe-area-inset-left), calc((100vw - 1200px) / 2));
+  }
+
+  .wod.wod-player {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(280px, 1fr);
+    grid-template-rows: auto 4px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "top top"
+      "progress progress"
+      "current next"
+      "current controls";
+    column-gap: 32px;
+    row-gap: 16px;
+  }
+
+  .wod.wod-player .wod-top {
+    grid-area: top;
+  }
+
+  .wod.wod-player .wod-progress {
+    grid-area: progress;
+    margin: 0;
+  }
+
+  .wod.wod-player .wod-center {
+    grid-area: current;
+    gap: 10px;
+    padding: 12px 0;
+    overflow-y: auto;
+    justify-content: safe center;
+  }
+
+  .wod.wod-player .wod-phase {
+    font-size: 18px;
+  }
+
+  .wod.wod-player .wod-time,
+  .wod.wod-player.emom .wod-time,
+  .wod.wod-complete .wod-time {
+    font-size: min(112px, 15vh);
+    flex-shrink: 0;
+  }
+
+  .wod.wod-player .wod-phase-row,
+  .wod.wod-player .wod-where,
+  .wod.wod-player .wod-target {
+    flex-shrink: 0;
+  }
+
+  .wod.wod-player .wod-anim {
+    display: flex;
+    justify-content: center;
+    width: min(100%, 30vh, 300px);
+    height: min(30vh, 300px);
+    padding: 14px;
+    margin-top: 4px;
+  }
+
+  .wod.wod-player .wod-anim .ex-anim {
+    max-width: 100%;
+    max-height: none;
+  }
+
+  .wod.wod-player .wod-exname {
+    flex-shrink: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    font-size: clamp(22px, 2.5vw, 30px);
+    margin-top: 4px;
+  }
+
+  .wod.wod-player .wod-stepbar {
+    display: block;
+    width: min(260px, 80%);
+    height: 6px;
+    margin-top: 8px;
+  }
+
+  .wod.wod-player .wod-queue {
+    grid-area: next;
+    align-self: center;
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    border-top: 0;
+    margin-top: 0;
+    padding-top: 0;
+    gap: 12px;
+  }
+
+  .wod.wod-player .wod-queue-label {
+    display: block;
+    font-size: 12px;
+  }
+
+  .wod.wod-player .wod-queue-row {
+    min-width: 0;
+    padding: 14px 12px;
+  }
+
+  .wod.wod-player.emom .wod-queue-row.dim {
+    display: flex;
+  }
+
+  .wod.wod-player.emom .wod-stepbar {
+    display: block;
+  }
+
+  .wod.wod-player .wod-queue-anim {
+    display: block;
+    width: 48px;
+    height: 48px;
+  }
+
+  .wod.wod-player .wod-queue-anim .ex-anim {
+    width: 100%;
+    height: 100%;
+  }
+
+  .wod.wod-player .wod-queue-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 16px;
+  }
+
+  .wod.wod-player .wod-queue-secs {
+    flex-shrink: 0;
+    font-size: 16px;
+  }
+
+  .wod.wod-player .wod-controls {
+    grid-area: controls;
+    padding-top: 0;
+  }
+
+  .wod.wod-player .wod-controls .btn {
+    min-height: 56px;
+  }
+
+  .wod.wod-player .wod-controls .fortime-done {
+    min-height: 64px;
+  }
+
+  .wod.wod-complete .wod-controls {
+    width: min(100%, 480px);
+    align-self: center;
+  }
+
+  .wod.wod-complete .fortime-result {
+    width: min(100%, 720px);
+    align-self: center;
+  }
+
+  /* The riding console keeps its swipeable pages and their own vertical
+     scrolling, with the current block in view beside them. */
+  .wod.ride.ride-player {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 1.15fr);
+    grid-template-rows: auto auto auto minmax(160px, 1fr) auto;
+    grid-template-areas:
+      "top top"
+      "alerts alerts"
+      "total total"
+      "current deck"
+      "controls controls";
+    column-gap: 28px;
+    row-gap: 12px;
+    /* Errors and the manual kcal Done button can together be taller than
+       a split-screen window. Keep the console usable and let the whole
+       player scroll instead of stranding its controls below the viewport. */
+    overflow-y: auto;
+  }
+
+  .wod.ride-player .wod-top { grid-area: top; }
+  .wod.ride-player .ride-alerts {
+    display: block;
+    grid-area: alerts;
+    max-height: 20vh;
+    overflow-y: auto;
+  }
+  .wod.ride-player .ride-alerts:empty { display: none; }
+  .wod.ride-player .ride-total { grid-area: total; margin-top: 0; }
+  .wod.ride-player .ride-now {
+    grid-area: current;
+    overflow-y: auto;
+    gap: 12px;
+  }
+  .wod.ride-player .ride-now > * { flex-shrink: 0; }
+  .wod.ride-player .ride-now .wod-time { font-size: min(112px, 14vh); }
+  .wod.ride-player .ride-label { font-size: clamp(22px, 2.5vw, 30px); }
+  .wod.ride-player .ride-deck { grid-area: deck; min-width: 0; min-height: 0; }
+  .wod.ride-player .ride-tabs button { min-height: 48px; }
+  .wod.ride-player .ride-reading .ride-watts { font-size: min(72px, 9vh); }
+  .wod.ride-player .ride-stat strong { font-size: min(34px, 5vh); }
+  .wod.ride-player .ride-grid { gap: 16px 8px; }
+  .wod.ride-player .ride-plan-name {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .wod.ride-player .wod-controls {
+    grid-area: controls;
+    width: min(100%, 600px);
+    justify-self: center;
+    padding-top: 0;
+  }
+
+  .wod.ride-player .wod-confirm {
+    position: fixed;
+    overflow-y: auto;
+  }
+}
+
+/* A short multi-window viewport still gets the two-column player; reserve
+   room for the actual instruction before giving it to the demonstration. */
+@media (min-width: 768px) and (max-height: 560px) {
+  .wod.wod-player,
+  .wod.ride-player,
+  .wod.wod-complete {
+    padding-top: calc(var(--safe-top) + 12px);
+    padding-bottom: calc(var(--safe-bottom) + 12px);
+  }
+
+  .wod.wod-player {
+    row-gap: 10px;
+    column-gap: 24px;
+  }
+
+  .wod.wod-player .wod-center {
+    gap: 6px;
+    padding: 0;
+  }
+
+  .wod.wod-player .wod-anim {
+    display: none;
+  }
+
+  .wod.wod-player .wod-queue {
+    gap: 6px;
+  }
+
+  .wod.wod-player .wod-queue-row {
+    padding: 8px;
+  }
+
+  .wod.wod-player .wod-queue-anim {
+    width: 38px;
+    height: 38px;
+  }
+}

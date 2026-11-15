@@ -44,6 +44,7 @@ import { musicProfileFor } from "../lib/music";
 import { useHeartRate } from "./HeartRate";
 import { Slot, TopTitle } from "./TopBar";
 import { HR_ZONE_NAMES, hrZoneOf, hrZoneRange, loadHrZones } from "../lib/hr";
+import "./WodPlayer.css";
 
 const LEAD_IN = 10;
 
@@ -467,7 +468,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
     const skipped = results.filter((r) => r.skipped).length;
     const asWritten = skipped === 0 && run.current.restarts === 0;
     return (
-      <div className="wod">
+      <div className="wod wod-complete">
         <div className="wod-top">
           <span className="eyebrow">{free ? "Ride finished" : !finished ? "Ride stopped" : asWritten ? "Ride complete" : "Ride completed"}</span>
           <button className="check" onClick={onClose} aria-label="Close"><IconClose /></button>
@@ -585,14 +586,14 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
   if (free) {
     const zone = view.live ? zoneOf(view.power, ftp) : null;
     return (
-      <div className="wod ride">
+      <div className="wod ride ride-player">
         <div className="wod-top">
           <TopTitle hr={hr} title={config.title} />
           <Slot>{null}</Slot>
           <Slot>{musicButton}</Slot>
           <button className="check" onClick={openConfirmStop} aria-label="Stop"><IconClose /></button>
         </div>
-        {bikeLines}
+        <div className="ride-alerts">{bikeLines}</div>
 
         {/* Top half: the clock since the start. */}
         <div className="ride-now">
@@ -670,7 +671,7 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
   }
 
   return (
-    <div className={`wod ride ${ready ? "resting" : ""}`}>
+    <div className={`wod ride ride-player ${ready ? "resting" : ""}`}>
       <div className="wod-top">
         <TopTitle hr={hr} title={config.title} />
         <button
@@ -683,13 +684,15 @@ export default function RidePlayer({ config, onClose }: { config: RideConfig; on
         <Slot>{musicButton}</Slot>
         <button className="check" onClick={openConfirmStop} aria-label="Stop"><IconClose /></button>
       </div>
-      {musicProblem && (
-        <div className="hr-line bad" role="alert">
-          <IconMusic />
-          <span className="hr-line-text">{musicProblem}</span>
-        </div>
-      )}
-      {bikeLines}
+      <div className="ride-alerts">
+        {musicProblem && (
+          <div className="hr-line bad" role="alert">
+            <IconMusic />
+            <span className="hr-line-text">{musicProblem}</span>
+          </div>
+        )}
+        {bikeLines}
+      </div>
       <div className="ride-total">
         <div className="ride-total-row">
           <span className="ride-total-label">Total left</span>

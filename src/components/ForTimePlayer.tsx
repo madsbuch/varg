@@ -34,6 +34,7 @@ import { useHeartRate } from "./HeartRate";
 import { Slot, TopTitle } from "./TopBar";
 import type { GpsStatus } from "../lib/gps";
 import { formatPace, gpsAvailable, loadGpsEnabled, runStatus, startRun, stopRun } from "../lib/gps";
+import "./WodPlayer.css";
 
 /** GPS for one stage: the tracker's latest status, or why it is not running. */
 interface StageGps {
@@ -338,7 +339,7 @@ export default function ForTimePlayer({
   // --- Completion screen -----------------------------------------------------
   if (done) {
     return (
-      <div className="wod">
+      <div className="wod wod-complete">
         <div className="wod-top">
           <span className="eyebrow">{finished ? "Mission complete" : "Workout stopped"}</span>
           <button className="check" onClick={onClose} aria-label="Close">
@@ -405,7 +406,7 @@ export default function ForTimePlayer({
   const upNext = stages.slice(stageIdx + 1, stageIdx + 3);
 
   return (
-    <div className={`wod ${ready ? "resting" : ""}`}>
+    <div className={`wod wod-player ${ready ? "resting" : ""}`}>
       <div className="wod-top">
         <TopTitle hr={hr} title={`${config.title} · Stage ${String(stageIdx + 1)}/${String(stages.length)}`} />
         <Slot>{null}</Slot>

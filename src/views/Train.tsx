@@ -316,19 +316,21 @@ function StartScreen() {
             : "No workouts match."}
         </p>
       )}
-      {shown.map((t) => (
-        <TemplateCard
-          key={t.id}
-          t={t}
-          favorite={favorites.has(t.id)}
-          best={t.forTime
-            ? bestForTime(data.sessions, t.id, t.forTime.stages.length)
-            : t.ride?.race ? bestRide(data.sessions, t.id, t.ride.segments.length) : undefined}
-          onOpen={() => { setSelectedTemplate(t); }}
-          onStart={() => { startFromTemplate(t.id); }}
-          onToggleFavorite={() => { toggleFavorite(t.id); }}
-        />
-      ))}
+      <div className="card-grid workout-grid">
+        {shown.map((t) => (
+          <TemplateCard
+            key={t.id}
+            t={t}
+            favorite={favorites.has(t.id)}
+            best={t.forTime
+              ? bestForTime(data.sessions, t.id, t.forTime.stages.length)
+              : t.ride?.race ? bestRide(data.sessions, t.id, t.ride.segments.length) : undefined}
+            onOpen={() => { setSelectedTemplate(t); }}
+            onStart={() => { startFromTemplate(t.id); }}
+            onToggleFavorite={() => { toggleFavorite(t.id); }}
+          />
+        ))}
+      </div>
 
       {selectedTemplate && (
         <WorkoutDetails
@@ -558,7 +560,7 @@ function ActiveSession({ session }: { session: Session }) {
         profile={musicProfileFor(session.templateId)}
       />
 
-      <div style={{ marginTop: 14 }}>
+      <div className="card-grid session-entries" style={{ marginTop: 14 }}>
         {session.entries.map((entry) => {
           const ex = exById.get(entry.exerciseId);
           if (!ex) return null;
@@ -726,7 +728,7 @@ function EntryCard({
   };
 
   return (
-    <div className="card" style={{ marginBottom: 12 }}>
+    <div className="card session-entry">
       <div className="row">
         <div>
           <h3 style={{ fontSize: 17 }}>{exercise.name}</h3>

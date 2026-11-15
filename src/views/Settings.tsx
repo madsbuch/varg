@@ -64,7 +64,7 @@ export default function Settings() {
   if (route) return <MusicScreen route={route} push={push} pop={pop} />;
 
   return (
-    <div className="screen">
+    <div className="screen settings-screen">
       <div className="eyebrow">Skipan · Old Norse for order</div>
       <h2 className="screen-title">Settings</h2>
 

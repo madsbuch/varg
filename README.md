@@ -99,6 +99,9 @@ documented in [CLAUDE.md](CLAUDE.md).
 - **Offline-first** — all data lives in an on-device SQLite database.
 - **Day and night themes**: woad blue on weathered stone by day, on cold iron
   by night, with carved Norse styling. Skipan picks one or follows the phone.
+- **Tablet layouts**: two-column libraries and set logging on smaller
+  tablets, side navigation on larger screens, and full-screen workout
+  players. Layouts adapt to portrait, landscape, and split-screen windows.
 
 ## Data & migrations
 

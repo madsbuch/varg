@@ -43,6 +43,7 @@ import { mainEnergy, templateById, wodSections } from "../lib/workout-music";
 import { useHeartRate } from "./HeartRate";
 import { Slot, TopTitle } from "./TopBar";
 import { formatSeconds } from "../lib/units";
+import "./WodPlayer.css";
 
 /**
  * In a circuit, rest is rest: a still figure, never the next exercise
@@ -413,7 +414,7 @@ export default function WodPlayer({
 
   if (done) {
     return (
-      <div className="wod">
+      <div className="wod wod-complete">
         <div className="wod-top">
           <span className="eyebrow">{stoppedEarly ? "Workout stopped" : "Mission complete"}</span>
           <button className="check" onClick={onClose} aria-label="Close">
@@ -480,7 +481,7 @@ export default function WodPlayer({
   const stepFrac = step.secs > 0 ? 1 - remain / step.secs : 1;
 
   return (
-    <div className={`wod ${resting ? "resting" : ""} ${emom ? "emom" : ""}`}>
+    <div className={`wod wod-player ${resting ? "resting" : ""} ${emom ? "emom" : ""}`}>
       <div className="wod-top">
         <TopTitle
           hr={hr}

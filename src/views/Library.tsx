@@ -68,7 +68,7 @@ export default function Library() {
         ))}
       </div>
 
-      <div style={{ marginTop: 12 }}>
+      <div className="card-grid" style={{ marginTop: 12 }}>
         {filtered.map((ex) => (
           <button key={ex.id} className="list-item" onClick={() => { setOpen(ex); }}>
             <div className="row" style={{ justifyContent: "flex-start", gap: 14 }}>
