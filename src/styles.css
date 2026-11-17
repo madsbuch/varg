@@ -25,9 +25,6 @@
   /* The resting phase of the interval player: the whole screen shifts. */
   --rest-bg: #eceeed;
   --scrim: rgba(18, 23, 28, 0.5);
-  /* Painted behind the system status bar in both themes: Android draws its
-     clock and icons in white there, which vanished on a light background. */
-  --iron: #12171c;
   --radius: 7px;
   --radius-sm: 4px;
   --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
@@ -61,7 +58,6 @@
   --gold-line: #7a6230;
   --rest-bg: #181c21;
   --scrim: rgba(0, 0, 0, 0.62);
-  --iron: #080a0d;
   color-scheme: dark;
 }
 
@@ -1657,16 +1653,26 @@ input.invalid,
    across the room outranks ornament.
    ========================================================================== */
 
-/* The status-bar band. See --iron. */
-body {
-  background:
-    linear-gradient(var(--iron), var(--iron)) top / 100% var(--safe-top) no-repeat,
-    var(--bg);
+/* The status bar sits on the page's own background, in either theme: the
+   app is drawn edge to edge under it, and lib/theme.ts sets its icons light
+   or dark to match (plugins/varg-system). A dark band here put black under
+   the light theme's dark icons. */
+
+/* Changing theme: the whole page crossfades (lib/theme.ts, View
+   Transitions), or, where those are missing, every colour eases over. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 420ms;
+  animation-timing-function: ease-in-out;
 }
-.wod {
-  background-image: linear-gradient(var(--iron), var(--iron));
-  background-size: 100% var(--safe-top);
-  background-repeat: no-repeat;
+html.theme-easing,
+html.theme-easing * {
+  transition:
+    background-color 420ms ease-in-out,
+    color 420ms ease-in-out,
+    border-color 420ms ease-in-out,
+    fill 420ms ease-in-out,
+    stroke 420ms ease-in-out !important;
 }
 
 h1,

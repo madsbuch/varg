@@ -30,13 +30,47 @@ function systemDark(): MediaQueryList | undefined {
   return typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : undefined;
 }
 
+function resolve(choice: ThemeChoice): "light" | "dark" {
+  return choice === "system" ? (systemDark()?.matches === true ? "dark" : "light") : choice;
+}
+
+function reducedMotion(): boolean {
+  return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/** How long the switch takes: the same 420 ms as the crossfade in styles.css. */
+const EASE_MS = 420;
+let easing: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Switch theme visibly: the whole page crossfades from the old colours to
+ * the new (View Transitions, in the Android WebView since Chrome 111);
+ * without them every colour eases over instead. Instant when the phone asks
+ * for reduced motion, or when nothing changes.
+ */
+function applyAnimated(choice: ThemeChoice): void {
+  const root = document.documentElement;
+  if (root.getAttribute("data-theme") === resolve(choice) || reducedMotion()) {
+    apply(choice);
+    return;
+  }
+  if ("startViewTransition" in document) {
+    document.startViewTransition(() => { apply(choice); });
+    return;
+  }
+  root.classList.add("theme-easing");
+  apply(choice);
+  clearTimeout(easing);
+  easing = setTimeout(() => { root.classList.remove("theme-easing"); }, EASE_MS);
+}
+
 function apply(choice: ThemeChoice): void {
-  const resolved = choice === "system" ? (systemDark()?.matches ? "dark" : "light") : choice;
+  const resolved = resolve(choice);
   document.documentElement.setAttribute("data-theme", resolved);
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", CHROME[resolved]);
   // The Android WebView ignores theme-color: the phone's own status and
-  // navigation bars are coloured natively (plugins/varg-system), or the
-  // status bar stays black over the light theme.
+  // navigation bars are coloured natively (plugins/varg-system), and their
+  // icons set light or dark to read on the page drawn under them.
   if (isTauri() && /Android/i.test(navigator.userAgent)) {
     invoke("plugin:varg-system|system_bars", { color: CHROME[resolved], dark: resolved === "dark" }).catch(() => undefined);
   }
@@ -49,13 +83,13 @@ export function saveTheme(choice: ThemeChoice): void {
   } catch {
     // Storage unavailable: the theme still applies for this run.
   }
-  apply(choice);
+  applyAnimated(choice);
 }
 
-/** Call once, before the first render. Follows the phone while on "system". */
+/** Call once, before the first render (no animation then). Follows the phone while on "system". */
 export function initTheme(): void {
   apply(loadTheme());
   systemDark()?.addEventListener("change", () => {
-    apply(loadTheme());
+    applyAnimated(loadTheme());
   });
 }
