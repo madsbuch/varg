@@ -10,6 +10,7 @@ import Home from "./views/Home";
 import Train from "./views/Train";
 import Library from "./views/Library";
 import Settings from "./views/Settings";
+import Mimir from "./views/Mimir";
 import History, { type SagaView } from "./views/History";
 import {
   IconBook,
@@ -18,6 +19,7 @@ import {
   IconGear,
   IconHome,
   IconScroll,
+  IconWell,
   Mark,
 } from "./components/icons";
 
@@ -25,6 +27,7 @@ export type Tab =
   | "home"
   | "train"
   | "history"
+  | "mimir"
   | "library"
   | "settings";
 
@@ -32,6 +35,7 @@ const TABS: { id: Tab; label: string; Icon: typeof IconHome }[] = [
   { id: "home", label: "Den", Icon: IconHome },
   { id: "train", label: "Hunt", Icon: IconDumbbell },
   { id: "history", label: "Saga", Icon: IconScroll },
+  { id: "mimir", label: "Mímir", Icon: IconWell },
   { id: "library", label: "Fræði", Icon: IconBook },
   { id: "settings", label: "Skipan", Icon: IconGear },
 ];
@@ -88,9 +92,16 @@ export default function App() {
   // Which half of the Saga is showing. Lives here so the Den can open the
   // records directly, and so the choice survives a trip to another tab.
   const [sagaView, setSagaView] = useState<SagaView>("sessions");
+  // A workout Mímir pointed at: the Hunt opens on its details.
+  const [huntOpen, setHuntOpen] = useState<string | null>(null);
   const goto = useCallback((t: Tab, view?: SagaView) => {
     if (view) setSagaView(view);
+    setHuntOpen(null);
     setTab(t);
+  }, []);
+  const openWorkout = useCallback((id: string) => {
+    setHuntOpen(id);
+    setTab("train");
   }, []);
 
   // Android Back. The root owns the exit policy because a registered
@@ -169,7 +180,8 @@ export default function App() {
 
       <main id="content" className="content">
         {tab === "home" && <Home goto={goto} />}
-        {tab === "train" && <Train />}
+        {tab === "train" && <Train openId={huntOpen} />}
+        {tab === "mimir" && <Mimir goto={goto} openWorkout={openWorkout} />}
         {tab === "library" && <Library />}
         {tab === "history" && <History view={sagaView} setView={setSagaView} />}
         {tab === "settings" && <Settings />}
@@ -186,7 +198,7 @@ export default function App() {
               key={id}
               className={`tab ${tab === id ? "active" : ""}`}
               aria-current={tab === id ? "page" : undefined}
-              onClick={() => { setTab(id); }}
+              onClick={() => { setHuntOpen(null); setTab(id); }}
             >
               <Icon />
               {label}

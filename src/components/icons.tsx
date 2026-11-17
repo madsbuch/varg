@@ -93,6 +93,16 @@ export const IconScroll = (p: P) => (
   </svg>
 );
 
+/** Mímir: the well of wisdom, an eye above its water. */
+export const IconWell = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M3 9c3-4 15-4 18 0" />
+    <path d="M3 9c3 4 15 4 18 0" />
+    <circle cx="12" cy="9" r="2" />
+    <path d="M5 15h14M7 19h10" />
+  </svg>
+);
+
 /** A wristwatch: data from the Garmin. */
 export const IconWatch = (p: P) => (
   <svg {...base} {...p}>

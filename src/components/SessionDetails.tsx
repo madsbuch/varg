@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Exercise, Session, WorkoutSet } from "../types";
 import { useApp } from "../lib/app-context";
-import { seedTemplates } from "../lib/seed";
+import { templateById } from "../lib/programs";
 import { deleteSession } from "../lib/store";
 import { formatPR, prKindLabel } from "../lib/prs";
 import { formatDate, formatSeconds, kmFromMeters, roundW } from "../lib/units";
@@ -58,7 +58,7 @@ export function SessionDetails({ session, onClose }: { session: Session; onClose
 
   const exById = useMemo(() => new Map(data.exercises.map((e) => [e.id, e])), [data.exercises]);
   const template = useMemo(
-    () => (session.templateId ? seedTemplates().find((t) => t.id === session.templateId) : undefined),
+    () => templateById(session.templateId),
     [session.templateId],
   );
   const prs = useMemo(

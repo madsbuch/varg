@@ -2216,3 +2216,55 @@ textarea {
     margin-top: 0;
   }
 }
+
+/* --- Mímir, the trainer --- */
+.mimir-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+.mimir-msg {
+  max-width: 88%;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm, 10px);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.mimir-msg.user {
+  align-self: flex-end;
+  background: var(--panel-2);
+}
+.mimir-card {
+  max-width: 100%;
+}
+.mimir-card + .mimir-card {
+  margin-top: 0;
+}
+.mimir-stations {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+}
+.mimir-busy {
+  font-size: 13px;
+}
+.mimir-input {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  margin-top: 12px;
+  padding: 8px 0;
+  background: var(--bg);
+}
+.mimir-input textarea {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+}

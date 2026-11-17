@@ -136,6 +136,11 @@ export function useGarmin(): GarminState {
   return useSyncExternalStore(subscribe, () => state);
 }
 
+/** The cached Garmin state, outside React (Mímir reads it). */
+export function garminSnapshot(): GarminState {
+  return state;
+}
+
 export function setFollowFtp(on: boolean): void {
   setState({ followFtp: on });
   if (on && state.ftp) saveFtp(state.ftp.watts);

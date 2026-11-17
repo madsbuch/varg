@@ -10,10 +10,11 @@ change it.
 
 ---
 
-## Core philosophy: programs are authored in code, by an agent
+## Core philosophy: programs are authored by an agent
 
-**Workout programs are not built by the user in the app. They are added by an
-AI agent editing this repository, and shipped as a build.**
+**Workout programs are not built by the user in the app. They are written by
+an AI agent: either an agent editing this repository (shipped as a build), or
+Mímir, the trainer inside the app (saved on the device).**
 
 When the owner wants a new workout, the request arrives as prose — "20 sec
 situps, cardio, pushups… 10 seconds of rest, 3 rounds" — and the agent turns
@@ -23,9 +24,10 @@ exercises, animations and cues it needs along the way.
 This is a deliberate choice, not a missing feature. It has consequences that
 should shape what you build:
 
-- **Do not propose or build in-app program authoring.** No template editors,
-  no "create your own workout" screens, no program builders. This direction
-  has been considered and rejected. The Hunt screen starts existing
+- **Do not propose or build in-app program editing by hand.** No template
+  editors, no "create your own workout" forms, no program builders. This
+  direction has been considered and rejected. Programs on the device come
+  from Mímir (see below), never from a form. The Hunt screen starts existing
   templates. There are no ad-hoc interval or empty-session builders, and no
   training splits (removed in migration `0001_drop_splits`; the owner never
   used them).
@@ -143,6 +145,38 @@ should shape what you build:
    SQLite loader applies on every open. Without that they would never see
    them, because their database was seeded on first launch and never again.
    Read the next section before touching a built-in that already ships.
+
+### Mímir, the in-app trainer
+
+Mímir (the Mímir tab, [`src/lib/mimir.ts`](src/lib/mimir.ts),
+[`src/views/Mimir.tsx`](src/views/Mimir.tsx)) is a chat with an LLM through
+OpenRouter ([`src/lib/openrouter.ts`](src/lib/openrouter.ts); key and model in
+Skipan → Mímir, any OpenRouter model that calls tools). It does two jobs:
+set up programs with the owner, and recommend workouts from the history,
+records, Garmin readiness and the library. Its tools only read, and show
+cards; saving a program is always the owner's tap.
+
+- **One rulebook.** Every template rule lives in
+  [`src/lib/template-check.ts`](src/lib/template-check.ts) (`templateProblems`).
+  db:smoke runs it over the built-ins; Mímir runs it over every program it
+  proposes (problems go back to the model to fix, never to the owner); the
+  Hunt runs it again before a saved program starts. Add a new rule there,
+  not in db:smoke, and both authors are held to it.
+- **Built-in exercises only.** Mímir's catalogue is the built-in,
+  non-deprecated exercises, each with its own animation and cues. A program
+  that needs a new exercise is still a code change.
+- **The app writes what it can compute.** `readProgram` reads the model's
+  JSON strictly (wrong types are named, nothing unknown is carried over) and
+  writes the scheme of interval, EMOM and flow programs itself, so the
+  arithmetic on the card is the player's, never the model's.
+- **Storage.** Saved programs are `Template`s in localStorage
+  ([`src/lib/programs.ts`](src/lib/programs.ts)), ids starting `mimir-`
+  (built-ins never do: db:smoke). Everything that looks a template up by id
+  goes through `allTemplates()` / `templateById()` there, not
+  `seedTemplates()`, so a program gets its music, voice lines and session
+  details like a built-in.
+- When you change the template format or a player, update Mímir's system
+  prompt in `mimir.ts` in the same change: it is the model's only manual.
 
 ### Built-ins are seeded once, never refreshed
 

@@ -16,6 +16,8 @@ import {
   upsertSession,
 } from "../lib/store";
 import { seedTemplates } from "../lib/seed";
+import { isProgram, templateById, usePrograms } from "../lib/programs";
+import { templateProblems } from "../lib/template-check";
 import { bestPRFor } from "../lib/prs";
 import { musicProfileFor } from "../lib/music";
 import { scrollContentTop } from "../lib/scroll";
@@ -105,7 +107,7 @@ function saveChoice(key: string, value: string): void {
 }
 const loadFilter = () => loadChoice<Filter>(FILTER_KEY, FILTERS.map((f) => f.id), "all");
 
-export default function Train() {
+export default function Train({ openId }: { openId?: string | null }) {
   const { data } = useApp();
   const active = useMemo(
     () => data.sessions.find((s) => !s.finishedAt),
@@ -118,14 +120,15 @@ export default function Train() {
   }, [active?.id]);
 
   if (active) return <ActiveSession key={active.id} session={active} />;
-  return <StartScreen />;
+  return <StartScreen openId={openId ?? null} />;
 }
 
 /* ----------------------------- Start screen ----------------------------- */
 
-function StartScreen() {
+function StartScreen({ openId }: { openId: string | null }) {
   const { data, update } = useApp();
-  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  // Opened from Mímir: straight to that workout's details.
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(() => templateById(openId ?? undefined) ?? null);
   const [runningWod, setRunningWod] = useState<WodConfig | null>(null);
   const [runningForTime, setRunningForTime] = useState<ForTimeConfig | null>(null);
   const [runningRide, setRunningRide] = useState<RideConfig | null>(null);
@@ -137,9 +140,11 @@ function StartScreen() {
   const [startError, setStartError] = useState<string | null>(null);
   // Alphabetical, Danish collation so æ/ø/å sort where a Dane expects, and
   // numeric so "Mobility 5" comes before "Mobility 20".
+  // Mímir's saved programs sit beside the built-ins and run the same way.
+  const programs = usePrograms();
   const templates = useMemo(
-    () => seedTemplates().sort((a, b) => a.name.localeCompare(b.name, "da", { numeric: true })),
-    [],
+    () => [...seedTemplates(), ...programs.map((p) => p.template)].sort((a, b) => a.name.localeCompare(b.name, "da", { numeric: true })),
+    [programs],
   );
   const [favorites, setFavorites] = useState(loadFavorites);
   const [filter, setFilter] = useState<Filter>(loadFilter);
@@ -197,6 +202,15 @@ function StartScreen() {
   const startFromTemplate = (templateId: string) => {
     const tpl = templates.find((t) => t.id === templateId);
     if (!tpl) return;
+    // A saved program was checked when Mímir wrote it; check it again in
+    // case the rules or the exercises changed since. Never run it wrong.
+    if (isProgram(tpl.id)) {
+      const problems = templateProblems(tpl, data.exercises.filter((e) => e.builtIn && !e.deprecated));
+      if (problems.length > 0) {
+        setStartError(problems.join(" · "));
+        return;
+      }
+    }
     if (tpl.forTime) {
       // For-time template: stopwatch, stages in order, Done per stage.
       const exById = new Map(data.exercises.map((e) => [e.id, e]));

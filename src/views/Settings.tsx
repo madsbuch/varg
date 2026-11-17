@@ -40,6 +40,8 @@ import { loadTheme, saveTheme, type ThemeChoice } from "../lib/theme";
 import { loadGarminKey, saveGarminKey, setFollowFtp, syncGarmin, useGarmin } from "../lib/garmin";
 import { formatDate, formatRelative } from "../lib/units";
 import { IconCheck } from "../components/icons";
+import { DEFAULT_MODEL, listModels, loadMimirSettings, saveMimirSettings } from "../lib/openrouter";
+import type { ModelInfo } from "../lib/openrouter";
 
 export default function Settings() {
   const [settings, setSettings] = useState(loadMusicSettings);
@@ -90,6 +92,8 @@ export default function Settings() {
 
       <HeartRateSetting />
 
+      <MimirSetting />
+
       <div className="section-label">kie.ai: music &amp; voice</div>
       <div className="card">
         <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
@@ -136,6 +140,100 @@ export default function Settings() {
         saveKey={() => { saveMusicSettings(settings); }}
       />
     </div>
+  );
+}
+
+/**
+ * Mímir, the trainer: the OpenRouter key and the model it thinks with.
+ * Any OpenRouter model that can call tools; the list comes from
+ * OpenRouter itself, so new models show up without a release.
+ */
+function MimirSetting() {
+  const [saved, setSaved] = useState(loadMimirSettings);
+  const [key, setKey] = useState(saved.apiKey);
+  const [model, setModel] = useState(saved.model);
+  const [models, setModels] = useState<ModelInfo[] | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const dirty = key.trim() !== saved.apiKey || model.trim() !== saved.model;
+
+  const load = () => {
+    setLoading(true);
+    setProblem(null);
+    listModels()
+      .then(setModels)
+      .catch((e: unknown) => { setProblem(e instanceof Error ? e.message : String(e)); })
+      .finally(() => { setLoading(false); });
+  };
+  const known = models?.find((m) => m.id === model.trim());
+
+  return (
+    <>
+      <div className="section-label">Mímir · trainer</div>
+      <div className="card">
+        <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
+          Mímir sets up programs with you and recommends workouts from your
+          history, records and watch. It thinks through OpenRouter: your key,
+          your choice of model.
+        </div>
+        <Field label="OpenRouter API key">
+          <input
+            spellCheck={false}
+            autoComplete="off"
+            value={key}
+            placeholder="sk-or-…"
+            onChange={(e) => { setKey(e.target.value); }}
+          />
+        </Field>
+        <Field label="Model">
+          <input
+            spellCheck={false}
+            autoComplete="off"
+            list="mimir-models"
+            value={model}
+            placeholder={DEFAULT_MODEL}
+            onChange={(e) => { setModel(e.target.value); }}
+          />
+          {models && (
+            <datalist id="mimir-models">
+              {models.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </datalist>
+          )}
+        </Field>
+        {models && (
+          <Field label={`${String(models.length)} models with tools`}>
+            <select value={known ? model.trim() : ""} onChange={(e) => { if (e.target.value) setModel(e.target.value); }}>
+              {!known && <option value="">Pick a model</option>}
+              {models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.id} · ${m.promptPerM.toFixed(2)}/M
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+        {models && model.trim() && !known && (
+          <div style={{ color: "var(--danger)", fontSize: 13, marginBottom: 8 }}>Not an OpenRouter model with tools</div>
+        )}
+        <div className="btn-row">
+          <button
+            className="btn primary"
+            disabled={!dirty}
+            onClick={() => {
+              saveMimirSettings({ apiKey: key, model });
+              setSaved(loadMimirSettings());
+              setModel(loadMimirSettings().model);
+            }}
+          >
+            Save
+          </button>
+          <button className="btn ghost" disabled={loading} onClick={load}>
+            {loading ? "Loading…" : models ? "Reload models" : "Load models"}
+          </button>
+        </div>
+        {problem && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>{problem}</div>}
+      </div>
+    </>
   );
 }
 

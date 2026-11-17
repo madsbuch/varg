@@ -13,7 +13,8 @@
  * a line exactly as it does under a beep. A line that has not been
  * generated falls back to the phone's own voice, and the player says so.
  */
-import { seedExercises, seedTemplates } from "./seed";
+import { seedExercises } from "./seed";
+import { allTemplates } from "./programs";
 import { errorText } from "./http";
 import { loadMusicSettings } from "./music";
 import { audioResults, createTask, download, getTask } from "./kie";
@@ -302,7 +303,7 @@ export function allVoiceLines(): VoiceLine[] {
   const exById = new Map(seedExercises().map((e) => [e.id, e]));
   const seen = new Set<string>();
   const out: VoiceLine[] = [];
-  for (const t of seedTemplates()) {
+  for (const t of allTemplates()) {
     const cfg = configForTemplate(t, exById);
     if (typeof cfg === "string" || !cfg.voice) continue;
     for (const text of stepLines(buildSteps(cfg))) {
@@ -313,7 +314,7 @@ export function allVoiceLines(): VoiceLine[] {
     }
   }
   // Rides: the workout voice names each segment ahead of it.
-  for (const t of seedTemplates()) {
+  for (const t of allTemplates()) {
     t.ride?.segments.forEach((seg, i) => {
       const text = rideLine(seg, i === 0);
       const id = `workout|${text}`;

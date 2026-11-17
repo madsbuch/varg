@@ -20,7 +20,7 @@ import type { Intensity, Template } from "../types";
 import type { MusicBlock, MusicPlan } from "./ride";
 import { loadMixChoice, resolveMix } from "./music-choice";
 import type { Mix } from "./music-choice";
-import { seedTemplates } from "./seed";
+import { templateById as findTemplate } from "./programs";
 import type { WodConfig } from "./wod";
 
 /**
@@ -119,5 +119,5 @@ export function templateSections(tpl: Template): MusicSection[] {
 }
 
 export function templateById(id: string | undefined): Template | undefined {
-  return id ? seedTemplates().find((t) => t.id === id) : undefined;
+  return findTemplate(id);
 }

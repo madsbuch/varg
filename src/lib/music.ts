@@ -12,7 +12,7 @@
 // are persisted, and results are polled — resumed on every app foreground.
 
 import type { Intensity, IntervalPlan, MusicProfile } from "../types";
-import { seedTemplates } from "./seed";
+import { allTemplates, templateById } from "./programs";
 import { allSongs, INTENSITY_NAMES, LIBRARY_KEY, setById, songForKey, songKey } from "./songs";
 import type { Song } from "./songs";
 import { formatSeconds } from "./units";
@@ -112,7 +112,7 @@ export function workoutMusicList(): WorkoutMusic[] {
   const overrides = loadProfileOverrides();
   const base = [
     // An adaptive ride plays the song collection, not a track of its own.
-    ...seedTemplates()
+    ...allTemplates()
       .filter((t) => !isAdaptive(t))
       .map((t) => ({ key: t.id, name: t.name, music: t.music })),
     ...allSongs().map((s) => ({
@@ -139,7 +139,7 @@ export function musicProfileFor(templateId?: string): MusicProfile {
   const override = loadProfileOverrides()[key];
   if (override) return override;
   const tpl = templateId
-    ? seedTemplates().find((t) => t.id === templateId)
+    ? templateById(templateId)
     : undefined;
   return tpl?.music ?? FREESTYLE_PROFILE;
 }
@@ -762,7 +762,7 @@ async function requestTrack(
   settings: MusicSettings,
 ): Promise<PendingTask> {
   const song = songForKey(key);
-  const tpl = seedTemplates().find((t) => t.id === key);
+  const tpl = templateById(key);
   const style = song ? buildSongStyle(song) : buildStyle(workoutName, profile, tpl?.interval);
   // In custom mode `prompt` is sung: only a song with lyrics sends one.
   const lyrics = song?.lyrics;

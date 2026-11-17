@@ -11,18 +11,19 @@ the work. The angular wolf-head mark, carved Norse styling and a day and night t
 identity throughout: home is the **Den**, training is the **Hunt**, and the
 rest of the tab bar speaks Old Norse: **Saga** (history: every finished
 session, tap one for its sets and records, with **Afrek**, the personal
-records, as its second half), **Fræði** (the exercise manual) and
-**Skipan** (settings).
+records, as its second half), **Mímir** (the trainer), **Fræði** (the
+exercise manual) and **Skipan** (settings).
 
 Built with **Tauri 2 · Bun · TypeScript · React**, targeting **Android**.
 
 ---
 
-## Philosophy: programs are authored in code
+## Philosophy: programs are authored by an agent
 
 Varg has no in-app workout builder, and that is on purpose. New training
-programs are **described in prose and added to the codebase by an AI agent**,
-then shipped as a build:
+programs are **described in prose and written by an AI agent**, either
+**Mímir**, the trainer in the app, or a coding agent adding it to the codebase
+and shipping it as a build:
 
 > "20 sec situps, cardio, pushups, cardio, backlifts… 10 seconds of rest
 > between each, 3 rounds. Cardio alternates between running on the spot and
@@ -35,8 +36,17 @@ sets — and the messy work of turning an idea into a correct, animated,
 correctly-timed program happens where it can be reviewed, tested in CI, and
 kept in version control.
 
-Adding a program, the guardrails around it, and the animation conventions are
-documented in [CLAUDE.md](CLAUDE.md).
+**Mímir** (the Mímir tab) is the in-app agent. Tell it the workout, or ask it
+to design one, and it builds the program from the built-in exercises, checks
+it against the same rules the build holds built-ins to, and shows it with a
+Save button; saved programs sit in the Hunt beside the built-ins. Ask it what
+to train and it reads your sessions, records and Garmin readiness and points
+at a workout. It thinks through [OpenRouter](https://openrouter.ai): the key
+and the model are set in Skipan → Mímir. A program that needs a new exercise
+(and so a new animation) is still a code change.
+
+Adding a program in code, the guardrails around it, and the animation
+conventions are documented in [CLAUDE.md](CLAUDE.md).
 
 ---
 
