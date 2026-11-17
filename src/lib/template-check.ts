@@ -2,36 +2,32 @@
  * Every rule a workout template must keep, as a list of problems: empty
  * means the template runs exactly as its card says.
  *
- * One source of truth for two authors. check:content runs it over every built-in
- * (the coding agent's programs, see CLAUDE.md), and Mímir, the in-app
- * trainer, runs it over every program it proposes before the owner can save
- * it, and the Hunt runs it again before a saved program starts. A program
- * that builds green and runs wrong mid-workout is the worst outcome, so a
- * rule added here guards both paths at once.
+ * One source of truth for two authors. check:content runs it over every
+ * built-in (the coding agent's programs, see CLAUDE.md), Mímir runs it over
+ * every program it proposes before the owner can save it, and the Hunt runs
+ * it again before a saved program starts. A rule added here guards both.
+ *
+ * The shape itself (one plan kind, whole numbers, known enums) is the
+ * schema's job (lib/schema.ts) and the type checker's. What is left here is
+ * what types cannot say: ranges, one count per EMOM round, paired yoga
+ * sides, labels that state their reps, music on whole bars.
  */
 import type { Exercise, Template } from "../types";
 import { exerciseGear, libraryFor } from "./library";
-import { GEAR, templateExerciseIds, templateGear } from "./gear";
+import { templateExerciseIds, templateGear } from "./gear";
 import type { GearId } from "./gear";
 import { lengthBucket } from "./catalog";
 import { BAR_GRID_S } from "./workout-music";
 import { buildStyle, STYLE_LIMIT } from "./music";
 import { INTENSITY_NAMES, SETS, setById } from "./songs";
-import { EX } from "./seed";
+import { emomWarmupSeconds, intervalOf, intervalSeconds, planExercises } from "./plan";
+import { rideSeconds } from "./ride";
 
-
-const SPIN_BIKE = EX.spinBike;
-
-// A template with an `interval` runs as a fixed work/rest circuit in the
-// guided player, and the card renders the scheme verbatim next to a single
-// Start button. A scheme prescribing metres, an AMRAP score or a rep count
-// therefore promises something the player cannot measure or deliver: the
-// player logs {seconds: work} and nothing else.
-//
-// The allowlist is deliberate — a bare /\d+\s*m/ false-positives on
-// Rasteplads' correct "— 3 min a round", so numbers are checked against the
-// unit that follows them instead.
-const INTERVAL_SCHEME_UNITS = new Set([
+// An interval runs as a fixed work/rest circuit and logs {seconds: work}
+// and nothing else, so its note may not promise a distance, an AMRAP score
+// or a rep count. Numbers are checked against the unit that follows them:
+// a bare /\d+\s*m/ would refuse Rasteplads' correct "90 s a round".
+const INTERVAL_NOTE_UNITS = new Set([
   "s", "sec", "secs", "second", "seconds",
   "min", "mins", "minute", "minutes",
   "round", "rounds", "station", "stations",
@@ -41,13 +37,10 @@ const DISTANCE_RE = /\d+(?:[.,]\d+)?\s*(?:m|km|meters|metres)\b/iu;
 const AMRAP_RE = /\bAMRAP\b/iu;
 const COUNTED_RE = /(\d+(?:[.,]\d+)?)\s*(\p{L}[\p{L}-]*)?/gu;
 
-// Train builds one step object per station per round up front and WodPlayer
-// scans that array on every render, so an absurd round count is a frozen
-// phone rather than an error.
+// The guided player builds one step per station per round up front and
+// scans them on every render: an absurd count is a frozen phone.
 const MAX_STEPS = 200;
 const MAX_DURATION = 2 * 60 * 60;
-
-const fmt = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toString().padStart(2, "0")}`;
 
 /**
  * Everything wrong with `tpl`, each as one sentence naming the template.
@@ -55,233 +48,197 @@ const fmt = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toString().padStart
  */
 export function templateProblems(tpl: Template, exercises: readonly Exercise[]): string[] {
   const out: string[] = [];
-  const fail = (cond: unknown, msg: string): boolean => {
+  const fail = (cond: boolean, msg: string): boolean => {
     if (!cond) out.push(msg);
     return !cond;
   };
   const exById = new Map(exercises.map((e) => [e.id, e]));
   const name = `template "${tpl.name}"`;
 
-  // Every reference to an exercise must resolve. A typo'd id is invisible
-  // at runtime — templates refuse to start — and these are plain strings.
-  const missing = templateExerciseIds(tpl).filter((id) => !exById.has(id));
+  // Every exercise must resolve: a typo'd id is invisible until the workout
+  // refuses to start.
+  const missing = [...new Set(planExercises(tpl.plan).filter((id) => !exById.has(id)))];
   if (missing.length > 0) {
-    out.push(`${name} references unknown exercises: ${[...new Set(missing)].join(", ")}`);
-    return out; // every rule below looks exercises up
+    out.push(`${name} references unknown exercises: ${missing.join(", ")}`);
+    return out;
   }
+  const ex = (id: string): Exercise => {
+    const e = exById.get(id);
+    if (!e) throw new Error(`unreachable: ${id} was checked above`);
+    return e;
+  };
 
-  const players = [tpl.interval, tpl.forTime, tpl.flow, tpl.ride, tpl.emom].filter((x) => x !== undefined).length;
-  fail(players <= 1, `${name}: more than one of interval, forTime, flow, emom and ride`);
-
-  // --- interval ---
-  const iv = tpl.interval;
-  if (iv) {
-    const wrong: string[] = [];
-    if (DISTANCE_RE.test(tpl.scheme)) wrong.push("prescribes a distance");
-    if (AMRAP_RE.test(tpl.scheme)) wrong.push("prescribes an AMRAP score");
-    const counts: string[] = [];
-    for (const m of tpl.scheme.matchAll(COUNTED_RE)) {
-      const unit = m[2]?.toLowerCase();
-      if (unit && !INTERVAL_SCHEME_UNITS.has(unit)) counts.push(m[0].trim());
-    }
-    if (counts.length > 0) wrong.push(`counts ${counts.map((c) => `"${c}"`).join(", ")}`);
-    fail(
-      wrong.length === 0,
-      `${name} has an interval but its scheme ${wrong.join(" and ")}: "${tpl.scheme}". ` +
-        `Write the scheme in the units the interval enforces ("3 rounds · 12 stations · 20 s work / 10 s rest"), ` +
-        `or drop the interval so it opens as a loggable session.`,
-    );
-    const where = `${name} interval`;
-    const stations = tpl.exerciseIds.length;
-    fail(stations >= 1, `${where}: no stations`);
-    fail(Number.isInteger(iv.rounds) && iv.rounds >= 1 && iv.rounds <= 50, `${where}: rounds must be a whole number 1-50, got ${iv.rounds}`);
-    fail(Number.isInteger(iv.work) && iv.work >= 5 && iv.work <= 600, `${where}: work must be a whole number of seconds 5-600, got ${iv.work}`);
-    fail(Number.isInteger(iv.rest) && iv.rest >= 0 && iv.rest <= 600, `${where}: rest must be a whole number of seconds 0-600, got ${iv.rest}`);
-    const steps = stations * iv.rounds;
-    fail(steps <= MAX_STEPS, `${where}: ${steps} steps (${stations} stations × ${iv.rounds} rounds) exceeds ${MAX_STEPS}`);
-    const seconds = steps * iv.work + Math.max(0, steps - 1) * iv.rest;
-    fail(seconds <= MAX_DURATION, `${where}: runs ${Math.round(seconds / 60)} min, over the ${MAX_DURATION / 60} min ceiling`);
-  }
-
-  // --- for time ---
-  // One Done per stage, and each completed stage is logged as a set carrying
-  // the prescribed amount. So the amount must be the kind the exercise's
-  // metric measures, and the label must state that same number.
-  const ft = tpl.forTime;
-  if (ft) {
-    const where = `${name} forTime`;
-    fail(ft.stages.length >= 1 && ft.stages.length <= 200, `${where}: needs 1-200 stages, has ${ft.stages.length}`);
-    ft.stages.forEach((st, i) => {
-      const at = `${where} stage ${i + 1} ("${st.label}")`;
-      const ex = exById.get(st.exerciseId);
-      if (!ex) return;
-      fail(tpl.exerciseIds.includes(st.exerciseId), `${at}: ${ex.name} is not in the template's exerciseIds, so the details sheet would not show its cues`);
-      if (ex.metric === "reps" || ex.metric === "weight_reps") {
-        if (fail(Number.isInteger(st.reps) && (st.reps ?? 0) > 0 && st.meters == null, `${at}: ${ex.name} is counted in reps — give the stage a whole-number reps target and no metres`)) return;
-        fail(new RegExp(`(^|\\D)${st.reps}(\\D|$)`).test(st.label), `${at}: label does not state the ${st.reps} reps the stage logs`);
-      } else if (ex.metric === "distance_time") {
-        if (fail((st.meters ?? 0) > 0 && st.reps == null, `${at}: ${ex.name} is measured in distance — give the stage a metres target and no reps`)) return;
-        const m = st.meters ?? 0;
-        fail(st.label.includes(`${m / 1000} km`) || st.label.includes(`${m} m`), `${at}: label does not state the ${m} m the stage logs`);
-      } else {
-        out.push(`${at}: ${ex.name} is a ${ex.metric} exercise, which a for-time stage cannot prescribe`);
+  const plan = tpl.plan;
+  switch (plan.kind) {
+    case "interval": {
+      const where = `${name} interval`;
+      const note = plan.note ?? "";
+      const wrong: string[] = [];
+      if (DISTANCE_RE.test(note)) wrong.push("prescribes a distance");
+      if (AMRAP_RE.test(note)) wrong.push("prescribes an AMRAP score");
+      const counts: string[] = [];
+      for (const m of note.matchAll(COUNTED_RE)) {
+        const unit = m[2]?.toLowerCase();
+        if (unit !== undefined && !INTERVAL_NOTE_UNITS.has(unit)) counts.push(m[0].trim());
       }
-    });
-  }
+      if (counts.length > 0) wrong.push(`counts ${counts.map((c) => `"${c}"`).join(", ")}`);
+      fail(wrong.length === 0, `${where}: its note ${wrong.join(" and ")}: "${note}". An interval enforces time only; make it a logged or for-time workout instead.`);
+      fail(plan.stations.length >= 1, `${where}: no stations`);
+      fail(plan.rounds >= 1 && plan.rounds <= 50, `${where}: rounds must be 1-50, got ${plan.rounds}`);
+      fail(plan.work >= 5 && plan.work <= 600, `${where}: work must be 5-600 s, got ${plan.work}`);
+      fail(plan.rest >= 0 && plan.rest <= 600, `${where}: rest must be 0-600 s, got ${plan.rest}`);
+      const steps = plan.stations.length * plan.rounds;
+      fail(steps <= MAX_STEPS, `${where}: ${steps} steps (${plan.stations.length} stations × ${plan.rounds} rounds) exceeds ${MAX_STEPS}`);
+      const seconds = intervalSeconds(plan);
+      fail(seconds <= MAX_DURATION, `${where}: runs ${Math.round(seconds / 60)} min, over the ${MAX_DURATION / 60} min ceiling`);
+      break;
+    }
 
-  // --- flow ---
-  // Every pose its own hold; one-sided poses as an adjacent left/right pair
-  // on an animation that declares which side it draws; and the scheme's pose
-  // count, hold range and total are the flow's own numbers.
-  const fl = tpl.flow;
-  if (fl) {
-    const where = `${name} flow`;
-    fail(fl.steps.length >= 1 && fl.steps.length <= 200, `${where}: needs 1-200 steps`);
-    fl.steps.forEach((st, i) => {
-      const at = `${where} step ${i + 1}`;
-      const ex = exById.get(st.exerciseId);
-      if (!ex) return;
-      fail(tpl.exerciseIds.includes(st.exerciseId), `${at}: ${ex.name} missing from exerciseIds`);
-      fail(Number.isInteger(st.seconds) && st.seconds >= 10 && st.seconds <= 300, `${at}: hold must be 10-300 whole seconds, got ${st.seconds}`);
-      if (st.side) {
-        fail(libraryFor(ex).side, `${at}: ${ex.name} is one-sided but its animation does not declare which side it draws`);
-        const pair = st.side === "left" ? fl.steps[i + 1] : fl.steps[i - 1];
+    case "forTime": {
+      // One Done per stage, and each stage logs the prescribed amount: the
+      // amount is what the exercise's metric measures, the label says it.
+      const where = `${name} forTime`;
+      fail(plan.stages.length >= 1 && plan.stages.length <= 200, `${where}: needs 1-200 stages, has ${plan.stages.length}`);
+      plan.stages.forEach((st, i) => {
+        const at = `${where} stage ${i + 1} ("${st.label}")`;
+        const e = ex(st.exerciseId);
+        if (e.metric === "reps" || e.metric === "weight_reps") {
+          if (fail(st.reps !== undefined && st.reps > 0 && st.meters === undefined, `${at}: ${e.name} is counted in reps: give the stage a reps target and no metres`)) return;
+          fail(new RegExp(`(^|\\D)${st.reps ?? ""}(\\D|$)`).test(st.label), `${at}: label does not state the ${st.reps ?? 0} reps the stage logs`);
+        } else if (e.metric === "distance_time") {
+          if (fail(st.meters !== undefined && st.meters > 0 && st.reps === undefined, `${at}: ${e.name} is measured in distance: give the stage a metres target and no reps`)) return;
+          const m = st.meters ?? 0;
+          fail(st.label.includes(`${m / 1000} km`) || st.label.includes(`${m} m`), `${at}: label does not state the ${m} m the stage logs`);
+        } else {
+          out.push(`${at}: ${e.name} is a ${e.metric} exercise, which a for-time stage cannot prescribe`);
+        }
+      });
+      break;
+    }
+
+    case "flow": {
+      // Every pose its own hold; one-sided poses as an adjacent left/right
+      // pair, on an animation that declares which side it draws.
+      const where = `${name} flow`;
+      fail(plan.steps.length >= 1 && plan.steps.length <= 200, `${where}: needs 1-200 steps`);
+      plan.steps.forEach((st, i) => {
+        const at = `${where} step ${i + 1}`;
+        const e = ex(st.exerciseId);
+        fail(st.seconds >= 10 && st.seconds <= 300, `${at}: hold must be 10-300 s, got ${st.seconds}`);
+        if (st.side === undefined) return;
+        fail(libraryFor(e).side !== undefined, `${at}: ${e.name} is one-sided but its animation does not declare which side it draws`);
         const other = st.side === "left" ? "right" : "left";
-        if (fail(pair?.exerciseId === st.exerciseId && pair.side === other, `${at}: ${ex.name} ${st.side} side is not paired with the ${other} side next to it`)) return;
-        fail(st.side === "right" || pair?.seconds === st.seconds, `${at}: ${ex.name} sides are held for different times`);
-      }
-    });
-    fail(Number.isInteger(fl.transition) && fl.transition >= 0 && fl.transition <= 60, `${where}: transition must be 0-60 whole seconds, got ${fl.transition}`);
-    if (fl.steps.length > 0) {
-      const total = fl.steps.reduce((sum, st) => sum + st.seconds, 0) + (fl.steps.length - 1) * fl.transition;
-      const holds = fl.steps.map((st) => st.seconds);
-      const expected = [
-        `${fmt(total)} flow`,
-        `${fl.steps.length} poses`,
-        `holds of ${Math.min(...holds)}–${Math.max(...holds)} s`,
-        ...(fl.transition > 0 ? [`${fl.transition} s to move between poses`] : []),
-      ];
-      for (const part of expected) fail(tpl.scheme.includes(part), `${where}: scheme "${tpl.scheme}" does not say "${part}"`);
+        const pair = st.side === "left" ? plan.steps[i + 1] : plan.steps[i - 1];
+        if (fail(pair?.exerciseId === st.exerciseId && pair.side === other, `${at}: ${e.name} ${st.side} side is not paired with the ${other} side next to it`)) return;
+        fail(st.side === "right" || pair?.seconds === st.seconds, `${at}: ${e.name} sides are held for different times`);
+      });
+      fail(plan.transition >= 0 && plan.transition <= 60, `${where}: transition must be 0-60 s, got ${plan.transition}`);
+      break;
     }
-  }
 
-  // --- EMOM ---
-  // Every station owns one whole minute; one whole count per round, never
-  // a range; timed work fits in the minute; the scheme states the real
-  // total, warm-up, EMOM length, rounds and stations.
-  const em = tpl.emom;
-  if (em) {
-    const where = `${name} emom`;
-    fail(Number.isInteger(em.minute) && em.minute >= 30 && em.minute <= 300, `${where}: minute must be 30-300 whole seconds, got ${em.minute}`);
-    fail(Number.isInteger(em.rounds) && em.rounds >= 1 && em.rounds <= 50, `${where}: rounds must be 1-50, got ${em.rounds}`);
-    fail(em.stations.length >= 1 && em.stations.length * em.rounds <= 200, `${where}: needs 1-200 station minutes`);
-    em.stations.forEach((st, i) => {
-      const at = `${where} station ${i + 1}`;
-      const ex = exById.get(st.exerciseId);
-      if (!ex) return;
-      fail(tpl.exerciseIds.includes(st.exerciseId), `${at}: ${ex.name} missing from exerciseIds`);
-      if (fail((st.reps === undefined) !== (st.seconds === undefined), `${at} (${ex.name}): needs exactly one of reps or seconds`)) return;
-      const counts = st.reps ?? st.seconds ?? [];
-      fail(counts.length === em.rounds, `${at} (${ex.name}): ${counts.length} counts for ${em.rounds} rounds; give one count per round`);
-      if (st.reps) {
-        fail(ex.metric === "reps" || ex.metric === "weight_reps", `${at}: ${ex.name} is a ${ex.metric} exercise, not counted in reps`);
-        fail(st.reps.every((n) => Number.isInteger(n) && n >= 1 && n <= 100), `${at} (${ex.name}): reps must be whole numbers 1-100`);
-        if (st.perSide) fail(st.reps.every((n) => n % 2 === 0), `${at} (${ex.name}): reps per ${st.perSide} must split evenly`);
-      }
-      if (st.seconds) {
-        fail(ex.metric === "time", `${at}: ${ex.name} is a ${ex.metric} exercise, not timed`);
-        fail(st.perSide === undefined, `${at} (${ex.name}): perSide is for reps`);
-        fail(st.seconds.every((n) => Number.isInteger(n) && n >= 5 && n < em.minute), `${at} (${ex.name}): timed work must be whole seconds, 5 up to under the minute`);
-      }
-    });
-    const warmup = em.warmup ?? [];
-    warmup.forEach((w, i) => {
-      const at = `${where} warm-up ${i + 1}`;
-      const ex = exById.get(w.exerciseId);
-      if (!ex) return;
-      fail(tpl.exerciseIds.includes(w.exerciseId), `${at}: ${ex.name} missing from exerciseIds`);
-      fail(Number.isInteger(w.seconds) && w.seconds >= 10 && w.seconds <= 600, `${at}: 10-600 whole seconds, got ${w.seconds}`);
-    });
-    const warm = warmup.reduce((a, w) => a + w.seconds, 0);
-    // Played on a song set, the warm-up is Low and the rest High: the change
-    // between them must land on a whole bar at every set's tempo.
-    fail(warm % BAR_GRID_S === 0, `${where}: the warm-up runs ${warm} s; make it a multiple of ${BAR_GRID_S} s so the music changes on the bar`);
-    const main = em.rounds * em.stations.length * em.minute;
-    const expected = [
-      fmt(warm + main),
-      ...(warm > 0 ? [`${fmt(warm)} warm-up`] : []),
-      `${fmt(main)} EMOM`,
-      `${em.rounds} rounds`,
-      `${em.stations.length} stations`,
-    ];
-    for (const part of expected) fail(tpl.scheme.includes(part), `${where}: scheme "${tpl.scheme}" does not say "${part}"`);
-  }
+    case "emom": {
+      // Every station owns one whole minute; one count per round, never a
+      // range; reps only for what counts reps; timed work fits the minute.
+      const where = `${name} emom`;
+      fail(plan.minute >= 30 && plan.minute <= 300, `${where}: minute must be 30-300 s, got ${plan.minute}`);
+      fail(plan.rounds >= 1 && plan.rounds <= 50, `${where}: rounds must be 1-50, got ${plan.rounds}`);
+      fail(plan.stations.length >= 1 && plan.stations.length * plan.rounds <= 200, `${where}: needs 1-200 station minutes`);
+      plan.stations.forEach((st, i) => {
+        const e = ex(st.exerciseId);
+        const at = `${where} station ${i + 1} (${e.name})`;
+        if (fail((st.reps === undefined) !== (st.seconds === undefined), `${at}: needs exactly one of reps or seconds`)) return;
+        const counts = st.reps ?? st.seconds ?? [];
+        fail(counts.length === plan.rounds, `${at}: ${counts.length} counts for ${plan.rounds} rounds; give one count per round`);
+        if (st.reps) {
+          fail(e.metric === "reps" || e.metric === "weight_reps", `${at}: a ${e.metric} exercise is not counted in reps`);
+          fail(st.reps.every((n) => n >= 1 && n <= 100), `${at}: reps must be 1-100`);
+          if (st.perSide) fail(st.reps.every((n) => n % 2 === 0), `${at}: reps per ${st.perSide} must split evenly`);
+        }
+        if (st.seconds) {
+          fail(e.metric === "time", `${at}: a ${e.metric} exercise is not timed`);
+          fail(st.perSide === undefined, `${at}: perSide is for reps`);
+          fail(st.seconds.every((n) => n >= 5 && n < plan.minute), `${at}: timed work must be 5 s up to under the minute`);
+        }
+      });
+      (plan.warmup ?? []).forEach((w, i) => {
+        fail(w.seconds >= 10 && w.seconds <= 600, `${where} warm-up ${i + 1}: 10-600 s, got ${w.seconds}`);
+      });
+      // Played on a song set, the warm-up is Low and the rest High: the
+      // change between them must land on a whole bar at every set's tempo.
+      const warm = emomWarmupSeconds(plan);
+      fail(warm % BAR_GRID_S === 0, `${where}: the warm-up runs ${warm} s; make it a multiple of ${BAR_GRID_S} s so the music changes on the bar`);
+      break;
+    }
 
-  // --- ride ---
-  // Each segment ends on time or on kcal — exactly one — with sane targets;
-  // kcal makes it a race; an adaptive ride is whole bars at every set's tempo.
-  const r = tpl.ride;
-  if (r) {
-    const where = `${name} ride`;
-    fail(tpl.exerciseIds.length === 1 && tpl.exerciseIds[0] === SPIN_BIKE, `${where}: exerciseIds must be ["${SPIN_BIKE}"]`);
-    if (r.free) {
-      fail(r.segments.length === 0 && r.race !== true, `${where}: a free ride has no segments and is no race`);
-    } else {
-      fail(r.segments.length >= 1 && r.segments.length <= 100, `${where}: needs 1-100 segments`);
+    case "ride": {
+      // Each block ends on time or on kcal, exactly one, with sane targets;
+      // kcal makes it a race; an adaptive ride is whole bars at every set's tempo.
+      const where = `${name} ride`;
+      if (plan.free) {
+        fail(plan.segments.length === 0 && plan.race !== true, `${where}: a free ride has no segments and is no race`);
+      } else {
+        fail(plan.segments.length >= 1 && plan.segments.length <= 100, `${where}: needs 1-100 segments`);
+      }
       let anyKcal = false;
-      r.segments.forEach((sg, i) => {
+      plan.segments.forEach((sg, i) => {
         const at = `${where} segment ${i + 1} ("${sg.label}")`;
         fail((sg.seconds === undefined) !== (sg.kcal === undefined), `${at}: needs exactly one of seconds or kcal`);
-        if (sg.seconds !== undefined) fail(Number.isInteger(sg.seconds) && sg.seconds >= 5 && sg.seconds <= 4 * 3600, `${at}: seconds must be 5-14400`);
+        if (sg.seconds !== undefined) fail(sg.seconds >= 5 && sg.seconds <= 4 * 3600, `${at}: seconds must be 5-14400`);
         if (sg.kcal !== undefined) {
           anyKcal = true;
-          fail(Number.isInteger(sg.kcal) && sg.kcal >= 5 && sg.kcal <= 3000, `${at}: kcal must be 5-3000`);
+          fail(sg.kcal >= 5 && sg.kcal <= 3000, `${at}: kcal must be 5-3000`);
         }
         const [lo, hi] = sg.ftp;
         fail(lo >= 20 && hi <= 300 && lo < hi, `${at}: FTP target ${lo}-${hi} % is not a sane range`);
         if (sg.cadence) fail(sg.cadence[0] >= 40 && sg.cadence[1] <= 160 && sg.cadence[0] < sg.cadence[1], `${at}: cadence target is not a sane range`);
-        // Heart rate lags effort: a heart-rate block is long enough to settle
-        // into its zone, and ends on time.
+        // Heart rate lags effort: a heart-rate block settles for minutes, on time.
         if (sg.hrZone !== undefined) {
-          fail(Number.isInteger(sg.hrZone) && sg.hrZone >= 1 && sg.hrZone <= 5, `${at}: hrZone must be a Garmin zone 1-5`);
+          fail(sg.hrZone >= 1 && sg.hrZone <= 5, `${at}: hrZone must be a Garmin zone 1-5`);
           fail(sg.seconds !== undefined && sg.seconds >= 180, `${at}: a heart-rate block is timed and at least 3 minutes`);
-          fail(tpl.scheme.includes(`heart-rate zone ${sg.hrZone}`), `${at}: the scheme must say it rides in heart-rate zone ${sg.hrZone}`);
+          fail(plan.scheme.includes(`heart-rate zone ${sg.hrZone}`), `${at}: the scheme must say it rides in heart-rate zone ${sg.hrZone}`);
         }
       });
-      fail(anyKcal === (r.race === true), `${where}: a ride with kcal segments is a race (race: true), and only then`);
-      if (r.segments.some((sg) => sg.intensity !== undefined)) {
+      fail(anyKcal === (plan.race === true), `${where}: a ride with kcal segments is a race (race: true), and only then`);
+      if (plan.segments.some((sg) => sg.intensity !== undefined)) {
         fail(tpl.music.set !== undefined && setById(tpl.music.set) !== undefined, `${where}: an adaptive ride needs music.set, one of ${SETS.map((x) => x.id).join(", ")}`);
-        r.segments.forEach((sg, i) => {
+        plan.segments.forEach((sg, i) => {
           const at = `${where} segment ${i + 1} ("${sg.label}")`;
-          if (fail(sg.intensity === 1 || sg.intensity === 2 || sg.intensity === 3, `${at}: an adaptive ride sets intensity 1-3 on every block`)) return;
+          if (fail(sg.intensity !== undefined, `${at}: an adaptive ride sets intensity 1-3 on every block`)) return;
           if (sg.seconds === undefined) return;
           for (const set of SETS) {
             for (const l of [1, 2, 3] as const) {
-              const bpm = set.bpm[l];
-              const bars = (sg.seconds * bpm) / 240;
-              fail(Number.isInteger(bars), `${at}: ${sg.seconds} s at ${bpm} BPM (${set.name} ${INTENSITY_NAMES[l]}) is ${bars.toFixed(2)} bars; pick lengths that make it whole bars`);
+              const bars = (sg.seconds * set.bpm[l]) / 240;
+              fail(Number.isInteger(bars), `${at}: ${sg.seconds} s at ${set.bpm[l]} BPM (${set.name} ${INTENSITY_NAMES[l]}) is ${bars.toFixed(2)} bars; pick lengths that make it whole bars`);
             }
           }
         });
       }
+      // An estimate exactly when the length cannot be computed.
+      const computed = plan.free !== true && rideSeconds(plan.segments) !== undefined;
+      if (computed) fail(plan.estimateMinutes === undefined, `${where}: has an exact clock time, so no estimateMinutes`);
+      else fail(plan.estimateMinutes !== undefined, `${where}: needs estimateMinutes (kcal blocks or a free ride have no clock time)`);
+      break;
     }
+
+    case "logged":
+      fail(plan.exercises.length >= 1, `${name}: a logged session needs exercises`);
+      break;
   }
 
-  // --- music ---
-  // Typed as 1 | 2 | 3, but a program Mímir wrote is data until checked.
-  const e: unknown = tpl.music.energy;
-  fail(e === undefined || e === 1 || e === 2 || e === 3, `${name}: music.energy must be 1, 2 or 3`);
-  const style = buildStyle(tpl.name, tpl.music, tpl.interval);
+  if ((plan.kind === "forTime" || plan.kind === "logged" || plan.kind === "ride") && plan.estimateMinutes !== undefined) {
+    fail(plan.estimateMinutes >= 1 && plan.estimateMinutes <= 600, `${name}: estimateMinutes must be 1-600`);
+  }
+
+  // The battle track's description must fit the gateway untrimmed.
+  const style = buildStyle(tpl.name, tpl.music, intervalOf(tpl));
   fail(!style.endsWith("…") && style.length <= STYLE_LIMIT, `${name} music style is truncated to ${STYLE_LIMIT} chars — shorten its theme or style`);
 
-  // --- gear ---
   // The kit list is derived from the exercises; a template only qualifies it
   // or adds what no exercise implies.
   {
     const where = `${name} gear`;
     const derived = new Set<GearId>(templateExerciseIds(tpl).flatMap((id) => exerciseGear(id)));
     for (const id of tpl.gear?.extra ?? []) {
-      fail(id in GEAR, `${where}: unknown gear "${id}"`);
       fail(!derived.has(id), `${where}: "${id}" comes from its exercises already; drop it from extra`);
     }
     const listed = new Set<string>(templateGear(tpl, exerciseGear).map((g) => g.id));
@@ -290,19 +247,6 @@ export function templateProblems(tpl: Template, exercises: readonly Exercise[]):
     }
   }
 
-  // --- level and length ---
-  // The library filters by both: a template that cannot say how long it
-  // takes would silently drop out of every length filter.
-  fail(["beginner", "intermediate", "advanced"].includes(tpl.level), `${name}: level must be beginner, intermediate or advanced`);
-  const computed = tpl.interval !== undefined || tpl.flow !== undefined || tpl.emom !== undefined ||
-    (tpl.ride !== undefined && !tpl.ride.free && tpl.ride.segments.every((sg) => sg.seconds !== undefined));
-  if (computed) {
-    fail(tpl.estimateMinutes === undefined, `${name}: has an exact clock time, so no estimateMinutes`);
-  } else {
-    const m = tpl.estimateMinutes;
-    fail(m !== undefined && Number.isInteger(m) && m >= 1 && m <= 600, `${name}: needs estimateMinutes (typical finishing time, 1-600)`);
-  }
   if (out.length === 0) fail(lengthBucket(tpl) !== undefined, `${name}: falls in no length bucket`);
-
   return out;
 }

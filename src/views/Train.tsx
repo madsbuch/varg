@@ -59,6 +59,8 @@ import {
   roundW,
 } from "../lib/units";
 import { kvGet, kvSet } from "../lib/kv";
+import { isGuided, libraryKind, schemeOf, templateExerciseIds } from "../lib/plan";
+import type { LibraryKind } from "../lib/plan";
 
 /** A set counts as "filled" when the athlete entered any data for it. */
 function setHasData(s: WorkoutSet): boolean {
@@ -68,11 +70,8 @@ function setHasData(s: WorkoutSet): boolean {
 }
 
 /** How a template runs when started — the library's filter categories. */
-type Kind = "interval" | "flow" | "forTime" | "ride" | "logged";
-function kindOf(t: Template): Kind {
-  // An EMOM is an interval format: it files under Intervals.
-  return t.interval || t.emom ? "interval" : t.flow ? "flow" : t.forTime ? "forTime" : t.ride ? "ride" : "logged";
-}
+type Kind = LibraryKind;
+const kindOf = (t: Template): Kind => libraryKind(t.plan.kind);
 
 type Filter = "all" | "favorites" | Kind;
 const FILTERS: { id: Filter; label: string }[] = [
@@ -185,7 +184,7 @@ function StartScreen({ openId }: { openId: string | null }) {
     if (level !== "any" && t.level !== level) return false;
     if (length !== "any" && lengthBucket(t) !== length) return false;
     if (!q) return true;
-    return [t.name, t.branch, t.scheme, t.description].some((x) => x.toLowerCase().includes(q));
+    return [t.name, t.branch, schemeOf(t.plan), t.description].some((x) => x.toLowerCase().includes(q));
   });
 
   /**
@@ -214,10 +213,11 @@ function StartScreen({ openId }: { openId: string | null }) {
         return;
       }
     }
-    if (tpl.forTime) {
+    const plan = tpl.plan;
+    if (plan.kind === "forTime") {
       // For-time template: stopwatch, stages in order, Done per stage.
       const exById = new Map(data.exercises.map((e) => [e.id, e]));
-      const stages = tpl.forTime.stages;
+      const stages = plan.stages;
       const exercises = stages
         .map((st) => exById.get(st.exerciseId))
         .filter((e): e is Exercise => e !== undefined);
@@ -235,11 +235,11 @@ function StartScreen({ openId }: { openId: string | null }) {
       withStrapStep(tpl.name, (hr) => { setWithHr(hr); setRunningForTime(cfg); });
       return;
     }
-    if (tpl.ride) {
+    if (plan.kind === "ride") {
       // A ride steered by heart rate cannot run without the zones that
       // define its target or the strap that measures it: refuse with the
       // fix, never ride an unmeasurable block.
-      if (tpl.ride.segments.some((x) => x.hrZone !== undefined)) {
+      if (plan.segments.some((x) => x.hrZone !== undefined)) {
         if (!loadHrZones()) {
           setStartError("Needs HR zones · Skipan → Heart rate");
           return;
@@ -250,13 +250,13 @@ function StartScreen({ openId }: { openId: string | null }) {
       setPendingRide({
         title: tpl.name,
         templateId: tpl.id,
-        segments: tpl.ride.free ? [FREE_RIDE] : tpl.ride.segments,
-        race: tpl.ride.race === true,
-        free: tpl.ride.free === true,
+        segments: plan.free === true ? [FREE_RIDE] : plan.segments,
+        race: plan.race === true,
+        free: plan.free === true,
       });
       return;
     }
-    if (tpl.flow || tpl.interval || tpl.emom) {
+    if (isGuided(plan)) {
       // Guided: a circuit, an EMOM or a yoga flow — timing, cues, voice, music.
       const cfg = configForTemplate(tpl, new Map(data.exercises.map((e) => [e.id, e])));
       if (typeof cfg === "string") {
@@ -270,8 +270,8 @@ function StartScreen({ openId }: { openId: string | null }) {
     update((d) => {
       const s = newSession(tpl.name);
       s.templateId = tpl.id;
-      s.note = tpl.scheme;
-      s.entries = tpl.exerciseIds.map((id) => newEntry(id, 1));
+      s.note = schemeOf(plan);
+      s.entries = templateExerciseIds(tpl).map((id) => newEntry(id, 1));
       return upsertSession(d, s);
     });
   };
@@ -339,9 +339,9 @@ function StartScreen({ openId }: { openId: string | null }) {
             key={t.id}
             t={t}
             favorite={favorites.has(t.id)}
-            best={t.forTime
-              ? bestForTime(data.sessions, t.id, t.forTime.stages.length)
-              : t.ride?.race ? bestRide(data.sessions, t.id, t.ride.segments.length) : undefined}
+            best={t.plan.kind === "forTime"
+              ? bestForTime(data.sessions, t.id, t.plan.stages.length)
+              : t.plan.kind === "ride" && t.plan.race === true ? bestRide(data.sessions, t.id, t.plan.segments.length) : undefined}
             onOpen={() => { setSelectedTemplate(t); }}
             onStart={() => { startFromTemplate(t.id); }}
             onToggleFavorite={() => { toggleFavorite(t.id); }}
@@ -444,7 +444,7 @@ function TemplateCard({ t, favorite, best, onOpen, onStart, onToggleFavorite }: 
           {t.description}
         </span>
         <span className="sub" style={{ display: "block", marginTop: 4, fontSize: 13 }}>
-          {t.scheme}
+          {schemeOf(t.plan)}
         </span>
         <span className="workout-card-chips">
           <span className={`chip level-${t.level}`}>{LEVEL_LABEL[t.level]}</span>
@@ -454,7 +454,7 @@ function TemplateCard({ t, favorite, best, onOpen, onStart, onToggleFavorite }: 
               {len.exact ? `${formatSeconds(len.seconds)} on the clock` : `≈ ${Math.round(len.seconds / 60)} min`}
             </span>
           )}
-          {(t.forTime ?? t.ride?.race) && (
+          {(t.plan.kind === "forTime" || (t.plan.kind === "ride" && t.plan.race === true)) && (
             <span className="chip accent">
               {best != null ? `Best ${formatSeconds(best)}` : "For time · no best yet"}
             </span>

@@ -8,7 +8,8 @@ import type {
 } from "../types";
 import { EX, seedExercises } from "./seed";
 import { recomputePRs } from "./prs";
-import { parseJson } from "./decode";
+import { z } from "zod";
+import { parseJsonAs } from "./schema";
 import { readDataBlob } from "../db/read";
 import type { Loaded } from "../db/persistence";
 
@@ -39,8 +40,8 @@ function emptyData(): AppData {
  */
 export function freshData(legacy: string | null): AppData {
   if (legacy === null) return emptyData();
-  const parsed = parseJson(legacy);
-  if (!parsed.ok) throw new Error(`Old training data is not JSON: ${parsed.error}`);
+  const parsed = parseJsonAs(z.unknown(), legacy, STORAGE_KEY);
+  if (!parsed.ok) throw new Error(`Old training data unreadable: ${parsed.problems.join("; ")}`);
   const { data, problems } = readDataBlob(parsed.value);
   if (problems.length > 0) throw new Error(`Old training data unreadable: ${problems.join("; ")}`);
   return mergeBuiltIns({ ...data, exercises: data.exercises.length > 0 ? data.exercises : seedExercises() });
@@ -91,8 +92,8 @@ export function loadData(): Loaded {
   if (typeof localStorage === "undefined") return { data: emptyData(), problems: [] };
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw === null) return { data: emptyData(), problems: [] };
-  const parsed = parseJson(raw);
-  if (!parsed.ok) return { data: emptyData(), problems: [`${STORAGE_KEY}: ${parsed.error}`] };
+  const parsed = parseJsonAs(z.unknown(), raw, STORAGE_KEY);
+  if (!parsed.ok) return { data: emptyData(), problems: parsed.problems };
   const loaded = readDataBlob(parsed.value);
   return { data: mergeBuiltIns(loaded.data), problems: loaded.problems };
 }

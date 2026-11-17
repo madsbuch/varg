@@ -22,6 +22,7 @@ import { loadMixChoice, resolveMix } from "./music-choice";
 import type { Mix } from "./music-choice";
 import { templateById as findTemplate } from "./programs";
 import type { WodConfig } from "./wod";
+import { emomWarmupSeconds } from "./plan";
 
 /**
  * Seconds a song plays before the next one takes over within a stretch.
@@ -48,7 +49,7 @@ export interface MusicSection {
  * on Peak drops would be the music arguing with the workout.
  */
 export function mainEnergy(tpl: Template | undefined): Intensity {
-  return tpl?.music.energy ?? (tpl?.ride ? 2 : 3);
+  return tpl?.music.energy ?? (tpl?.plan.kind === "ride" ? 2 : 3);
 }
 
 /** A guided workout's sections, from the player's own config (lead-in excluded). */
@@ -112,8 +113,8 @@ export function workoutMix(templateId: string | undefined, seed: number): Mix | 
 /** The sections a template's music has, for the picker on its page (lead-in excluded). */
 export function templateSections(tpl: Template): MusicSection[] {
   const energy = mainEnergy(tpl);
-  if (tpl.flow) return [{ level: 1, seconds: null }];
-  const warm = tpl.emom?.warmup?.reduce((a, w) => a + w.seconds, 0) ?? 0;
+  if (tpl.plan.kind === "flow") return [{ level: 1, seconds: null }];
+  const warm = tpl.plan.kind === "emom" ? emomWarmupSeconds(tpl.plan) : 0;
   if (warm > 0) return [{ level: 1, seconds: warm }, { level: energy, seconds: null }];
   return openSections(energy);
 }

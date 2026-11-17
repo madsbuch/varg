@@ -24,8 +24,9 @@ import { buildSteps, configForTemplate } from "./wod";
 import { rideLine } from "./ride";
 import type { Step, VoiceRole } from "./wod";
 import { kvRead, kvSet } from "./kv";
-import { Reader } from "./decode";
+import { z } from "zod";
 import { audioImported, blobGet, blobHas, blobList, blobPut } from "./blobs";
+import { rideOf } from "./plan";
 
 const GEMINI_38 = "google/gemini-3-8-flash-tts";
 const GEMINI_31 = "google/gemini-3-1-flash-tts";
@@ -217,17 +218,15 @@ export function voiceIdFor(s: VoiceSettings, role: VoiceRole): string {
 }
 
 export function loadVoiceSettings(): VoiceSettings {
-  const read = (r: Reader, v: unknown) => {
-    const f = r.obj(v, "voice settings");
-    return {
-      model: r.optStr(f.get("model"), "model"),
-      voiceId: r.optStr(f.get("voiceId"), "voiceId"),
-      workoutVoiceId: r.optStr(f.get("workoutVoiceId"), "workoutVoiceId"),
-    };
-  };
-  const current = kvRead(SETTINGS_KEY, read);
+  const VoiceSettingsSchema = z.object({
+    model: z.string().optional(),
+    voiceId: z.string().optional(),
+    workoutVoiceId: z.string().optional(),
+  });
+  const current = kvRead(SETTINGS_KEY, VoiceSettingsSchema);
   // The v1 settings named an ElevenLabs model that is gone: keep its voices only.
-  const p = current ?? kvRead(LEGACY_SETTINGS_KEY, (r, v) => ({ ...read(r, v), model: undefined }));
+  const legacy = current === undefined ? kvRead(LEGACY_SETTINGS_KEY, VoiceSettingsSchema) : undefined;
+  const p = current ?? (legacy === undefined ? undefined : { ...legacy, model: undefined });
   if (!p) return { model: DEFAULT_VOICE_MODEL, voiceId: DEFAULTS.yoga.gemini, workoutVoiceId: DEFAULTS.workout.gemini };
   const model = p.model !== undefined && VOICE_MODELS.some((m) => m.id === p.model) ? p.model : DEFAULT_VOICE_MODEL;
   const pick = (id: string | undefined, role: VoiceRole) => {
@@ -319,7 +318,7 @@ export function allVoiceLines(): VoiceLine[] {
   }
   // Rides: the workout voice names each segment ahead of it.
   for (const t of allTemplates()) {
-    t.ride?.segments.forEach((seg, i) => {
+    rideOf(t)?.segments.forEach((seg, i) => {
       const text = rideLine(seg, i === 0);
       const id = `workout|${text}`;
       if (seen.has(id)) return;

@@ -2,47 +2,35 @@
  * Facts about a template that the library filters and cards show: how long
  * it takes, and whether that length is exact or a typical estimate.
  */
-import type { EmomPlan, Level, Template } from "../types";
+import type { Level, Template } from "../types";
+import { emomSeconds, flowSeconds, intervalSeconds } from "./plan";
+
+export { emomSeconds, flowSeconds, intervalSeconds };
 import { rideSeconds } from "./ride";
 
 /**
- * Clock time an interval prescription actually takes: every station once
- * per round, with a rest between them but none after the very last one.
- */
-export function intervalSeconds(
-  stations: number,
-  { work, rest, rounds }: { work: number; rest: number; rounds: number },
-): number {
-  const steps = stations * rounds;
-  return steps * work + Math.max(0, steps - 1) * rest;
-}
-
-/** Clock time of a flow: every hold, plus the moves between poses. */
-export function flowSeconds(flow: { steps: { seconds: number }[]; transition: number }): number {
-  return flow.steps.reduce((sum, s) => sum + s.seconds, 0) + Math.max(0, flow.steps.length - 1) * flow.transition;
-}
-
-/** Clock time of an EMOM: the warm-up, then every station's whole minute, every round. */
-export function emomSeconds(plan: EmomPlan): number {
-  const warmup = (plan.warmup ?? []).reduce((sum, w) => sum + w.seconds, 0);
-  return warmup + plan.rounds * plan.stations.length * plan.minute;
-}
-
-/**
- * How long a workout takes: exact for interval, flow and EMOM workouts, the
- * authored typical time for everything else. Undefined only for a template
- * missing its estimate — check:content makes that a build failure.
+ * How long a workout takes: exact for interval, flow and EMOM workouts and
+ * timed rides, the authored typical time for everything else. Undefined
+ * only for a ride with neither (check:content makes that a build failure).
  */
 export function templateLength(t: Template): { seconds: number; exact: boolean } | undefined {
-  if (t.interval) return { seconds: intervalSeconds(t.exerciseIds.length, t.interval), exact: true };
-  if (t.flow) return { seconds: flowSeconds(t.flow), exact: true };
-  if (t.emom) return { seconds: emomSeconds(t.emom), exact: true };
-  if (t.ride && !t.ride.free) {
-    const s = rideSeconds(t.ride.segments);
-    if (s !== undefined) return { seconds: s, exact: true };
+  const plan = t.plan;
+  switch (plan.kind) {
+    case "interval":
+      return { seconds: intervalSeconds(plan), exact: true };
+    case "flow":
+      return { seconds: flowSeconds(plan), exact: true };
+    case "emom":
+      return { seconds: emomSeconds(plan), exact: true };
+    case "ride": {
+      const s = plan.free ? undefined : rideSeconds(plan.segments);
+      if (s !== undefined) return { seconds: s, exact: true };
+      return plan.estimateMinutes === undefined ? undefined : { seconds: plan.estimateMinutes * 60, exact: false };
+    }
+    case "forTime":
+    case "logged":
+      return { seconds: plan.estimateMinutes * 60, exact: false };
   }
-  if (t.estimateMinutes) return { seconds: t.estimateMinutes * 60, exact: false };
-  return undefined;
 }
 
 export const LEVEL_LABEL: Record<Level, string> = {

@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { CUT_S, HP_HOLD, HP_OPEN, mergeRepeats, positionAt, scoreVoices, valueAt, XF_S } from "../src/lib/score";
 import type { Booking, ScoreSong, Voice } from "../src/lib/score";
 import { must } from "./must";
-import { parseJson } from "../src/lib/decode";
+import { parseJsonAs } from "../src/lib/schema";
+import { z } from "zod";
 
 const song = (id: string, bpm = 144): ScoreSong => ({ id, bpm, rate: 1.01, trim: 0.5, pre: 4, duration: 4 + 26.7 });
 const songs = new Map([["L", song("L")], ["M", song("M")], ["P", song("P", 156)]]);
@@ -123,8 +124,8 @@ describe("the native renderer's fixture", () => {
     const { readFileSync } = await import("fs");
     const { FIXTURE, fixtureScore } = await import("./score-fixture");
     const json = (text: string): unknown => {
-      const parsed = parseJson(text);
-      if (!parsed.ok) throw new Error(parsed.error);
+      const parsed = parseJsonAs(z.unknown(), text, "fixture");
+      if (!parsed.ok) throw new Error(parsed.problems.join("; "));
       return parsed.value;
     };
     expect(json(readFileSync(FIXTURE, "utf8"))).toEqual(json(JSON.stringify(fixtureScore())));

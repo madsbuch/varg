@@ -9,10 +9,11 @@ import type { ForTimeConfig } from "../src/lib/fortime";
 import { recomputePRs } from "../src/lib/prs";
 import { seedExercises, seedTemplates } from "../src/lib/seed";
 import { must } from "./must";
+import { forTimeOf, schemeOf } from "../src/lib/plan";
 
 const exercises = seedExercises();
 const murph = must(seedTemplates().find((t) => t.id === "tpl-murph"));
-const stages = must(murph.forTime).stages;
+const stages = must(forTimeOf(murph)).stages;
 const byId = new Map(exercises.map((e) => [e.id, e]));
 const config: ForTimeConfig = {
   title: murph.name,
@@ -64,7 +65,7 @@ describe("for-time recording", () => {
 
   test("an old Murph logged by hand is not read as a for-time result", () => {
     const manual = recordedForTimeSession(config, marks, start);
-    manual.note = murph.scheme; // what the set-logger path writes
+    manual.note = schemeOf(murph.plan); // what the set-logger path writes
     expect(finishedTime(manual, stages.length)).toBeUndefined();
   });
 

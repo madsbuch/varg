@@ -8,6 +8,7 @@ import { songFor } from "../src/components/adaptive-track";
 import { allVoiceLines } from "../src/lib/voice-clips";
 import { must } from "./must";
 import type { RideSegment } from "../src/types";
+import { rideOf } from "../src/lib/plan";
 
 // FTMS Indoor Bike Data: flags 0x0144 (speed present since bit 0 is clear,
 // cadence, power, energy), 26.00 km/h, 90 rpm, 250 W, 123 kcal total.
@@ -175,7 +176,7 @@ describe("rides", () => {
   test("every ride segment's spoken line is generated in the workout voice", () => {
     const lines = new Set(allVoiceLines().map((l) => `${l.role}|${l.text}`));
     for (const t of seedTemplates()) {
-      t.ride?.segments.forEach((s, i) => { expect(lines.has(`workout|${rideLine(s, i === 0)}`)).toBe(true); });
+      rideOf(t)?.segments.forEach((s, i) => { expect(lines.has(`workout|${rideLine(s, i === 0)}`)).toBe(true); });
     }
     expect(rideLine({ label: "Zone 2", ftp: [56, 75], seconds: 2400 }, true)).toBe("First: Zone 2, 40 minutes");
     expect(rideLine({ label: "All out", ftp: [95, 120], kcal: 200 }, false)).toBe("Next: All out, 200 kilocalories");
@@ -238,7 +239,7 @@ describe("rides", () => {
 
 describe("adaptive music plan", () => {
   const adaptive = seedTemplates().find((t) => t.id === "tpl-ride-sit-stand-accelerate");
-  const segs = adaptive?.ride?.segments ?? [];
+  const segs = (adaptive && rideOf(adaptive)?.segments) ?? [];
 
   test("books every stretch ahead, numbered per intensity for the rotation", () => {
     const plan = musicPlan(segs, 0, 1_000_000, 0, false);
@@ -276,7 +277,8 @@ describe("adaptive music plan", () => {
   });
 
   test("a ride without intensities has no music plan", () => {
-    const tabata = seedTemplates().find((t) => t.id === "tpl-ride-tabata")?.ride?.segments ?? [];
+    const found = seedTemplates().find((t) => t.id === "tpl-ride-tabata");
+    const tabata = (found && rideOf(found)?.segments) ?? [];
     expect(musicPlan(tabata, 0, 0, 0, false).blocks).toEqual([]);
   });
 

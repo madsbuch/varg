@@ -14,7 +14,8 @@
  */
 import { useSyncExternalStore } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { parseJson, Reader } from "./decode";
+import { z } from "zod";
+import { KvRowSchema, parseAs, parseJsonAs } from "./schema";
 import { errorText } from "./http";
 
 const cache = new Map<string, string>();
@@ -38,15 +39,10 @@ export async function initKv(): Promise<void> {
   if (!inTauri()) return;
   await invoke("store_open");
   const raw: unknown = await invoke("kv_all");
-  const r = new Reader();
-  const rows = r.arr(raw, "kv_all").map((row, i) => {
-    const pair = r.arr(row, `kv_all[${i}]`);
-    const kv: [string, string] = [r.text(pair[0], `kv_all[${i}][0]`), r.text(pair[1], `kv_all[${i}][1]`)];
-    return kv;
-  });
-  if (!r.ok()) throw new Error(`Settings unreadable: ${r.problems.join("; ")}`);
+  const rows = parseAs(z.array(KvRowSchema), raw, "kv_all");
+  if (!rows.ok) throw new Error(`Settings unreadable: ${rows.problems.join("; ")}`);
   cache.clear();
-  for (const [k, v] of rows) cache.set(k, v);
+  for (const [k, v] of rows.value) cache.set(k, v);
   rust = true;
   await importWebViewStorage();
 }
@@ -174,22 +170,40 @@ function setUnreadable(key: string, why: string | null): void {
  * uses its default), and the key and why are listed by
  * `useUnreadableSettings` until a good value is written.
  */
-export function kvRead<T>(key: string, read: (r: Reader, v: unknown) => T): T | undefined {
+export function kvRead<S extends z.ZodType>(key: string, schema: S): z.infer<S> | undefined {
   const raw = kvGet(key);
   if (raw === null) return undefined;
-  const parsed = parseJson(raw);
+  const parsed = parseJsonAs(schema, raw, key);
   if (!parsed.ok) {
-    setUnreadable(key, parsed.error);
-    return undefined;
-  }
-  const r = new Reader();
-  const value = read(r, parsed.value);
-  if (!r.ok()) {
-    setUnreadable(key, r.problems.join("; "));
+    setUnreadable(key, parsed.problems.join("; "));
     return undefined;
   }
   setUnreadable(key, null);
-  return value;
+  return parsed.value;
+}
+
+/**
+ * A stored map read entry by entry: the entries that decode, while any that
+ * do not (a song set since removed, say) are named in red and left out, so
+ * one bad entry never costs the others.
+ */
+export function kvReadEach<S extends z.ZodType>(key: string, entry: S): Record<string, z.infer<S>> {
+  const raw = kvGet(key);
+  if (raw === null) return {};
+  const map = parseJsonAs(z.record(z.string(), z.unknown()), raw, key);
+  if (!map.ok) {
+    setUnreadable(key, map.problems.join("; "));
+    return {};
+  }
+  const out: Record<string, z.infer<S>> = {};
+  const problems: string[] = [];
+  for (const [k, v] of Object.entries(map.value)) {
+    const one = parseAs(entry, v, `${key}.${k}`);
+    if (one.ok) out[k] = one.value;
+    else problems.push(...one.problems);
+  }
+  setUnreadable(key, problems.length > 0 ? problems.join("; ") : null);
+  return out;
 }
 
 /** Store a value as JSON. */

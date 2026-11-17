@@ -10,6 +10,7 @@ import { recomputePRs } from "../src/lib/prs";
 import { seedExercises, seedTemplates } from "../src/lib/seed";
 import { allVoiceLines, cueLine, restLine } from "../src/lib/voice-clips";
 import { must } from "./must";
+import { emomOf } from "../src/lib/plan";
 
 /** The guided config, or a failed test carrying configForTemplate's reason. */
 function guided(t: Template, byId: Map<string, Exercise>): WodConfig {
@@ -242,7 +243,7 @@ describe("Full Body EMOM - 20 Minutes", () => {
     // Skipping is a count to finish like every other minute, not a timed block.
     expect(stations.filter((st) => must(st.exercise).name === "Single-Under").map((st) => [must(st.emom).reps, must(st.emom).workSecs])).toEqual([[50, undefined], [60, undefined], [70, undefined]]);
     expect(stations.every((st) => !/[–-]\s*\d/.test(must(st.emom).target))).toBe(true);
-    expect(must(tpl.emom).stations.map(emomRoundsTarget)).toEqual([
+    expect(must(emomOf(tpl)).stations.map(emomRoundsTarget)).toEqual([
       "8 · 10 · 12 reps", "16 reps · 8 per leg", "10 · 12 · 15 reps", "50 · 60 · 70 reps", "12 · 14 · 15 reps", "10 · 13 · 16 reps",
     ]);
   });
@@ -275,8 +276,8 @@ describe("Full Body EMOM - 20 Minutes", () => {
     expect(emomAnnounceAt(warm)).toBeUndefined();
     // A timed station (none ships today, the model still allows one) rests
     // by itself once its round's seconds have run, and is announced then.
-    const plan = must(tpl.emom);
-    const timed: Template = { ...tpl, emom: { ...plan, stations: plan.stations.map((st, i) => (i === 3 ? { exerciseId: "ex-high-knees", seconds: [35, 38, 40] } : st)) } };
+    const plan = must(emomOf(tpl));
+    const timed: Template = { ...tpl, plan: { ...plan, stations: plan.stations.map((st, i) => (i === 3 ? { exerciseId: "ex-high-knees", seconds: [35, 38, 40] } : st)) } };
     const ts = buildSteps(cfgOf(timed)).filter((st) => st.exercise?.name === "High Knees" && st.emom?.block === "station");
     expect(ts.map((st) => must(st.emom).target)).toEqual(["35 s", "38 s", "40 s"]);
     expect([emomPhase(must(ts[0]), 34.9), emomPhase(must(ts[0]), 35), emomPhase(must(ts[2]), 39.9), emomPhase(must(ts[2]), 40)]).toEqual(["work", "rest", "work", "rest"]);
@@ -333,10 +334,10 @@ describe("Full Body EMOM - 20 Minutes", () => {
   });
 
   test("the plan is the configuration: rounds, warm-up, reps and durations follow it", () => {
-    const plan = must(tpl.emom);
+    const plan = must(emomOf(tpl));
     const variant: Template = {
       ...tpl,
-      emom: {
+      plan: {
         ...plan,
         rounds: 2,
         warmup: undefined,
@@ -355,8 +356,8 @@ describe("Full Body EMOM - 20 Minutes", () => {
   });
 
   test("a station without a count for every round refuses to start", () => {
-    const plan = must(tpl.emom);
-    const short: Template = { ...tpl, emom: { ...plan, stations: plan.stations.map((st, i) => (i === 0 ? { ...st, reps: [8, 10] } : st)) } };
+    const plan = must(emomOf(tpl));
+    const short: Template = { ...tpl, plan: { ...plan, stations: plan.stations.map((st, i) => (i === 0 ? { ...st, reps: [8, 10] } : st)) } };
     expect(configForTemplate(short, exById)).toContain("Burpee has no count for every one of its 3 rounds");
   });
 
@@ -388,7 +389,7 @@ describe("Kettlebell EMOM - 20 Minutes", () => {
     expect(templateLength(tpl)).toEqual({ seconds: 1200, exact: true });
     const stations = steps.filter((st) => st.emom?.block === "station");
     expect(stations).toHaveLength(18);
-    expect(must(tpl.emom).stations.map((st) => [must(exById.get(st.exerciseId)).name, emomRoundsTarget(st)])).toEqual([
+    expect(must(emomOf(tpl)).stations.map((st) => [must(exById.get(st.exerciseId)).name, emomRoundsTarget(st)])).toEqual([
       ["Kettlebell Swing", "15 · 18 · 20 reps"],
       ["Goblet Squat", "10 · 11 · 12 reps"],
       ["Kettlebell Clean & Press", "10 reps · 5 per arm"],

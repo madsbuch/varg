@@ -28,7 +28,7 @@ export default tseslint.config(
       ],
       // Strict typing, no exceptions (CLAUDE.md, "Strict across the bridge"):
       // no type assertions (`as const` stays: it narrows, never widens or lies),
-      // no `!`, no coercion. Untyped data is read with Reader (lib/decode.ts);
+      // no `!`, no coercion. Untyped data is read with a zod schema (lib/schema.ts, parseAs);
       // numbers typed by a person with parseDecimal / parseWhole (lib/units.ts).
       "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
       "@typescript-eslint/no-non-null-assertion": "error",
@@ -45,14 +45,14 @@ export default tseslint.config(
         },
         {
           selector: "CallExpression[callee.object.name='JSON'][callee.property.name='parse']",
-          message: "Use parseJson (lib/decode.ts) and read the value with Reader: JSON.parse returns `any`.",
+          message: "Use parseJsonAs (lib/schema.ts) with a schema: JSON.parse returns `any`.",
         },
       ],
     },
   },
   {
     // The one door from text to a value.
-    files: ["src/lib/decode.ts"],
+    files: ["src/lib/schema.ts"],
     rules: { "no-restricted-syntax": "off" },
   },
   {

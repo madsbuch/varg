@@ -1,0 +1,78 @@
+{
+  "metric": [
+    "weight_reps",
+    "reps",
+    "time",
+    "distance_time"
+  ],
+  "category": [
+    "strength",
+    "bodyweight",
+    "cardio",
+    "ruck",
+    "core",
+    "conditioning"
+  ],
+  "prKind": [
+    "1rm",
+    "weight",
+    "reps",
+    "time",
+    "distance"
+  ],
+  "level": [
+    "beginner",
+    "intermediate",
+    "advanced"
+  ],
+  "intensity": [
+    1,
+    2,
+    3
+  ],
+  "side": [
+    "left",
+    "right"
+  ],
+  "perSide": [
+    "leg",
+    "arm"
+  ],
+  "setId": [
+    "techno",
+    "jazz-house",
+    "anthems"
+  ],
+  "gearId": [
+    "spinBike",
+    "airBike",
+    "rower",
+    "chestStrap",
+    "barbell",
+    "rack",
+    "bench",
+    "kettlebell",
+    "carryPair",
+    "sled",
+    "wallBall",
+    "medBall",
+    "pullUpBar",
+    "rings",
+    "dipBars",
+    "band",
+    "bandOrPack",
+    "box",
+    "jumpRope",
+    "ruck",
+    "vest",
+    "mat"
+  ],
+  "planKind": [
+    "interval",
+    "emom",
+    "flow",
+    "forTime",
+    "ride",
+    "logged"
+  ]
+}

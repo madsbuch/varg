@@ -14,7 +14,7 @@ use serde::Deserialize;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use tauri::{Manager, Runtime, State};
-use varg_store::model::{BlobInfo, ChatRow, Exercise, PersonalRecord, SavedProgram, Session, Snapshot};
+use varg_store::model::{BlobInfo, ChatEntry, ChatItem, ChatMessage, Exercise, PersonalRecord, SavedProgram, Session, Snapshot};
 use varg_store::Store;
 
 /// The file the old SQL plugin used (`sqlite:varg.db` under the app config
@@ -118,7 +118,7 @@ pub fn store_delete_program(state: State<'_, Storage>, id: String) -> Res<()> {
 }
 
 #[tauri::command]
-pub fn store_save_chat_item(state: State<'_, Storage>, row: ChatRow) -> Res<()> {
+pub fn store_save_chat_item(state: State<'_, Storage>, row: ChatEntry<ChatItem>) -> Res<()> {
     store(&state)?.save_chat_item(&row).map_err(err)
 }
 
@@ -128,7 +128,7 @@ pub fn store_delete_chat_item(state: State<'_, Storage>, id: String) -> Res<()> 
 }
 
 #[tauri::command]
-pub fn store_save_chat_message(state: State<'_, Storage>, row: ChatRow) -> Res<()> {
+pub fn store_save_chat_message(state: State<'_, Storage>, row: ChatEntry<ChatMessage>) -> Res<()> {
     store(&state)?.save_chat_message(&row).map_err(err)
 }
 

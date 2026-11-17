@@ -16,8 +16,8 @@ import type { Loop } from "./beatgrid";
 import { analyzeTrack, LayerError } from "./mixer";
 import { getCachedTrack, musicLog, onTrackCached } from "./music";
 import { allSongs, songById, songForKey, songKey } from "./songs";
-import { kvRead, kvSet } from "./kv";
-import { Reader } from "./decode";
+import { kvReadEach, kvSet } from "./kv";
+import { z } from "zod";
 import { errorText } from "./http";
 
 const KEY = "varg.songs.meta.v1";
@@ -47,46 +47,34 @@ export interface SongMeta {
   detail?: string | undefined;
 }
 
-function readLoop(r: Reader, v: unknown, path: string): Loop {
-  const f = r.obj(v, path);
-  const n = (k: string) => r.num(f.get(k), `${path}.${k}`);
-  return {
-    start: n("start"), bars: r.int(f.get("bars"), `${path}.bars`), bpm: n("bpm"), jitterMs: n("jitterMs"),
-    onOne: n("onOne"), levelDb: n("levelDb"), dropDb: n("dropDb"),
-  };
-}
+const LoopSchema = z.strictObject({
+  start: z.number(),
+  bars: z.int(),
+  bpm: z.number(),
+  jitterMs: z.number(),
+  onOne: z.number(),
+  levelDb: z.number(),
+  dropDb: z.number(),
+}) satisfies z.ZodType<Loop>;
 
-function readMeta(r: Reader, v: unknown, path: string): SongMeta {
-  const f = r.obj(v, path);
-  const nums = (k: string) => r.arr(f.get(k), `${path}.${k}`).map((x, i) => r.num(x, `${path}.${k}[${i}]`));
-  const loop = f.get("loop");
-  return {
-    createdAt: r.text(f.get("createdAt"), `${path}.createdAt`),
-    rules: r.optInt(f.get("rules"), `${path}.rules`),
-    analysedAt: r.text(f.get("analysedAt"), `${path}.analysedAt`),
-    model: r.text(f.get("model"), `${path}.model`),
-    took: r.num(f.get("took"), `${path}.took`),
-    duration: r.num(f.get("duration"), `${path}.duration`),
-    analysed: r.pair(f.get("analysed"), `${path}.analysed`),
-    beats: nums("beats"),
-    downbeats: nums("downbeats"),
-    loop: loop === null ? null : readLoop(r, loop, `${path}.loop`),
-    refused: r.optStr(f.get("refused"), `${path}.refused`),
-    detail: r.optStr(f.get("detail"), `${path}.detail`),
-  };
-}
+const SongMetaSchema = z.strictObject({
+  createdAt: z.string(),
+  rules: z.int().optional(),
+  analysedAt: z.string(),
+  model: z.string(),
+  took: z.number(),
+  duration: z.number(),
+  analysed: z.tuple([z.number(), z.number()]),
+  beats: z.array(z.number()),
+  downbeats: z.array(z.number()),
+  loop: LoopSchema.nullable(),
+  refused: z.string().optional(),
+  detail: z.string().optional(),
+}) satisfies z.ZodType<SongMeta>;
 
-/** Every song's analysis. One that does not decode is analysed again. */
+/** Every song's analysis. One that does not decode is named in red and analysed again. */
 function all(): Record<string, SongMeta | undefined> {
-  return kvRead(KEY, (r, v) => {
-    const out: Record<string, SongMeta | undefined> = {};
-    for (const [id, m] of r.obj(v, "songs")) {
-      const one = new Reader();
-      const meta = readMeta(one, m, id);
-      if (one.ok()) out[id] = meta;
-    }
-    return out;
-  }) ?? {};
+  return kvReadEach(KEY, SongMetaSchema);
 }
 
 const listeners = new Set<() => void>();

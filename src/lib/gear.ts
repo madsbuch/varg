@@ -11,6 +11,9 @@
  * not use.
  */
 import type { Template } from "../types";
+import { templateExerciseIds } from "./plan";
+
+export { templateExerciseIds };
 
 /** The kit, in the order a card lists it: big and heavy first, mat last. */
 export const GEAR = {
@@ -52,17 +55,6 @@ export interface GearItem {
   detail?: string | undefined;
 }
 
-/** Every exercise id a template runs, whichever player runs it. */
-export function templateExerciseIds(t: Template): string[] {
-  return [
-    ...t.exerciseIds,
-    ...(t.flow?.steps.map((s) => s.exerciseId) ?? []),
-    ...(t.forTime?.stages.map((s) => s.exerciseId) ?? []),
-    ...(t.emom?.warmup?.map((w) => w.exerciseId) ?? []),
-    ...(t.emom?.stations.map((s) => s.exerciseId) ?? []),
-  ];
-}
-
 /**
  * The kit list for a template, in GEAR order. `gearOf` is the exercise's
  * declared gear (library.ts); passed in so this module stays free of the
@@ -72,7 +64,7 @@ export function templateGear(t: Template, gearOf: (exerciseId: string) => readon
   const ids = new Set<GearId>(templateExerciseIds(t).flatMap(gearOf));
   for (const id of t.gear?.extra ?? []) ids.add(id);
   // A ride steered by heart rate will not start without the strap.
-  if (t.ride?.segments.some((s) => s.hrZone !== undefined)) ids.add("chestStrap");
+  if (t.plan.kind === "ride" && t.plan.segments.some((s) => s.hrZone !== undefined)) ids.add("chestStrap");
   return Object.keys(GEAR)
     .filter(isGearId)
     .filter((id) => ids.has(id))

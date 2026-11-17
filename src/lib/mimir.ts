@@ -27,29 +27,25 @@ import { complete } from "./openrouter";
 import { PROGRAM_PREFIX, templatesWith, withProgram } from "./programs";
 import { templateProblems } from "./template-check";
 import { exerciseGear, libraryFor } from "./library";
-import { GEAR } from "./gear";
 import { templateLength } from "./catalog";
 import { collapsePRs, formatPR, prKindLabel } from "./prs";
 import { garminSnapshot, matchSessions, typeLabel } from "./garmin";
 import { loadFtp } from "./ride";
 import { loadHrZones } from "./hr";
 import { errorText } from "./http";
-import { EX } from "./seed";
 import { uid } from "./store";
+import { z } from "zod";
 import {
-  INTENSITIES,
-  LEVELS,
-  parseJson,
-  Reader,
-  readEmom,
-  readFlow,
-  readForTime,
-  readGear,
-  readInterval,
-  readRide,
-  SET_IDS,
-} from "./decode";
-import type { Fields } from "./decode";
+  GearIdSchema,
+  MusicProfileSchema,
+  parseAs,
+  parseJsonAs,
+  PlanSchema,
+  SetIdSchema,
+  TemplateGearSchema,
+  TemplateSchema,
+} from "./schema";
+import { schemeOf, templateExerciseIds } from "./plan";
 
 /* ------------------------------ The chat --------------------------------- */
 
@@ -100,9 +96,6 @@ function catalogue(exercises: Exercise[]): string {
     .join("\n");
 }
 
-function kindOf(t: Template): string {
-  return t.interval ? "interval" : t.emom ? "emom" : t.flow ? "flow" : t.forTime ? "for time" : t.ride ? "ride" : "logged";
-}
 
 /* ------------------------------ The prompt -------------------------------- */
 
@@ -118,16 +111,18 @@ You do two things.
 
 Style: short, direct, like a good coach between sets. Plain text, no markdown headings or tables. Metric units only (kg, m, km). Program names, schemes and stage labels are labels, not prose: "4 rounds · 8 stations · 40 s work / 20 s rest", "100 push-ups".
 
-PROGRAMS. Use only exercise ids from the catalogue below; nothing else exists on the device, and every listed one has its own animation and cues. A program is ONE of these kinds (set exactly one of interval, emom, flow, forTime, ride, or none for a logged session):
+PROGRAMS. Use only exercise ids from the catalogue below; nothing else exists on the device, and every listed one has its own animation and cues. A program is {name, description, level, plan, music?, gear?}. The plan is exactly ONE of these, chosen by "kind":
 
-- interval: a guided circuit. exerciseIds are the stations in order; interval {work, rest, rounds} in whole seconds (work 5-600, rest 0-600, rounds 1-50, at most 200 station-steps, at most 2 h). Each station is timed work, so only time-friendly exercises; no reps, no distances. The scheme is written for you.
-- emom: every minute on the minute. emom {minute (usually 60), rounds, stations: [{exerciseId, reps: [one whole count per round] OR seconds: [one per round, under the minute], perSide?: "leg"|"arm" (reps then even), focus?: "what it trains"}], warmup?: [{exerciseId, seconds}] run back to back first, total warm-up a multiple of 20 s}. Reps only for reps/weight_reps exercises, seconds only for time exercises. Never a range. The scheme is written for you.
-- flow: yoga. flow {steps: [{exerciseId, seconds 10-300, side?: "left"|"right"}], transition: seconds 0-60 to move between poses}. A one-sided pose comes as a left step immediately followed by the same pose right, same hold. The scheme is written for you.
-- forTime: a fixed amount of work scored by time. forTime {stages: [{exerciseId, label, reps? | meters?}]}: reps for reps/weight_reps exercises, meters for distance_time; the label states that number ("21 kettlebell swings", "400 m run" or "1.6 km run"). Write a scheme like "3 rounds: 400 m run · 21 kettlebell swings @ 24/16 kg · for time". Needs estimateMinutes.
-- ride: indoor bike, exerciseIds ["ex-spin-bike"]. ride {segments: [{label, ftp: [low%, high%], seconds | kcal, cadence?: [lo, hi], hrZone?: 1-5}], race?: true when any segment is kcal}. hrZone segments are at least 180 s and the scheme must say "heart-rate zone N". Watts follow the owner's FTP (${loadFtp()} W now).
-- none: a logged session (strength work, sets written in by hand). exerciseIds are the exercises; describe sets × reps and loads in the scheme ("5 × 5 @ 80 % 1RM · 3 × 8"). Needs estimateMinutes.
+- {"kind": "interval", stations: [exercise ids in order], work, rest, rounds, note?}: a guided circuit, whole seconds (work 5-600, rest 0-600, rounds 1-50, at most 200 station-steps, at most 2 h). Each station is timed work: only time-friendly exercises, no reps, no distances.
+- {"kind": "emom", minute (usually 60), rounds, stations: [{exerciseId, reps: [one whole count per round] OR seconds: [one per round, under the minute], perSide?: "leg"|"arm" (reps then even), focus?: "what it trains"}], warmup?: [{exerciseId, seconds}] run back to back first (total a multiple of 20 s), note?}. Reps only for reps/weight_reps exercises, seconds only for time exercises. Never a range.
+- {"kind": "flow", steps: [{exerciseId, seconds 10-300, side?: "left"|"right"}], transition: seconds 0-60 to move between poses, note?}: yoga. A one-sided pose comes as a left step immediately followed by the same pose right, same hold.
+- {"kind": "forTime", stages: [{exerciseId, label, reps? | meters?}], scheme, estimateMinutes}: a fixed amount of work scored by time. Reps for reps/weight_reps exercises, meters for distance_time; the label states that number ("21 kettlebell swings", "400 m run" or "1.6 km run"). Scheme like "3 rounds: 400 m run · 21 kettlebell swings @ 24/16 kg · for time".
+- {"kind": "ride", segments: [{label, ftp: [low%, high%], seconds | kcal, cadence?: [lo, hi], hrZone?: 1-5}], race?: true exactly when any segment is kcal, scheme, estimateMinutes only when a segment is kcal}: the indoor bike. hrZone segments are at least 180 s and the scheme says "heart-rate zone N". Watts follow the owner's FTP (${loadFtp()} W now).
+- {"kind": "logged", exercises: [ids], scheme, estimateMinutes}: strength work, sets written in by hand. The scheme gives sets × reps and loads ("5 × 5 @ 80 % 1RM · 3 × 8").
 
-Every program: name (short, title case), description (one or two sentences: what and why), scheme, level (beginner | intermediate | advanced), estimateMinutes only for forTime and logged (and kcal rides). Optional gear {extra?: gear ids no exercise implies, detail?: {gearId: "24/16 kg"}} for gear the workout uses; gear ids: ${Object.keys(GEAR).join(", ")}. Optional music {energy?: 1 low | 2 mid | 3 peak (mobility 1, default 3), style?: genre tags for its own battle track, theme?: one line of mood}.
+Interval, EMOM and flow schemes are written by the app from the numbers; give them no scheme (a short note, like "both sides", is appended). No other fields anywhere: an unknown field is an error.
+
+name: short, title case. description: one or two sentences, what and why. level: beginner | intermediate | advanced. Optional gear {extra?: gear ids no exercise implies, detail?: {gearId: "24/16 kg"}} for gear the workout uses; gear ids: ${GearIdSchema.options.join(", ")}. Optional music {energy?: 1 low | 2 mid | 3 peak (mobility 1, default 3), style?: genre tags for its own battle track, theme?: one line of mood, set?: ${SetIdSchema.options.join(" | ")}}.
 
 To change one of the owner's saved programs (ids starting "${PROGRAM_PREFIX}"), pass its id as replaces.
 
@@ -201,11 +196,16 @@ const TOOLS: ToolSpec[] = [
   },
 ];
 
+/* Each tool's arguments, strict: the model's JSON is typed before a tool runs. */
+const NoArgs = z.strictObject({});
+const HistoryArgs = z.strictObject({ days: z.int().min(1).max(365).optional() });
+const ProposeArgs = z.strictObject({ program: z.unknown(), replaces: z.string().min(1).optional() });
+const RecommendArgs = z.strictObject({ templateId: z.string().min(1), why: z.string() });
+
 const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
-function getHistory(data: AppData, args: Fields): string {
-  const asked = args.get("days");
-  const days = typeof asked === "number" && Number.isInteger(asked) ? Math.min(365, Math.max(1, asked)) : 42;
+function getHistory(data: AppData, args: z.infer<typeof HistoryArgs>): string {
+  const days = args.days ?? 42;
   const since = Date.now() - days * 86400_000;
   const exName = new Map(data.exercises.map((e) => [e.id, e.name]));
   const finished = data.sessions
@@ -277,11 +277,11 @@ function listWorkouts(data: AppData): string {
       return {
         id: t.id,
         name: t.name,
-        kind: kindOf(t),
+        kind: t.plan.kind,
         level: t.level,
         minutes: len ? Math.round(len.seconds / 60) : undefined,
-        scheme: t.scheme,
-        exercises: [...new Set(t.exerciseIds)].length,
+        scheme: schemeOf(t.plan),
+        exercises: templateExerciseIds(t).length,
         ...(saved.has(t.id) ? { owners: true, program: t } : {}),
       };
     }),
@@ -290,129 +290,45 @@ function listWorkouts(data: AppData): string {
 
 /* ------------------------ Reading the model's program ---------------------- */
 
-/** Every field a program may carry. Anything else is named back to the model. */
-const PROGRAM_FIELDS: readonly string[] = [
-  "name", "description", "level", "scheme", "exerciseIds", "estimateMinutes",
-  "interval", "emom", "flow", "forTime", "ride", "gear", "music",
-];
-const KINDS: readonly ("interval" | "emom" | "flow" | "forTime" | "ride")[] = ["interval", "emom", "flow", "forTime", "ride"];
-
-const fmt = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
-const unique = (xs: readonly string[]) => [...new Set(xs)];
-
 /**
- * Turn the model's JSON into a Template, strictly: every field is checked for
- * its type, nothing is coerced, and unknown fields are refused. Problems come
- * back as text the model can act on. The id, and the schemes the guided
- * players compute, are written here rather than trusted to the model's
- * arithmetic.
+ * What the model writes: a template without what the app supplies (id,
+ * branch, the guided kinds' scheme) and with music optional. Strict like
+ * every stored shape: wrong types and unknown fields come back to the model
+ * as problems with their path, never coerced and never dropped.
  */
+export const ProgramInputSchema = z.strictObject({
+  name: TemplateSchema.shape.name,
+  description: TemplateSchema.shape.description,
+  level: TemplateSchema.shape.level,
+  plan: PlanSchema,
+  music: z
+    .strictObject({
+      energy: MusicProfileSchema.shape.energy,
+      style: z.string().min(1).max(200).optional(),
+      theme: z.string().min(1).max(200).optional(),
+      set: MusicProfileSchema.shape.set,
+    })
+    .optional(),
+  gear: TemplateGearSchema.optional(),
+});
+
+/** The model's program as a Template, or the problems with it. */
 export function readProgram(raw: unknown, id: string): { template?: Template; problems: string[] } {
-  let value = raw;
-  if (typeof raw === "string") {
-    const parsed = parseJson(raw);
-    if (!parsed.ok) return { problems: [`program is not valid JSON: ${parsed.error}`] };
-    value = parsed.value;
-  }
-  const r = new Reader();
-  const p = r.obj(value, "program");
-  if (!r.ok()) return { problems: r.problems };
-  for (const key of p.keys()) {
-    if (!PROGRAM_FIELDS.includes(key)) r.fail(`program.${key} is not a field a program has`);
-  }
-  const present = (k: string) => {
-    const v = p.get(k);
-    return v !== undefined && v !== null;
-  };
-  const kinds = KINDS.filter(present);
-  if (kinds.length > 1) r.fail(`set only one of interval, emom, flow, forTime, ride (got ${kinds.join(", ")})`);
-
-  const description = r.str(p.get("description"), "description", 600);
-  const t: Template = {
-    id,
-    name: r.str(p.get("name"), "name", 60),
-    branch: "Mímir",
-    description,
-    scheme: "",
-    level: r.oneOf(p.get("level"), LEVELS, "level"),
-    exerciseIds: [],
-    music: { bpm: 140, style: "", theme: "" },
-  };
-
-  switch (kinds[0]) {
-    case "interval": {
-      t.exerciseIds = r.strs(p.get("exerciseIds"), "exerciseIds");
-      const iv = readInterval(r, r.obj(p.get("interval"), "interval"), "interval");
-      t.interval = iv;
-      t.scheme = `${iv.rounds} rounds · ${t.exerciseIds.length} stations · ${iv.work} s work / ${iv.rest} s rest`;
-      break;
-    }
-    case "emom": {
-      const em = readEmom(r, r.obj(p.get("emom"), "emom"), "emom", 60);
-      t.emom = em;
-      const warmup = em.warmup ?? [];
-      t.exerciseIds = unique([...warmup.map((w) => w.exerciseId), ...em.stations.map((s) => s.exerciseId)]);
-      const warm = warmup.reduce((a, w) => a + w.seconds, 0);
-      const main = em.rounds * em.stations.length * em.minute;
-      t.scheme = [fmt(warm + main), ...(warm > 0 ? [`${fmt(warm)} warm-up`] : []), `${fmt(main)} EMOM`, `${em.rounds} rounds`, `${em.stations.length} stations`].join(" · ");
-      break;
-    }
-    case "flow": {
-      const fl = readFlow(r, r.obj(p.get("flow"), "flow"), "flow");
-      t.flow = fl;
-      t.exerciseIds = unique(fl.steps.map((s) => s.exerciseId));
-      if (fl.steps.length > 0) {
-        const total = fl.steps.reduce((a, s) => a + s.seconds, 0) + (fl.steps.length - 1) * fl.transition;
-        const holds = fl.steps.map((s) => s.seconds);
-        t.scheme = [
-          `${fmt(total)} flow`,
-          `${fl.steps.length} poses`,
-          `holds of ${Math.min(...holds)}–${Math.max(...holds)} s`,
-          ...(fl.transition > 0 ? [`${fl.transition} s to move between poses`] : []),
-        ].join(" · ");
-      }
-      t.music.energy = 1;
-      break;
-    }
-    case "forTime": {
-      const ft = readForTime(r, r.obj(p.get("forTime"), "forTime"), "forTime");
-      t.forTime = ft;
-      t.exerciseIds = unique(ft.stages.map((s) => s.exerciseId));
-      t.scheme = r.str(p.get("scheme"), "scheme", 200);
-      break;
-    }
-    case "ride": {
-      t.ride = readRide(r, r.obj(p.get("ride"), "ride"), "ride");
-      t.exerciseIds = present("exerciseIds") ? r.strs(p.get("exerciseIds"), "exerciseIds") : [EX.spinBike];
-      t.scheme = r.str(p.get("scheme"), "scheme", 200);
-      break;
-    }
-    case undefined: {
-      t.exerciseIds = r.strs(p.get("exerciseIds"), "exerciseIds");
-      if (t.exerciseIds.length === 0) r.fail("a logged session needs exerciseIds");
-      t.scheme = r.str(p.get("scheme"), "scheme", 200);
-      break;
-    }
-  }
-
-  const estimate = r.optInt(p.get("estimateMinutes"), "estimateMinutes");
-  if (estimate !== undefined) t.estimateMinutes = estimate;
-  const gear = r.optObj(p.get("gear"), "gear");
-  if (gear) t.gear = readGear(r, gear, "gear");
-
-  const m = r.optObj(p.get("music"), "music");
+  const parsed = typeof raw === "string" ? parseJsonAs(ProgramInputSchema, raw, "program") : parseAs(ProgramInputSchema, raw, "program");
+  if (!parsed.ok) return { problems: parsed.problems };
+  const p = parsed.value;
+  const flow = p.plan.kind === "flow";
   const music: MusicProfile = {
-    bpm: t.flow ? 70 : 140,
-    style: (m && r.optStr(m.get("style"), "music.style", 200)) ?? (t.flow ? "calm ambient, soft pads, slow and spacious, no vocals" : "hard electronic, heavy drums, dark synth bass, no vocals"),
-    theme: (m && r.optStr(m.get("theme"), "music.theme", 200)) ?? description,
+    bpm: flow ? 70 : 140,
+    style: p.music?.style ?? (flow ? "calm ambient, soft pads, slow and spacious, no vocals" : "hard electronic, heavy drums, dark synth bass, no vocals"),
+    theme: p.music?.theme ?? p.description,
   };
-  const energy = (m && r.optOneOf(m.get("energy"), INTENSITIES, "music.energy")) ?? t.music.energy;
-  const set = m && r.optOneOf(m.get("set"), SET_IDS, "music.set");
+  const energy = p.music?.energy ?? (flow ? 1 : undefined);
   if (energy !== undefined) music.energy = energy;
-  if (set !== undefined) music.set = set;
-  t.music = music;
-
-  return r.ok() ? { template: t, problems: [] } : { problems: r.problems };
+  if (p.music?.set !== undefined) music.set = p.music.set;
+  const template: Template = { id, name: p.name, branch: "Mímir", description: p.description, level: p.level, plan: p.plan, music };
+  if (p.gear !== undefined) template.gear = p.gear;
+  return { template, problems: [] };
 }
 
 function newProgramId(name: string): string {
@@ -420,16 +336,14 @@ function newProgramId(name: string): string {
   return `${PROGRAM_PREFIX}${slug}-${Date.now().toString(36)}`;
 }
 
-function proposeProgram(data: AppData, args: Fields, emit: (item: ChatItem) => void): string {
-  const asked = args.get("replaces");
-  const replaces = typeof asked === "string" && asked !== "" ? asked : undefined;
+function proposeProgram(data: AppData, args: z.infer<typeof ProposeArgs>, emit: (item: ChatItem) => void): string {
+  const replaces = args.replaces;
   if (replaces !== undefined && !data.programs.some((p) => p.id === replaces)) {
     return JSON.stringify({ ok: false, problems: [`replaces: "${replaces}" is not one of the owner's saved programs`] });
   }
-  const program = args.get("program");
-  const r = new Reader();
-  const name = typeof program === "object" && program !== null ? r.obj(program, "program").get("name") : undefined;
-  const read = readProgram(program, replaces ?? newProgramId(typeof name === "string" ? name : "program"));
+  const program = args.program;
+  const named = parseAs(z.object({ name: z.string() }), program, "program");
+  const read = readProgram(program, replaces ?? newProgramId(named.ok ? named.value.name : "program"));
   const template = read.template;
   const problems = template ? templateProblems(template, usableExercises(data)) : read.problems;
   if (!template || problems.length > 0) return JSON.stringify({ ok: false, problems });
@@ -438,17 +352,15 @@ function proposeProgram(data: AppData, args: Fields, emit: (item: ChatItem) => v
   return JSON.stringify({
     ok: true,
     shown: "The owner sees the program as a card with Save. Do not restate it.",
-    scheme: template.scheme,
+    scheme: schemeOf(template.plan),
     minutes: len ? Math.round(len.seconds / 60) : undefined,
   });
 }
 
-function recommend(data: AppData, args: Fields, emit: (item: ChatItem) => void): string {
-  const id = args.get("templateId");
-  const why = args.get("why");
-  const t = typeof id === "string" ? templatesWith(data.programs).find((x) => x.id === id) : undefined;
-  if (!t) return JSON.stringify({ ok: false, problem: `no workout with id ${JSON.stringify(id)}; call list_workouts` });
-  emit({ kind: "pick", templateId: t.id, why: typeof why === "string" ? why : "" });
+function recommend(data: AppData, args: z.infer<typeof RecommendArgs>, emit: (item: ChatItem) => void): string {
+  const t = templatesWith(data.programs).find((x) => x.id === args.templateId);
+  if (!t) return JSON.stringify({ ok: false, problem: `no workout with id "${args.templateId}"; call list_workouts` });
+  emit({ kind: "pick", templateId: t.id, why: args.why });
   return JSON.stringify({ ok: true, shown: `A card for ${t.name}.` });
 }
 
@@ -481,17 +393,10 @@ export async function runTurn(
     for (const call of reply.tool_calls) {
       onTool?.(call.function.name);
       let result: string;
-      const parsed = parseJson(call.function.arguments.trim() === "" ? "{}" : call.function.arguments);
-      if (!parsed.ok) {
-        result = JSON.stringify({ ok: false, problem: `arguments are not valid JSON: ${parsed.error}` });
-      } else {
-        const r = new Reader();
-        const args = r.obj(parsed.value, "arguments");
-        try {
-          result = r.ok() ? runTool(call.function.name, args, data, emit) : JSON.stringify({ ok: false, problems: r.problems });
-        } catch (e) {
-          result = JSON.stringify({ ok: false, problem: `tool failed: ${errorText(e)}` });
-        }
+      try {
+        result = runTool(call.function.name, call.function.arguments.trim() === "" ? "{}" : call.function.arguments, data, emit);
+      } catch (e) {
+        result = JSON.stringify({ ok: false, problem: `tool failed: ${errorText(e)}` });
       }
       added.push({ role: "tool", tool_call_id: call.id, content: result });
     }
@@ -500,14 +405,19 @@ export async function runTurn(
   return added;
 }
 
-function runTool(name: string, args: Fields, data: AppData, emit: (item: ChatItem) => void): string {
+/** Run a tool on its arguments' JSON, parsed by the tool's own schema first. */
+function runTool(name: string, json: string, data: AppData, emit: (item: ChatItem) => void): string {
+  const with_ = <S extends z.ZodType>(schema: S, run: (args: z.infer<S>) => string): string => {
+    const args = parseJsonAs(schema, json, "arguments");
+    return args.ok ? run(args.value) : JSON.stringify({ ok: false, problems: args.problems });
+  };
   switch (name) {
-    case "get_history": return getHistory(data, args);
-    case "get_records": return getRecords(data);
-    case "get_readiness": return getReadiness();
-    case "list_workouts": return listWorkouts(data);
-    case "propose_program": return proposeProgram(data, args, emit);
-    case "recommend_workout": return recommend(data, args, emit);
+    case "get_history": return with_(HistoryArgs, (a) => getHistory(data, a));
+    case "get_records": return with_(NoArgs, () => getRecords(data));
+    case "get_readiness": return with_(NoArgs, () => getReadiness());
+    case "list_workouts": return with_(NoArgs, () => listWorkouts(data));
+    case "propose_program": return with_(ProposeArgs, (a) => proposeProgram(data, a, emit));
+    case "recommend_workout": return with_(RecommendArgs, (a) => recommend(data, a, emit));
     default: return JSON.stringify({ ok: false, problem: `no tool "${name}"` });
   }
 }

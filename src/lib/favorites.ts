@@ -4,11 +4,12 @@
  * write is guarded: storage can be unavailable or cleared, and a lost star
  * must never break the workout library.
  */
+import { z } from "zod";
 import { kvRead, kvSet } from "./kv";
 const KEY = "varg.favorites.v1";
 
 export function loadFavorites(): Set<string> {
-  return new Set(kvRead(KEY, (r, v) => r.strs(v, "favorites")) ?? []);
+  return new Set(kvRead(KEY, z.array(z.string())) ?? []);
 }
 
 export function saveFavorites(ids: Set<string>): void {

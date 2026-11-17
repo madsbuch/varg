@@ -10,8 +10,9 @@
  */
 import type { ChatMessage } from "../types";
 import { errorText, httpFetch } from "./http";
-import { parseJson, Reader, readChatMessage } from "./decode";
-import { kvGet, kvSet } from "./kv";
+import { z } from "zod";
+import { parseJsonAs } from "./schema";
+import { kvRead, kvSet } from "./kv";
 
 const BASE = "https://openrouter.ai/api/v1";
 const SETTINGS_KEY = "varg.mimir.settings.v1";
@@ -26,16 +27,10 @@ export interface MimirSettings {
 
 /** The stored settings. Unreadable or missing fields fall back, field by field. */
 export function loadMimirSettings(): MimirSettings {
-  const raw = kvGet(SETTINGS_KEY);
-  const parsed = raw === null ? undefined : parseJson(raw);
-  if (!parsed?.ok) return { apiKey: "", model: DEFAULT_MODEL };
-  const r = new Reader();
-  const f = r.obj(parsed.value, "settings");
-  const apiKey = f.get("apiKey");
-  const model = f.get("model");
+  const stored = kvRead(SETTINGS_KEY, z.strictObject({ apiKey: z.string(), model: z.string() }));
   return {
-    apiKey: typeof apiKey === "string" ? apiKey : "",
-    model: typeof model === "string" && model.trim() !== "" ? model : DEFAULT_MODEL,
+    apiKey: stored?.apiKey ?? "",
+    model: stored !== undefined && stored.model.trim() !== "" ? stored.model : DEFAULT_MODEL,
   };
 }
 
@@ -47,6 +42,39 @@ export interface ToolSpec {
   type: "function";
   function: { name: string; description: string; parameters: Record<string, unknown> };
 }
+
+/*
+ * OpenRouter's answers, as far as Varg reads them. Not strict: OpenRouter
+ * adds fields (refusal, reasoning, usage…) that Varg has no use for; every
+ * field that is read is typed, and the message is copied into the stored
+ * shape field by field.
+ */
+const ErrorAnswerSchema = z.object({
+  error: z.object({ message: z.string().nullish(), code: z.union([z.number(), z.string()]).nullish() }).nullish(),
+});
+const AnswerSchema = z.object({
+  choices: z.array(
+    z.object({
+      message: z.object({
+        role: z.literal("assistant"),
+        content: z.string().nullish(),
+        tool_calls: z
+          .array(z.object({ id: z.string().min(1), type: z.literal("function"), function: z.object({ name: z.string().min(1), arguments: z.string() }) }))
+          .nullish(),
+      }),
+    }),
+  ),
+});
+const ModelListSchema = z.object({
+  data: z.array(
+    z.object({
+      id: z.string().min(1),
+      name: z.string().nullish(),
+      supported_parameters: z.array(z.string()).nullish(),
+      pricing: z.object({ prompt: z.string().nullish() }).nullish(),
+    }),
+  ),
+});
 
 export class OpenRouterError extends Error {
   constructor(message: string, readonly status: number) {
@@ -75,15 +103,11 @@ export async function complete(
     signal: signal ?? null,
   });
   const raw = await res.text().catch(() => "");
-  const parsed = parseJson(raw);
-  const r = new Reader();
-  const body = parsed.ok ? r.obj(parsed.value, "response") : new Map<string, unknown>();
-  const error = r.optObj(body.get("error"), "response.error");
+  const failed = parseJsonAs(ErrorAnswerSchema, raw, "response");
+  const error = failed.ok ? failed.value.error : undefined;
   if (!res.ok || error) {
-    const message = error?.get("message");
-    const code = error?.get("code");
-    const detail = typeof message === "string" ? message : raw.slice(0, 200) || "no detail";
-    const status = res.ok ? (typeof code === "number" ? code : 500) : res.status;
+    const detail = error?.message ?? (raw.slice(0, 200) || "no detail");
+    const status = res.ok ? (typeof error?.code === "number" ? error.code : 500) : res.status;
     const what =
       status === 401 ? "OpenRouter rejected the key"
         : status === 402 ? "OpenRouter: out of credits"
@@ -91,13 +115,14 @@ export async function complete(
             : `OpenRouter refused (${status})`;
     throw new OpenRouterError(`${what}: ${detail}`, status);
   }
-  if (!parsed.ok) throw new OpenRouterError(`OpenRouter answered with something that is not JSON: ${raw.slice(0, 200)}`, 500);
-  const first = r.arr(body.get("choices"), "response.choices")[0];
-  const choice = r.obj(first, "response.choices[0]");
-  const msg = readChatMessage(r, choice.get("message"), "response.choices[0].message");
-  if (!r.ok()) throw new OpenRouterError(`OpenRouter answered in an unexpected shape: ${r.problems.join("; ")}`, 500);
-  if (msg.role !== "assistant") throw new OpenRouterError(`OpenRouter answered as "${msg.role}", not the assistant`, 500);
-  return msg;
+  const answer = parseJsonAs(AnswerSchema, raw, "response");
+  if (!answer.ok) throw new OpenRouterError(`OpenRouter answered in an unexpected shape: ${answer.problems.slice(0, 3).join("; ")}`, 500);
+  const first = answer.value.choices[0];
+  if (!first) throw new OpenRouterError("OpenRouter answered with no choices", 500);
+  const m = first.message;
+  const calls = (m.tool_calls ?? []).map((c) => ({ id: c.id, type: c.type, function: { name: c.function.name, arguments: c.function.arguments } }));
+  // Exactly the stored shape (ChatMessageSchema): what OpenRouter adds is dropped here.
+  return calls.length > 0 ? { role: "assistant", content: m.content ?? null, tool_calls: calls } : { role: "assistant", content: m.content ?? null };
 }
 
 export interface ModelInfo {
@@ -116,24 +141,17 @@ export async function listModels(): Promise<ModelInfo[]> {
     throw new Error(`Model list: ${errorText(e)}`);
   }
   if (!res.ok) throw new Error(`Model list: HTTP ${res.status}`);
-  const parsed = parseJson(await res.text());
-  if (!parsed.ok) throw new Error(`Model list: ${parsed.error}`);
-  const r = new Reader();
+  const parsed = parseJsonAs(ModelListSchema, await res.text(), "models");
+  if (!parsed.ok) throw new Error(`Model list: ${parsed.problems.slice(0, 3).join("; ")}`);
   const out: ModelInfo[] = [];
-  for (const [i, m] of r.arr(r.obj(parsed.value, "models").get("data"), "models.data").entries()) {
-    const f = r.obj(m, `models.data[${i}]`);
-    const id = r.str(f.get("id"), `models.data[${i}].id`);
-    const params = f.get("supported_parameters");
-    const tools = Array.isArray(params) && params.some((p) => p === "tools");
-    if (!tools || id.endsWith(":batch")) continue;
-    const name = f.get("name");
-    const pricing = r.optObj(f.get("pricing"), `models.data[${i}].pricing`);
-    const prompt = pricing?.get("prompt");
-    // OpenRouter sends prices as decimal strings; a string that is not a
-    // number leaves the price unknown rather than guessing one.
-    const perToken = typeof prompt === "string" && /^\d+(\.\d+)?(e-?\d+)?$/i.test(prompt) ? Number.parseFloat(prompt) : undefined;
-    out.push({ id, name: typeof name === "string" ? name : id, promptPerM: perToken === undefined ? undefined : perToken * 1e6 });
+  for (const m of parsed.value.data) {
+    const tools = m.supported_parameters?.includes("tools") === true;
+    if (!tools || m.id.endsWith(":batch")) continue;
+    const prompt = m.pricing?.prompt;
+    // OpenRouter sends prices as decimal strings; one that is not a plain
+    // decimal leaves the price unknown rather than guessing one.
+    const perToken = prompt !== undefined && prompt !== null && /^\d+(\.\d+)?$/.test(prompt) ? Number.parseFloat(prompt) : undefined;
+    out.push({ id: m.id, name: m.name ?? m.id, promptPerM: perToken === undefined ? undefined : perToken * 1e6 });
   }
-  if (!r.ok()) throw new Error(`Model list: ${r.problems.join("; ")}`);
   return out.sort((a, b) => a.id.localeCompare(b.id));
 }

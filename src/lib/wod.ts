@@ -191,53 +191,58 @@ export function configForTemplate(tpl: Template, exById: Map<string, Exercise>):
   const missing = (have: number, want: number, what: string) =>
     `${tpl.name} needs ${want} ${what} but only ${have} exist on this device. ` +
     `Reinstalling or updating the app restores the built-in exercises.`;
-  if (tpl.flow) {
-    const sequence = tpl.flow.steps.flatMap((st) => {
-      const exercise = exById.get(st.exerciseId);
-      return exercise ? [{ exercise, secs: st.seconds, side: st.side }] : [];
-    });
-    if (sequence.length !== tpl.flow.steps.length) return missing(sequence.length, tpl.flow.steps.length, "poses");
-    return {
-      exercises: sequence.map((s) => s.exercise),
-      sequence,
-      transition: tpl.flow.transition,
-      work: 0, rest: 0, rounds: 1,
-      title: tpl.name, trackKey: tpl.id, voice: "yoga",
-    };
+  const plan = tpl.plan;
+  switch (plan.kind) {
+    case "flow": {
+      const sequence = plan.steps.flatMap((st) => {
+        const exercise = exById.get(st.exerciseId);
+        return exercise ? [{ exercise, secs: st.seconds, side: st.side }] : [];
+      });
+      if (sequence.length !== plan.steps.length) return missing(sequence.length, plan.steps.length, "poses");
+      return {
+        exercises: sequence.map((s) => s.exercise),
+        sequence,
+        transition: plan.transition,
+        work: 0, rest: 0, rounds: 1,
+        title: tpl.name, trackKey: tpl.id, voice: "yoga",
+      };
+    }
+    case "emom": {
+      const resolve = (id: string) => exById.get(id);
+      const stations = plan.stations.flatMap((st) => {
+        const exercise = resolve(st.exerciseId);
+        return exercise ? [{ exercise, reps: st.reps, seconds: st.seconds, perSide: st.perSide }] : [];
+      });
+      if (stations.length !== plan.stations.length) return missing(stations.length, plan.stations.length, "stations");
+      // Every round needs its own count: never run a round with no target.
+      const short = stations.find((st) => (st.reps ?? st.seconds ?? []).length !== plan.rounds);
+      if (short) return `${tpl.name}: ${short.exercise.name} has no count for every one of its ${plan.rounds} rounds.`;
+      const wantWarmup = plan.warmup ?? [];
+      const warmup = wantWarmup.flatMap((w) => {
+        const exercise = resolve(w.exerciseId);
+        return exercise ? [{ exercise, secs: w.seconds }] : [];
+      });
+      if (warmup.length !== wantWarmup.length) return missing(warmup.length, wantWarmup.length, "warm-up exercises");
+      return {
+        exercises: stations.map((s) => s.exercise),
+        emom: { minute: plan.minute, stations, warmup },
+        work: plan.minute, rest: 0, rounds: plan.rounds,
+        title: tpl.name, trackKey: tpl.id, voice: "workout",
+      };
+    }
+    case "interval": {
+      const exercises = plan.stations.flatMap((id) => {
+        const ex = exById.get(id);
+        return ex ? [ex] : [];
+      });
+      if (exercises.length !== plan.stations.length) return missing(exercises.length, plan.stations.length, "stations");
+      return { exercises, work: plan.work, rest: plan.rest, rounds: plan.rounds, title: tpl.name, trackKey: tpl.id, voice: "workout" };
+    }
+    case "forTime":
+    case "ride":
+    case "logged":
+      return `${tpl.name} is not a guided workout.`;
   }
-  if (tpl.emom) {
-    const plan = tpl.emom;
-    const resolve = (id: string) => exById.get(id);
-    const stations = plan.stations.flatMap((st) => {
-      const exercise = resolve(st.exerciseId);
-      return exercise ? [{ exercise, reps: st.reps, seconds: st.seconds, perSide: st.perSide }] : [];
-    });
-    if (stations.length !== plan.stations.length) return missing(stations.length, plan.stations.length, "stations");
-    // Every round needs its own count: never run a round with no target.
-    const short = stations.find((st) => (st.reps ?? st.seconds ?? []).length !== plan.rounds);
-    if (short) return `${tpl.name}: ${short.exercise.name} has no count for every one of its ${plan.rounds} rounds.`;
-    const wantWarmup = plan.warmup ?? [];
-    const warmup = wantWarmup.flatMap((w) => {
-      const exercise = resolve(w.exerciseId);
-      return exercise ? [{ exercise, secs: w.seconds }] : [];
-    });
-    if (warmup.length !== wantWarmup.length) return missing(warmup.length, wantWarmup.length, "warm-up exercises");
-    return {
-      exercises: stations.map((s) => s.exercise),
-      emom: { minute: plan.minute, stations, warmup },
-      work: plan.minute, rest: 0, rounds: plan.rounds,
-      title: tpl.name, trackKey: tpl.id, voice: "workout",
-    };
-  }
-  if (tpl.interval) {
-    const exercises = tpl.exerciseIds.flatMap((id) => {
-      const ex = exById.get(id);
-      return ex ? [ex] : [];
-    });
-    if (exercises.length !== tpl.exerciseIds.length) return missing(exercises.length, tpl.exerciseIds.length, "stations");
-    return { exercises, ...tpl.interval, title: tpl.name, trackKey: tpl.id, voice: "workout" };
-  }
-  return `${tpl.name} is not a guided workout.`;
 }
 
 /**

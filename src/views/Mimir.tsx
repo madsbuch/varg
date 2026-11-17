@@ -8,6 +8,7 @@ import { templateLength, LEVEL_LABEL } from "../lib/catalog";
 import { formatSeconds } from "../lib/units";
 import { ConfirmSheet } from "../components/ui";
 import { IconTrash } from "../components/icons";
+import { schemeOf } from "../lib/plan";
 
 const STARTERS = [
   "What should I train today?",
@@ -200,17 +201,22 @@ function ProgramCard({ template: t, why, children }: { template: Template; why?:
   const len = templateLength(t);
   const names = useMemo(() => {
     const byId = new Map(data.exercises.map((e) => [e.id, e.name]));
-    if (t.emom) {
-      return t.emom.stations.map((s) => {
-        const n = byId.get(s.exerciseId) ?? s.exerciseId;
-        const counts = s.reps ?? s.seconds ?? [];
-        return `${n} ${counts.join("/")}${s.seconds ? " s" : ""}`;
-      });
+    const name = (id: string) => byId.get(id) ?? id;
+    const plan = t.plan;
+    switch (plan.kind) {
+      case "emom":
+        return plan.stations.map((s) => `${name(s.exerciseId)} ${(s.reps ?? s.seconds ?? []).join("/")}${s.seconds ? " s" : ""}`);
+      case "forTime":
+        return plan.stages.map((s) => s.label);
+      case "flow":
+        return plan.steps.map((s) => `${name(s.exerciseId)}${s.side ? ` (${s.side})` : ""} ${s.seconds} s`);
+      case "ride":
+        return plan.segments.map((s) => `${s.label} ${s.seconds !== undefined ? formatSeconds(s.seconds) : `${s.kcal ?? 0} kcal`} · ${s.ftp[0]}–${s.ftp[1]} %`);
+      case "interval":
+        return plan.stations.map(name);
+      case "logged":
+        return plan.exercises.map(name);
     }
-    if (t.forTime) return t.forTime.stages.map((s) => s.label);
-    if (t.flow) return t.flow.steps.map((s) => `${byId.get(s.exerciseId) ?? s.exerciseId}${s.side ? ` (${s.side})` : ""} ${s.seconds} s`);
-    if (t.ride) return t.ride.segments.map((s) => `${s.label} ${s.seconds ? formatSeconds(s.seconds) : `${s.kcal} kcal`} · ${s.ftp[0]}–${s.ftp[1]} %`);
-    return t.exerciseIds.map((id) => byId.get(id) ?? id);
   }, [t, data.exercises]);
   return (
     <div className="card mimir-card">
@@ -219,7 +225,7 @@ function ProgramCard({ template: t, why, children }: { template: Template; why?:
         <span className="chip gold">{t.branch}</span>
       </div>
       {why && <div style={{ fontSize: 13, marginTop: 6 }}>{why}</div>}
-      <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>{t.scheme}</div>
+      <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>{schemeOf(t.plan)}</div>
       <div className="workout-card-chips">
         <span className={`chip level-${t.level}`}>{LEVEL_LABEL[t.level]}</span>
         {len && <span className="chip accent">{len.exact ? formatSeconds(len.seconds) : `≈ ${Math.round(len.seconds / 60)} min`}</span>}

@@ -11,16 +11,18 @@
 // happens on kie.ai's servers, phone asleep or not), in-flight taskIds
 // are persisted, and results are polled — resumed on every app foreground.
 
-import type { Intensity, IntervalPlan, MusicProfile } from "../types";
+import type { Intensity, IntervalPlan, MusicProfile, Template } from "../types";
 import { allTemplates, templateById } from "./programs";
 import { allSongs, INTENSITY_NAMES, LIBRARY_KEY, setById, songForKey, songKey } from "./songs";
 import type { Song } from "./songs";
 import { formatSeconds } from "./units";
 import { errorText, httpFetch } from "./http";
 import { KieError, audioResults, createTask, download, getTask } from "./kie";
-import { kvRead, kvRemove, kvSet } from "./kv";
-import { readMusic } from "./decode";
+import { kvRead, kvReadEach, kvRemove, kvSet } from "./kv";
+import { z } from "zod";
+import { MusicProfileSchema } from "./schema";
 import { audioImported, blobDelete, blobGet, blobHas, blobPut } from "./blobs";
+import { intervalOf } from "./plan";
 
 export { errorText, httpFetch };
 
@@ -41,10 +43,7 @@ export interface MusicSettings {
 }
 
 export function loadMusicSettings(): MusicSettings {
-  const p = kvRead(SETTINGS_KEY, (r, v) => {
-    const f = r.obj(v, "music settings");
-    return { apiKey: r.text(f.get("apiKey"), "apiKey"), model: r.text(f.get("model"), "model") };
-  });
+  const p = kvRead(SETTINGS_KEY, z.object({ apiKey: z.string(), model: z.string() }));
   return {
     apiKey: p?.apiKey ?? "",
     // A model saved before V6 is deprecated and can't be given a
@@ -71,7 +70,7 @@ export const FREESTYLE_PROFILE: MusicProfile = {
 // tracks: template id, or "freestyle".
 
 function loadProfileOverrides(): Record<string, MusicProfile> {
-  return kvRead(PROFILES_KEY, (r, v) => r.record(v, "profiles", (x, path) => readMusic(r, r.obj(x, path), path))) ?? {};
+  return kvReadEach(PROFILES_KEY, MusicProfileSchema);
 }
 
 export function saveProfileOverride(key: string, profile: MusicProfile): void {
@@ -172,24 +171,17 @@ const PENDING_TTL_MS = 30 * 60 * 1000;
 // composing server-side; the next foreground pass resumes them.
 const MAX_UNREACHABLE_ROUNDS = 12;
 
-interface PendingTask {
-  key: string; // template id, or "freestyle"
-  workoutName: string;
-  taskId: string;
-  requestedAt: string;
-}
+/** A track being composed on kie.ai: resumed after a restart. Key is a template id, or "freestyle". */
+const PendingTaskSchema = z.strictObject({
+  key: z.string().min(1),
+  workoutName: z.string(),
+  taskId: z.string().min(1),
+  requestedAt: z.string(),
+});
+type PendingTask = z.infer<typeof PendingTaskSchema>;
 
 function loadPendingTasks(): PendingTask[] {
-  return kvRead(PENDING_KEY, (r, v) =>
-    r.arr(v, "pending").map((x, i) => {
-      const f = r.obj(x, `pending[${i}]`);
-      return {
-        key: r.str(f.get("key"), `pending[${i}].key`),
-        workoutName: r.text(f.get("workoutName"), `pending[${i}].workoutName`),
-        taskId: r.str(f.get("taskId"), `pending[${i}].taskId`),
-        requestedAt: r.text(f.get("requestedAt"), `pending[${i}].requestedAt`),
-      };
-    })) ?? [];
+  return kvRead(PENDING_KEY, z.array(PendingTaskSchema)) ?? [];
 }
 
 function savePendingTasks(tasks: PendingTask[]): void {
@@ -224,11 +216,7 @@ export interface MusicLogEntry {
 const logListeners = new Set<() => void>();
 
 export function readMusicLog(): MusicLogEntry[] {
-  return kvRead(LOG_KEY, (r, v) =>
-    r.arr(v, "log").map((x, i) => {
-      const f = r.obj(x, `log[${i}]`);
-      return { at: r.text(f.get("at"), `log[${i}].at`), msg: r.text(f.get("msg"), `log[${i}].msg`) };
-    })) ?? [];
+  return kvRead(LOG_KEY, z.array(z.strictObject({ at: z.string(), msg: z.string() }))) ?? [];
 }
 
 export function musicLog(msg: string): void {
@@ -284,15 +272,7 @@ export interface TrackFailure {
 }
 
 export function loadTrackFailures(): Record<string, TrackFailure> {
-  return kvRead(FAILED_KEY, (r, v) =>
-    r.record(v, "failures", (x, path) => {
-      const f = r.obj(x, path);
-      return {
-        attempts: r.int(f.get("attempts"), `${path}.attempts`),
-        lastAt: r.text(f.get("lastAt"), `${path}.lastAt`),
-        reason: r.text(f.get("reason"), `${path}.reason`),
-      };
-    })) ?? {};
+  return kvReadEach(FAILED_KEY, z.strictObject({ attempts: z.int(), lastAt: z.string(), reason: z.string() }));
 }
 
 function saveTrackFailures(all: Record<string, TrackFailure>): void {
@@ -658,8 +638,8 @@ export const TRACK_SECONDS = 360;
 // under its own key, like any workout track.
 
 /** True when a ride drives its music's intensity block by block. */
-export function isAdaptive(tpl: { ride?: { segments: { intensity?: unknown }[] } | undefined }): boolean {
-  return tpl.ride?.segments.some((s) => s.intensity !== undefined) ?? false;
+export function isAdaptive(tpl: Pick<Template, "plan">): boolean {
+  return tpl.plan.kind === "ride" && tpl.plan.segments.some((s) => s.intensity !== undefined);
 }
 
 /**
@@ -738,7 +718,7 @@ async function requestTrack(
 ): Promise<PendingTask> {
   const song = songForKey(key);
   const tpl = templateById(key);
-  const style = song ? buildSongStyle(song) : buildStyle(workoutName, profile, tpl?.interval);
+  const style = song ? buildSongStyle(song) : buildStyle(workoutName, profile, tpl ? intervalOf(tpl) : undefined);
   // In custom mode `prompt` is sung: only a song with lyrics sends one.
   const lyrics = song?.lyrics;
 

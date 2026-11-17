@@ -862,26 +862,2375 @@
   ],
   "programs": [
     {
-      "id": "mimir-x",
+      "id": "tpl-varg-18",
       "template": {
-        "id": "mimir-x",
+        "id": "tpl-varg-18",
+        "name": "Varg 18",
+        "branch": "Varg",
+        "description": "Twelve stations, strength alternating with cardio, no station repeats back to back. Cardio alternates run on the spot and air boxing.",
+        "level": "intermediate",
+        "plan": {
+          "kind": "interval",
+          "stations": [
+            "ex-sit-up",
+            "ex-run-in-place",
+            "ex-push-up",
+            "ex-air-boxing",
+            "ex-back-lift",
+            "ex-run-in-place",
+            "ex-air-squat",
+            "ex-air-boxing",
+            "ex-bench-dip",
+            "ex-run-in-place",
+            "ex-burpee",
+            "ex-air-boxing"
+          ],
+          "work": 20,
+          "rest": 10,
+          "rounds": 3
+        },
+        "music": {
+          "bpm": 160,
+          "style": "hard electronic, punchy drums, dark synth bass, no vocals",
+          "theme": "Eighteen minutes of short brutal intervals, wolf-pack pace, never a full breath"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-varg-30",
+      "template": {
+        "id": "tpl-varg-30",
+        "name": "Varg 30",
+        "branch": "Varg",
+        "description": "Varg 18 with longer work: the same twelve stations in the same order, strength alternating with cardio, but 40 seconds under load per station. Cardio alternates run on the spot and air boxing.",
+        "level": "advanced",
+        "plan": {
+          "kind": "interval",
+          "stations": [
+            "ex-sit-up",
+            "ex-run-in-place",
+            "ex-push-up",
+            "ex-air-boxing",
+            "ex-back-lift",
+            "ex-run-in-place",
+            "ex-air-squat",
+            "ex-air-boxing",
+            "ex-bench-dip",
+            "ex-run-in-place",
+            "ex-burpee",
+            "ex-air-boxing"
+          ],
+          "work": 40,
+          "rest": 10,
+          "rounds": 3
+        },
+        "music": {
+          "bpm": 160,
+          "style": "hard electronic, punchy drums, dark synth bass, no vocals",
+          "theme": "Thirty minutes of long grinding intervals, wolf-pack pace held past the burn"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-varg-yoga-10",
+      "template": {
+        "id": "tpl-varg-yoga-10",
+        "name": "Varg Yoga 10",
+        "branch": "Varg",
+        "description": "Ten minutes of holds for any day: wake the spine, stand strong, balance, open the hips, a little core, then settle. Between poses you get 10 seconds to move while the voice names the next one, with form cues on screen; one-sided poses go left, then right.",
+        "level": "beginner",
+        "plan": {
+          "kind": "flow",
+          "transition": 10,
+          "steps": [
+            {
+              "exerciseId": "ex-childs-pose",
+              "seconds": 40
+            },
+            {
+              "exerciseId": "ex-cat-cow",
+              "seconds": 40
+            },
+            {
+              "exerciseId": "ex-downward-dog",
+              "seconds": 40
+            },
+            {
+              "exerciseId": "ex-upward-salute",
+              "seconds": 30
+            },
+            {
+              "exerciseId": "ex-standing-forward-fold",
+              "seconds": 30
+            },
+            {
+              "exerciseId": "ex-chair-pose",
+              "seconds": 30
+            },
+            {
+              "exerciseId": "ex-warrior-two",
+              "seconds": 40,
+              "side": "left"
+            },
+            {
+              "exerciseId": "ex-warrior-two",
+              "seconds": 40,
+              "side": "right"
+            },
+            {
+              "exerciseId": "ex-triangle-pose",
+              "seconds": 35,
+              "side": "left"
+            },
+            {
+              "exerciseId": "ex-triangle-pose",
+              "seconds": 35,
+              "side": "right"
+            },
+            {
+              "exerciseId": "ex-tree-pose",
+              "seconds": 30,
+              "side": "left"
+            },
+            {
+              "exerciseId": "ex-tree-pose",
+              "seconds": 30,
+              "side": "right"
+            },
+            {
+              "exerciseId": "ex-pigeon-pose",
+              "seconds": 40,
+              "side": "left"
+            },
+            {
+              "exerciseId": "ex-pigeon-pose",
+              "seconds": 40,
+              "side": "right"
+            },
+            {
+              "exerciseId": "ex-boat-pose",
+              "seconds": 30
+            },
+            {
+              "exerciseId": "ex-bridge-pose",
+              "seconds": 40
+            },
+            {
+              "exerciseId": "ex-savasana",
+              "seconds": 30
+            }
+          ],
+          "note": "both sides"
+        },
+        "music": {
+          "bpm": 70,
+          "style": "calm ambient, soft pads, gentle hand percussion, no vocals",
+          "theme": "Ten quiet minutes on the mat, breath, balance and a slow reset"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-varg-yoga-20",
+      "template": {
+        "id": "tpl-varg-yoga-20",
+        "name": "Varg Yoga 20",
+        "branch": "Varg",
+        "description": "Twenty minutes of holds: longer holds and more of everything. A sun-salutation start, standing strength and balance, core, deep hips and hamstrings, a spinal twist, and a proper rest at the end. 10 seconds to move between poses while the voice names the next one, and on-screen cues throughout.",
+        "level": "beginner",
+        "plan": {
+          "kind": "flow",
+          "transition": 10,
+          "steps": [
+            {
+              "exerciseId": "ex-childs-pose",
+              "seconds": 60
+            },
+            {
+              "exerciseId": "ex-cat-cow",
+              "seconds": 60
+            },
+            {
+              "exerciseId": "ex-downward-dog",
+              "seconds": 45
+            },
+            {
+              "exerciseId": "ex-upward-salute",
+              "seconds": 30
+            },
+            {
+              "exerciseId": "ex-standing-forward-fold",
+              "seconds": 45
+            },
+            {
+              "exerciseId": "ex-plank",
+              "seconds": 30
+            },
+            {
+              "exerciseId": "ex-down-dog-cobra",
+              "seconds": 45
+            },
+            {
+              "exerciseId": "ex-low-lunge",
+              "seconds": 45,
+              "side": "left"
+            },
+            {
+              "exerciseId": "ex-low-lunge",
+              "seconds": 45,
+              "side": "right"
+            },
+            {
+              "exerciseId": "ex-chair-pose",
+              "seconds": 45
+            },
+            {
+              "exerciseId": "ex-warrior-two",
+              "seconds": 45,
+              "side": "left"
+            },
+            {
+              "exerciseId": "ex-warrior-two",
+              "seconds": 45,
+              "side": "right"
+            },
+            {
+              "exerciseId": "ex-triangle-pose",
+              "seconds": 45,
+              "side": "left"
+            },
+            {
+              "exerciseId": "ex-triangle-pose",
+              "seconds": 45,
+              "side": "right"
+            },
+            {
+              "exerciseId": "ex-tree-pose",
+              "seconds": 40,
+              "side": "left"
+            },
+            {
+              "exerciseId": "ex-tree-pose",
+              "seconds": 40,
+              "side": "right"
+            },
+            {
+              "exerciseId": "ex-worlds-greatest-stretch",
+              "seconds": 60
+            },
+            {
+              "exerciseId": "ex-boat-pose",
+              "seconds": 30
+            },
+            {
+              "exerciseId": "ex-pigeon-pose",
+              "seconds": 60,
+              "side": "left"
+            },
+            {
+              "exerciseId": "ex-pigeon-pose",
+              "seconds": 60,
+              "side": "right"
+            },
+            {
+              "exerciseId": "ex-seated-forward-fold",
+              "seconds": 60
+            },
+            {
+              "exerciseId": "ex-bridge-pose",
+              "seconds": 45
+            },
+            {
+              "exerciseId": "ex-open-book",
+              "seconds": 45,
+              "side": "left"
+            },
+            {
+              "exerciseId": "ex-open-book",
+              "seconds": 45,
+              "side": "right"
+            },
+            {
+              "exerciseId": "ex-savasana",
+              "seconds": 85
+            }
+          ],
+          "note": "both sides"
+        },
+        "music": {
+          "bpm": 72,
+          "style": "calm ambient, warm pads, soft piano, slow hand drums, no vocals",
+          "theme": "Twenty unhurried minutes of strength, balance and release, breathe and settle"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-ride-free",
+      "template": {
+        "id": "tpl-ride-free",
+        "name": "Free ride",
+        "branch": "Spin bike",
+        "description": "No program, just the bike: live watts, cadence, kcal and your power zone, with the clock counting up from the start. Ride as long as you like; Finish saves it to your history.",
+        "level": "beginner",
+        "plan": {
+          "kind": "ride",
+          "segments": [],
+          "free": true,
+          "scheme": "Open-ended · live watts, cadence, kcal and zone",
+          "estimateMinutes": 30
+        },
+        "music": {
+          "bpm": 124,
+          "style": "steady deep house, warm bass, rolling groove, no vocals",
+          "theme": "An easy open-ended ride with no plan, just turning the pedals"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-ride-z2-40",
+      "template": {
+        "id": "tpl-ride-z2-40",
+        "name": "Zone 2 · 40",
+        "branch": "Spin bike",
+        "description": "Forty minutes in heart-rate zone 2: easy enough to talk, steady enough to build the engine. Steered by your chest strap against your Garmin zones, not by watts: start around 56–75 % FTP and let the heart rate set the effort as the ride drifts. The ride logs how much of it you spent in the zone.",
+        "level": "beginner",
+        "plan": {
+          "kind": "ride",
+          "segments": [
+            {
+              "label": "Zone 2",
+              "ftp": [
+                56,
+                75
+              ],
+              "hrZone": 2,
+              "seconds": 2400,
+              "cadence": [
+                85,
+                95
+              ]
+            }
+          ],
+          "scheme": "40 min in heart-rate zone 2 · 85–95 rpm · needs the strap"
+        },
+        "music": {
+          "bpm": 128,
+          "style": "steady deep house, warm bass, rolling groove, no vocals",
+          "theme": "Forty easy, even minutes, a long steady engine-building ride"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-ride-200-kcal",
+      "template": {
+        "id": "tpl-ride-200-kcal",
+        "name": "First to 200 kcal",
+        "branch": "Spin bike",
+        "description": "A race against the clock: 200 kcal as fast as you can make them. Kcal come from the bike, so it ends itself at 200; the target is threshold and above. Pace it, then empty the tank.",
+        "level": "intermediate",
+        "plan": {
+          "kind": "ride",
+          "race": true,
+          "segments": [
+            {
+              "label": "All out",
+              "ftp": [
+                95,
+                120
+              ],
+              "kcal": 200,
+              "cadence": [
+                90,
+                110
+              ]
+            }
+          ],
+          "scheme": "200 kcal @ 95–120 % FTP · for time",
+          "estimateMinutes": 12
+        },
+        "music": {
+          "bpm": 172,
+          "style": "hard electronic, driving drums, aggressive synth",
+          "theme": "A flat-out calorie race, no pacing after halfway"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-ride-sweet-spot",
+      "template": {
+        "id": "tpl-ride-sweet-spot",
+        "name": "Sweet Spot 3×10",
+        "branch": "Spin bike",
+        "description": "The FTP builder: three ten-minute blocks just under threshold, five easy minutes between, a ten-minute warm-up and a five-minute spin to finish.",
+        "level": "intermediate",
+        "plan": {
+          "kind": "ride",
+          "segments": [
+            {
+              "label": "Warm-up",
+              "ftp": [
+                50,
+                65
+              ],
+              "seconds": 600,
+              "cadence": [
+                85,
+                95
+              ]
+            },
+            {
+              "label": "Sweet spot",
+              "ftp": [
+                88,
+                94
+              ],
+              "seconds": 600,
+              "cadence": [
+                85,
+                95
+              ]
+            },
+            {
+              "label": "Easy spin",
+              "ftp": [
+                45,
+                55
+              ],
+              "seconds": 300
+            },
+            {
+              "label": "Sweet spot",
+              "ftp": [
+                88,
+                94
+              ],
+              "seconds": 600,
+              "cadence": [
+                85,
+                95
+              ]
+            },
+            {
+              "label": "Easy spin",
+              "ftp": [
+                45,
+                55
+              ],
+              "seconds": 300
+            },
+            {
+              "label": "Sweet spot",
+              "ftp": [
+                88,
+                94
+              ],
+              "seconds": 600,
+              "cadence": [
+                85,
+                95
+              ]
+            },
+            {
+              "label": "Cool-down",
+              "ftp": [
+                40,
+                55
+              ],
+              "seconds": 300
+            }
+          ],
+          "scheme": "10 min warm-up · 3 × 10 min @ 88–94 % FTP, 5 min easy between · 5 min cool-down"
+        },
+        "music": {
+          "bpm": 132,
+          "style": "progressive house, building synths, steady kick, no vocals",
+          "theme": "Long controlled efforts just under the red line"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-ride-vo2-5x3",
+      "template": {
+        "id": "tpl-ride-vo2-5x3",
+        "name": "VO2 Max 5×3",
+        "branch": "Spin bike",
+        "description": "Five three-minute efforts above threshold with equal recovery. Hard from the second minute of each. That's the point.",
+        "level": "advanced",
+        "plan": {
+          "kind": "ride",
+          "segments": [
+            {
+              "label": "Warm-up",
+              "ftp": [
+                50,
+                70
+              ],
+              "seconds": 600,
+              "cadence": [
+                85,
+                95
+              ]
+            },
+            {
+              "label": "VO2 effort 1",
+              "ftp": [
+                106,
+                120
+              ],
+              "seconds": 180,
+              "cadence": [
+                95,
+                105
+              ]
+            },
+            {
+              "label": "Easy spin",
+              "ftp": [
+                40,
+                55
+              ],
+              "seconds": 180
+            },
+            {
+              "label": "VO2 effort 2",
+              "ftp": [
+                106,
+                120
+              ],
+              "seconds": 180,
+              "cadence": [
+                95,
+                105
+              ]
+            },
+            {
+              "label": "Easy spin",
+              "ftp": [
+                40,
+                55
+              ],
+              "seconds": 180
+            },
+            {
+              "label": "VO2 effort 3",
+              "ftp": [
+                106,
+                120
+              ],
+              "seconds": 180,
+              "cadence": [
+                95,
+                105
+              ]
+            },
+            {
+              "label": "Easy spin",
+              "ftp": [
+                40,
+                55
+              ],
+              "seconds": 180
+            },
+            {
+              "label": "VO2 effort 4",
+              "ftp": [
+                106,
+                120
+              ],
+              "seconds": 180,
+              "cadence": [
+                95,
+                105
+              ]
+            },
+            {
+              "label": "Easy spin",
+              "ftp": [
+                40,
+                55
+              ],
+              "seconds": 180
+            },
+            {
+              "label": "VO2 effort 5",
+              "ftp": [
+                106,
+                120
+              ],
+              "seconds": 180,
+              "cadence": [
+                95,
+                105
+              ]
+            },
+            {
+              "label": "Easy spin",
+              "ftp": [
+                40,
+                55
+              ],
+              "seconds": 180
+            },
+            {
+              "label": "Cool-down",
+              "ftp": [
+                40,
+                55
+              ],
+              "seconds": 300
+            }
+          ],
+          "scheme": "10 min warm-up · 5 × 3 min @ 106–120 % FTP, 3 min easy between · 5 min cool-down"
+        },
+        "music": {
+          "bpm": 140,
+          "style": "hard techno, pounding kick, rising tension, no vocals",
+          "theme": "Three minutes at a time, deep in the red"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-ride-tabata",
+      "template": {
+        "id": "tpl-ride-tabata",
+        "name": "Bike Tabata",
+        "branch": "Spin bike",
+        "description": "Eight rounds of 20 seconds all out, 10 seconds easy, after a proper warm-up. Four minutes that feel like forty.",
+        "level": "advanced",
+        "plan": {
+          "kind": "ride",
+          "segments": [
+            {
+              "label": "Warm-up",
+              "ftp": [
+                50,
+                65
+              ],
+              "seconds": 480,
+              "cadence": [
+                85,
+                95
+              ]
+            },
+            {
+              "label": "Sprint",
+              "ftp": [
+                150,
+                250
+              ],
+              "seconds": 20,
+              "cadence": [
+                110,
+                130
+              ]
+            },
+            {
+              "label": "Easy",
+              "ftp": [
+                30,
+                50
+              ],
+              "seconds": 10
+            },
+            {
+              "label": "Sprint",
+              "ftp": [
+                150,
+                250
+              ],
+              "seconds": 20,
+              "cadence": [
+                110,
+                130
+              ]
+            },
+            {
+              "label": "Easy",
+              "ftp": [
+                30,
+                50
+              ],
+              "seconds": 10
+            },
+            {
+              "label": "Sprint",
+              "ftp": [
+                150,
+                250
+              ],
+              "seconds": 20,
+              "cadence": [
+                110,
+                130
+              ]
+            },
+            {
+              "label": "Easy",
+              "ftp": [
+                30,
+                50
+              ],
+              "seconds": 10
+            },
+            {
+              "label": "Sprint",
+              "ftp": [
+                150,
+                250
+              ],
+              "seconds": 20,
+              "cadence": [
+                110,
+                130
+              ]
+            },
+            {
+              "label": "Easy",
+              "ftp": [
+                30,
+                50
+              ],
+              "seconds": 10
+            },
+            {
+              "label": "Sprint",
+              "ftp": [
+                150,
+                250
+              ],
+              "seconds": 20,
+              "cadence": [
+                110,
+                130
+              ]
+            },
+            {
+              "label": "Easy",
+              "ftp": [
+                30,
+                50
+              ],
+              "seconds": 10
+            },
+            {
+              "label": "Sprint",
+              "ftp": [
+                150,
+                250
+              ],
+              "seconds": 20,
+              "cadence": [
+                110,
+                130
+              ]
+            },
+            {
+              "label": "Easy",
+              "ftp": [
+                30,
+                50
+              ],
+              "seconds": 10
+            },
+            {
+              "label": "Sprint",
+              "ftp": [
+                150,
+                250
+              ],
+              "seconds": 20,
+              "cadence": [
+                110,
+                130
+              ]
+            },
+            {
+              "label": "Easy",
+              "ftp": [
+                30,
+                50
+              ],
+              "seconds": 10
+            },
+            {
+              "label": "Sprint",
+              "ftp": [
+                150,
+                250
+              ],
+              "seconds": 20,
+              "cadence": [
+                110,
+                130
+              ]
+            },
+            {
+              "label": "Easy",
+              "ftp": [
+                30,
+                50
+              ],
+              "seconds": 10
+            },
+            {
+              "label": "Cool-down",
+              "ftp": [
+                40,
+                55
+              ],
+              "seconds": 360
+            }
+          ],
+          "scheme": "8 min warm-up · 8 × 20 s all out (150 %+ FTP) / 10 s easy · 6 min cool-down"
+        },
+        "music": {
+          "bpm": 174,
+          "style": "frantic drum and bass, huge drops, no vocals",
+          "theme": "Eight sprints, nothing held back"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-ride-sit-stand-accelerate",
+      "template": {
+        "id": "tpl-ride-sit-stand-accelerate",
+        "name": "Sit · Stand · Accelerate",
+        "branch": "Spin bike",
+        "description": "Ten one-minute rounds: 20 seconds seated, 20 standing, 20 accelerating, no rest between. The music follows the blocks: one song set, low seated, mid standing, its peak accelerating, a different song each round.",
+        "level": "intermediate",
+        "plan": {
+          "kind": "ride",
+          "segments": [
+            {
+              "label": "Seated",
+              "ftp": [
+                75,
+                85
+              ],
+              "seconds": 20,
+              "cadence": [
+                85,
+                95
+              ],
+              "intensity": 1
+            },
+            {
+              "label": "Standing",
+              "ftp": [
+                90,
+                105
+              ],
+              "seconds": 20,
+              "cadence": [
+                60,
+                75
+              ],
+              "intensity": 2
+            },
+            {
+              "label": "Accelerate",
+              "ftp": [
+                110,
+                130
+              ],
+              "seconds": 20,
+              "cadence": [
+                105,
+                120
+              ],
+              "intensity": 3
+            },
+            {
+              "label": "Seated",
+              "ftp": [
+                75,
+                85
+              ],
+              "seconds": 20,
+              "cadence": [
+                85,
+                95
+              ],
+              "intensity": 1
+            },
+            {
+              "label": "Standing",
+              "ftp": [
+                90,
+                105
+              ],
+              "seconds": 20,
+              "cadence": [
+                60,
+                75
+              ],
+              "intensity": 2
+            },
+            {
+              "label": "Accelerate",
+              "ftp": [
+                110,
+                130
+              ],
+              "seconds": 20,
+              "cadence": [
+                105,
+                120
+              ],
+              "intensity": 3
+            },
+            {
+              "label": "Seated",
+              "ftp": [
+                75,
+                85
+              ],
+              "seconds": 20,
+              "cadence": [
+                85,
+                95
+              ],
+              "intensity": 1
+            },
+            {
+              "label": "Standing",
+              "ftp": [
+                90,
+                105
+              ],
+              "seconds": 20,
+              "cadence": [
+                60,
+                75
+              ],
+              "intensity": 2
+            },
+            {
+              "label": "Accelerate",
+              "ftp": [
+                110,
+                130
+              ],
+              "seconds": 20,
+              "cadence": [
+                105,
+                120
+              ],
+              "intensity": 3
+            },
+            {
+              "label": "Seated",
+              "ftp": [
+                75,
+                85
+              ],
+              "seconds": 20,
+              "cadence": [
+                85,
+                95
+              ],
+              "intensity": 1
+            },
+            {
+              "label": "Standing",
+              "ftp": [
+                90,
+                105
+              ],
+              "seconds": 20,
+              "cadence": [
+                60,
+                75
+              ],
+              "intensity": 2
+            },
+            {
+              "label": "Accelerate",
+              "ftp": [
+                110,
+                130
+              ],
+              "seconds": 20,
+              "cadence": [
+                105,
+                120
+              ],
+              "intensity": 3
+            },
+            {
+              "label": "Seated",
+              "ftp": [
+                75,
+                85
+              ],
+              "seconds": 20,
+              "cadence": [
+                85,
+                95
+              ],
+              "intensity": 1
+            },
+            {
+              "label": "Standing",
+              "ftp": [
+                90,
+                105
+              ],
+              "seconds": 20,
+              "cadence": [
+                60,
+                75
+              ],
+              "intensity": 2
+            },
+            {
+              "label": "Accelerate",
+              "ftp": [
+                110,
+                130
+              ],
+              "seconds": 20,
+              "cadence": [
+                105,
+                120
+              ],
+              "intensity": 3
+            },
+            {
+              "label": "Seated",
+              "ftp": [
+                75,
+                85
+              ],
+              "seconds": 20,
+              "cadence": [
+                85,
+                95
+              ],
+              "intensity": 1
+            },
+            {
+              "label": "Standing",
+              "ftp": [
+                90,
+                105
+              ],
+              "seconds": 20,
+              "cadence": [
+                60,
+                75
+              ],
+              "intensity": 2
+            },
+            {
+              "label": "Accelerate",
+              "ftp": [
+                110,
+                130
+              ],
+              "seconds": 20,
+              "cadence": [
+                105,
+                120
+              ],
+              "intensity": 3
+            },
+            {
+              "label": "Seated",
+              "ftp": [
+                75,
+                85
+              ],
+              "seconds": 20,
+              "cadence": [
+                85,
+                95
+              ],
+              "intensity": 1
+            },
+            {
+              "label": "Standing",
+              "ftp": [
+                90,
+                105
+              ],
+              "seconds": 20,
+              "cadence": [
+                60,
+                75
+              ],
+              "intensity": 2
+            },
+            {
+              "label": "Accelerate",
+              "ftp": [
+                110,
+                130
+              ],
+              "seconds": 20,
+              "cadence": [
+                105,
+                120
+              ],
+              "intensity": 3
+            },
+            {
+              "label": "Seated",
+              "ftp": [
+                75,
+                85
+              ],
+              "seconds": 20,
+              "cadence": [
+                85,
+                95
+              ],
+              "intensity": 1
+            },
+            {
+              "label": "Standing",
+              "ftp": [
+                90,
+                105
+              ],
+              "seconds": 20,
+              "cadence": [
+                60,
+                75
+              ],
+              "intensity": 2
+            },
+            {
+              "label": "Accelerate",
+              "ftp": [
+                110,
+                130
+              ],
+              "seconds": 20,
+              "cadence": [
+                105,
+                120
+              ],
+              "intensity": 3
+            },
+            {
+              "label": "Seated",
+              "ftp": [
+                75,
+                85
+              ],
+              "seconds": 20,
+              "cadence": [
+                85,
+                95
+              ],
+              "intensity": 1
+            },
+            {
+              "label": "Standing",
+              "ftp": [
+                90,
+                105
+              ],
+              "seconds": 20,
+              "cadence": [
+                60,
+                75
+              ],
+              "intensity": 2
+            },
+            {
+              "label": "Accelerate",
+              "ftp": [
+                110,
+                130
+              ],
+              "seconds": 20,
+              "cadence": [
+                105,
+                120
+              ],
+              "intensity": 3
+            },
+            {
+              "label": "Seated",
+              "ftp": [
+                75,
+                85
+              ],
+              "seconds": 20,
+              "cadence": [
+                85,
+                95
+              ],
+              "intensity": 1
+            },
+            {
+              "label": "Standing",
+              "ftp": [
+                90,
+                105
+              ],
+              "seconds": 20,
+              "cadence": [
+                60,
+                75
+              ],
+              "intensity": 2
+            },
+            {
+              "label": "Accelerate",
+              "ftp": [
+                110,
+                130
+              ],
+              "seconds": 20,
+              "cadence": [
+                105,
+                120
+              ],
+              "intensity": 3
+            },
+            {
+              "label": "Cool-down",
+              "ftp": [
+                40,
+                55
+              ],
+              "seconds": 300,
+              "intensity": 1
+            }
+          ],
+          "scheme": "10 × (20 s seated @ 75–85 % FTP / 20 s standing @ 90–105 % FTP, 60–75 rpm / 20 s accelerate @ 110–130 % FTP, 105–120 rpm) · 5 min cool-down"
+        },
+        "music": {
+          "bpm": 144,
+          "style": "driving tech house, punchy kick, rolling bassline, no vocals",
+          "theme": "Sit, stand, accelerate, a minute at a time, the music lifting with every block",
+          "set": "techno"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-ride-kcal-ladder",
+      "template": {
+        "id": "tpl-ride-kcal-ladder",
+        "name": "Calorie Ladder",
+        "branch": "Spin bike",
+        "description": "A race up a ladder: 50, 100, then 150 kcal at threshold, with three easy minutes between rungs. The clock never stops: the score is your total time.",
+        "level": "intermediate",
+        "plan": {
+          "kind": "ride",
+          "race": true,
+          "segments": [
+            {
+              "label": "Rung one",
+              "ftp": [
+                95,
+                110
+              ],
+              "kcal": 50,
+              "cadence": [
+                90,
+                100
+              ]
+            },
+            {
+              "label": "Easy spin",
+              "ftp": [
+                45,
+                55
+              ],
+              "seconds": 180
+            },
+            {
+              "label": "Rung two",
+              "ftp": [
+                95,
+                110
+              ],
+              "kcal": 100,
+              "cadence": [
+                90,
+                100
+              ]
+            },
+            {
+              "label": "Easy spin",
+              "ftp": [
+                45,
+                55
+              ],
+              "seconds": 180
+            },
+            {
+              "label": "Rung three",
+              "ftp": [
+                95,
+                110
+              ],
+              "kcal": 150,
+              "cadence": [
+                90,
+                100
+              ]
+            }
+          ],
+          "scheme": "50 kcal · 3 min easy · 100 kcal · 3 min easy · 150 kcal @ 95–110 % FTP · for time",
+          "estimateMinutes": 26
+        },
+        "music": {
+          "bpm": 150,
+          "style": "driving electro, big bassline, no vocals",
+          "theme": "Climb the ladder, every rung longer than the last"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-fran",
+      "template": {
+        "id": "tpl-fran",
+        "name": "Fran",
+        "branch": "CrossFit Benchmark",
+        "description": "The sprint benchmark: thrusters and pull-ups, 21-15-9. Short and savage: most finish between 3 and 10 minutes.",
+        "level": "advanced",
+        "gear": {
+          "detail": {
+            "barbell": "43/29 kg"
+          }
+        },
+        "plan": {
+          "kind": "forTime",
+          "stages": [
+            {
+              "exerciseId": "ex-thruster",
+              "label": "21 thrusters",
+              "reps": 21
+            },
+            {
+              "exerciseId": "ex-pull-up",
+              "label": "21 pull-ups",
+              "reps": 21
+            },
+            {
+              "exerciseId": "ex-thruster",
+              "label": "15 thrusters",
+              "reps": 15
+            },
+            {
+              "exerciseId": "ex-pull-up",
+              "label": "15 pull-ups",
+              "reps": 15
+            },
+            {
+              "exerciseId": "ex-thruster",
+              "label": "9 thrusters",
+              "reps": 9
+            },
+            {
+              "exerciseId": "ex-pull-up",
+              "label": "9 pull-ups",
+              "reps": 9
+            }
+          ],
+          "scheme": "21-15-9 thrusters @ 43/29 kg · pull-ups · for time",
+          "estimateMinutes": 8
+        },
+        "music": {
+          "bpm": 178,
+          "style": "aggressive industrial metal, pounding drums",
+          "theme": "Three minutes of pure redline, no pacing, just go"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-fran-scaled",
+      "template": {
+        "id": "tpl-fran-scaled",
+        "name": "Fran (scaled)",
+        "branch": "CrossFit Scaled",
+        "description": "Fran for before your first pull-up: the same 21-15-9, with a light bar and ring rows. Set the rings so the last rows are hard but clean.",
+        "level": "beginner",
+        "gear": {
+          "detail": {
+            "barbell": "20/15 kg"
+          }
+        },
+        "plan": {
+          "kind": "forTime",
+          "stages": [
+            {
+              "exerciseId": "ex-thruster",
+              "label": "21 thrusters",
+              "reps": 21
+            },
+            {
+              "exerciseId": "ex-ring-row",
+              "label": "21 ring rows",
+              "reps": 21
+            },
+            {
+              "exerciseId": "ex-thruster",
+              "label": "15 thrusters",
+              "reps": 15
+            },
+            {
+              "exerciseId": "ex-ring-row",
+              "label": "15 ring rows",
+              "reps": 15
+            },
+            {
+              "exerciseId": "ex-thruster",
+              "label": "9 thrusters",
+              "reps": 9
+            },
+            {
+              "exerciseId": "ex-ring-row",
+              "label": "9 ring rows",
+              "reps": 9
+            }
+          ],
+          "scheme": "21-15-9 thrusters @ 20/15 kg · ring rows · for time",
+          "estimateMinutes": 8
+        },
+        "music": {
+          "bpm": 172,
+          "style": "driving electronic rock, heavy kick",
+          "theme": "Short and sharp, learn to suffer for a few minutes"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-helen",
+      "template": {
+        "id": "tpl-helen",
+        "name": "Helen",
+        "branch": "CrossFit Benchmark",
+        "description": "Three rounds of a run, kettlebell swings and pull-ups.",
+        "level": "advanced",
+        "gear": {
+          "detail": {
+            "kettlebell": "24/16 kg"
+          }
+        },
+        "plan": {
+          "kind": "forTime",
+          "stages": [
+            {
+              "exerciseId": "ex-run",
+              "label": "Round 1 · 400 m run",
+              "meters": 400
+            },
+            {
+              "exerciseId": "ex-kb-swing",
+              "label": "Round 1 · 21 kettlebell swings",
+              "reps": 21
+            },
+            {
+              "exerciseId": "ex-pull-up",
+              "label": "Round 1 · 12 pull-ups",
+              "reps": 12
+            },
+            {
+              "exerciseId": "ex-run",
+              "label": "Round 2 · 400 m run",
+              "meters": 400
+            },
+            {
+              "exerciseId": "ex-kb-swing",
+              "label": "Round 2 · 21 kettlebell swings",
+              "reps": 21
+            },
+            {
+              "exerciseId": "ex-pull-up",
+              "label": "Round 2 · 12 pull-ups",
+              "reps": 12
+            },
+            {
+              "exerciseId": "ex-run",
+              "label": "Round 3 · 400 m run",
+              "meters": 400
+            },
+            {
+              "exerciseId": "ex-kb-swing",
+              "label": "Round 3 · 21 kettlebell swings",
+              "reps": 21
+            },
+            {
+              "exerciseId": "ex-pull-up",
+              "label": "Round 3 · 12 pull-ups",
+              "reps": 12
+            }
+          ],
+          "scheme": "3 rounds: 400 m run · 21 kettlebell swings @ 24/16 kg · 12 pull-ups · for time",
+          "estimateMinutes": 12
+        },
+        "music": {
+          "bpm": 170,
+          "style": "hard rock, galloping drums, distorted bass",
+          "theme": "Run, swing, pull, three hard laps"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-helen-scaled",
+      "template": {
+        "id": "tpl-helen-scaled",
+        "name": "Helen (scaled)",
+        "branch": "CrossFit Scaled",
+        "description": "Helen with a lighter bell and ring rows in place of pull-ups.",
+        "level": "beginner",
+        "gear": {
+          "detail": {
+            "kettlebell": "16/12 kg"
+          }
+        },
+        "plan": {
+          "kind": "forTime",
+          "stages": [
+            {
+              "exerciseId": "ex-run",
+              "label": "Round 1 · 400 m run",
+              "meters": 400
+            },
+            {
+              "exerciseId": "ex-kb-swing",
+              "label": "Round 1 · 21 kettlebell swings",
+              "reps": 21
+            },
+            {
+              "exerciseId": "ex-ring-row",
+              "label": "Round 1 · 12 ring rows",
+              "reps": 12
+            },
+            {
+              "exerciseId": "ex-run",
+              "label": "Round 2 · 400 m run",
+              "meters": 400
+            },
+            {
+              "exerciseId": "ex-kb-swing",
+              "label": "Round 2 · 21 kettlebell swings",
+              "reps": 21
+            },
+            {
+              "exerciseId": "ex-ring-row",
+              "label": "Round 2 · 12 ring rows",
+              "reps": 12
+            },
+            {
+              "exerciseId": "ex-run",
+              "label": "Round 3 · 400 m run",
+              "meters": 400
+            },
+            {
+              "exerciseId": "ex-kb-swing",
+              "label": "Round 3 · 21 kettlebell swings",
+              "reps": 21
+            },
+            {
+              "exerciseId": "ex-ring-row",
+              "label": "Round 3 · 12 ring rows",
+              "reps": 12
+            }
+          ],
+          "scheme": "3 rounds: 400 m run · 21 kettlebell swings @ 16/12 kg · 12 ring rows · for time",
+          "estimateMinutes": 15
+        },
+        "music": {
+          "bpm": 164,
+          "style": "punchy rock, steady drive",
+          "theme": "Three honest rounds, keep moving"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-jackie",
+      "template": {
+        "id": "tpl-jackie",
+        "name": "Jackie",
+        "branch": "CrossFit Benchmark",
+        "description": "Row, thrusters, pull-ups: one long chipper, one lap each.",
+        "level": "advanced",
+        "gear": {
+          "detail": {
+            "barbell": "20/15 kg"
+          }
+        },
+        "plan": {
+          "kind": "forTime",
+          "stages": [
+            {
+              "exerciseId": "ex-row-erg",
+              "label": "1000 m row",
+              "meters": 1000
+            },
+            {
+              "exerciseId": "ex-thruster",
+              "label": "50 thrusters",
+              "reps": 50
+            },
+            {
+              "exerciseId": "ex-pull-up",
+              "label": "30 pull-ups",
+              "reps": 30
+            }
+          ],
+          "scheme": "1000 m row · 50 thrusters @ 20/15 kg · 30 pull-ups · for time",
+          "estimateMinutes": 12
+        },
+        "music": {
+          "bpm": 168,
+          "style": "dark electronic, rolling bassline, hard drums",
+          "theme": "Pull the erg, then grind through the bar"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-jackie-scaled",
+      "template": {
+        "id": "tpl-jackie-scaled",
+        "name": "Jackie (scaled)",
+        "branch": "CrossFit Scaled",
+        "description": "Jackie with a training bar and ring rows.",
+        "level": "beginner",
+        "gear": {
+          "detail": {
+            "barbell": "15/10 kg"
+          }
+        },
+        "plan": {
+          "kind": "forTime",
+          "stages": [
+            {
+              "exerciseId": "ex-row-erg",
+              "label": "1000 m row",
+              "meters": 1000
+            },
+            {
+              "exerciseId": "ex-thruster",
+              "label": "50 thrusters",
+              "reps": 50
+            },
+            {
+              "exerciseId": "ex-ring-row",
+              "label": "30 ring rows",
+              "reps": 30
+            }
+          ],
+          "scheme": "1000 m row · 50 thrusters @ 15/10 kg · 30 ring rows · for time",
+          "estimateMinutes": 15
+        },
+        "music": {
+          "bpm": 160,
+          "style": "dark electronic, steady groove",
+          "theme": "A long steady chipper, find a rhythm and hold it"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-karen",
+      "template": {
+        "id": "tpl-karen",
+        "name": "Karen",
+        "branch": "CrossFit Benchmark",
+        "description": "One movement, one number: 150 wall balls. Break them into sets before you have to: 10s or 15s with short rests.",
+        "level": "intermediate",
+        "gear": {
+          "detail": {
+            "wallBall": "9/6 kg · 3 m target"
+          }
+        },
+        "plan": {
+          "kind": "forTime",
+          "stages": [
+            {
+              "exerciseId": "ex-wall-ball",
+              "label": "150 wall balls",
+              "reps": 150
+            }
+          ],
+          "scheme": "150 wall balls @ 9/6 kg to a 3 m target · for time",
+          "estimateMinutes": 12
+        },
+        "music": {
+          "bpm": 166,
+          "style": "relentless techno, four-on-the-floor",
+          "theme": "Squat, throw, catch, one hundred and fifty times"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-kelly",
+      "template": {
+        "id": "tpl-kelly",
+        "name": "Kelly",
+        "branch": "CrossFit Benchmark",
+        "description": "Five long rounds of running, jumping and throwing: a lung burner.",
+        "level": "advanced",
+        "gear": {
+          "detail": {
+            "box": "60/50 cm",
+            "wallBall": "9/6 kg · 3 m target"
+          }
+        },
+        "plan": {
+          "kind": "forTime",
+          "stages": [
+            {
+              "exerciseId": "ex-run",
+              "label": "Round 1 · 400 m run",
+              "meters": 400
+            },
+            {
+              "exerciseId": "ex-box-jump",
+              "label": "Round 1 · 30 box jumps",
+              "reps": 30
+            },
+            {
+              "exerciseId": "ex-wall-ball",
+              "label": "Round 1 · 30 wall balls",
+              "reps": 30
+            },
+            {
+              "exerciseId": "ex-run",
+              "label": "Round 2 · 400 m run",
+              "meters": 400
+            },
+            {
+              "exerciseId": "ex-box-jump",
+              "label": "Round 2 · 30 box jumps",
+              "reps": 30
+            },
+            {
+              "exerciseId": "ex-wall-ball",
+              "label": "Round 2 · 30 wall balls",
+              "reps": 30
+            },
+            {
+              "exerciseId": "ex-run",
+              "label": "Round 3 · 400 m run",
+              "meters": 400
+            },
+            {
+              "exerciseId": "ex-box-jump",
+              "label": "Round 3 · 30 box jumps",
+              "reps": 30
+            },
+            {
+              "exerciseId": "ex-wall-ball",
+              "label": "Round 3 · 30 wall balls",
+              "reps": 30
+            },
+            {
+              "exerciseId": "ex-run",
+              "label": "Round 4 · 400 m run",
+              "meters": 400
+            },
+            {
+              "exerciseId": "ex-box-jump",
+              "label": "Round 4 · 30 box jumps",
+              "reps": 30
+            },
+            {
+              "exerciseId": "ex-wall-ball",
+              "label": "Round 4 · 30 wall balls",
+              "reps": 30
+            },
+            {
+              "exerciseId": "ex-run",
+              "label": "Round 5 · 400 m run",
+              "meters": 400
+            },
+            {
+              "exerciseId": "ex-box-jump",
+              "label": "Round 5 · 30 box jumps",
+              "reps": 30
+            },
+            {
+              "exerciseId": "ex-wall-ball",
+              "label": "Round 5 · 30 wall balls",
+              "reps": 30
+            }
+          ],
+          "scheme": "5 rounds: 400 m run · 30 box jumps @ 60/50 cm · 30 wall balls @ 9/6 kg · for time",
+          "estimateMinutes": 35
+        },
+        "music": {
+          "bpm": 168,
+          "style": "hard electronic rock, big drums",
+          "theme": "Five rounds of lungs and legs, keep the engine running"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-annie",
+      "template": {
+        "id": "tpl-annie",
+        "name": "Annie",
+        "branch": "CrossFit Benchmark",
+        "description": "Double-unders and sit-ups in a descending ladder.",
+        "level": "advanced",
+        "plan": {
+          "kind": "forTime",
+          "stages": [
+            {
+              "exerciseId": "ex-double-under",
+              "label": "50 double-unders",
+              "reps": 50
+            },
+            {
+              "exerciseId": "ex-sit-up",
+              "label": "50 sit-ups",
+              "reps": 50
+            },
+            {
+              "exerciseId": "ex-double-under",
+              "label": "40 double-unders",
+              "reps": 40
+            },
+            {
+              "exerciseId": "ex-sit-up",
+              "label": "40 sit-ups",
+              "reps": 40
+            },
+            {
+              "exerciseId": "ex-double-under",
+              "label": "30 double-unders",
+              "reps": 30
+            },
+            {
+              "exerciseId": "ex-sit-up",
+              "label": "30 sit-ups",
+              "reps": 30
+            },
+            {
+              "exerciseId": "ex-double-under",
+              "label": "20 double-unders",
+              "reps": 20
+            },
+            {
+              "exerciseId": "ex-sit-up",
+              "label": "20 sit-ups",
+              "reps": 20
+            },
+            {
+              "exerciseId": "ex-double-under",
+              "label": "10 double-unders",
+              "reps": 10
+            },
+            {
+              "exerciseId": "ex-sit-up",
+              "label": "10 sit-ups",
+              "reps": 10
+            }
+          ],
+          "scheme": "50-40-30-20-10 double-unders · sit-ups · for time",
+          "estimateMinutes": 10
+        },
+        "music": {
+          "bpm": 172,
+          "style": "fast drum and bass, crisp breaks",
+          "theme": "Quick feet, hard core, a ladder down to the finish"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-annie-scaled",
+      "template": {
+        "id": "tpl-annie-scaled",
+        "name": "Annie (scaled)",
+        "branch": "CrossFit Scaled",
+        "description": "Annie with single-unders while the double-unders come.",
+        "level": "beginner",
+        "plan": {
+          "kind": "forTime",
+          "stages": [
+            {
+              "exerciseId": "ex-single-under",
+              "label": "50 single-unders",
+              "reps": 50
+            },
+            {
+              "exerciseId": "ex-sit-up",
+              "label": "50 sit-ups",
+              "reps": 50
+            },
+            {
+              "exerciseId": "ex-single-under",
+              "label": "40 single-unders",
+              "reps": 40
+            },
+            {
+              "exerciseId": "ex-sit-up",
+              "label": "40 sit-ups",
+              "reps": 40
+            },
+            {
+              "exerciseId": "ex-single-under",
+              "label": "30 single-unders",
+              "reps": 30
+            },
+            {
+              "exerciseId": "ex-sit-up",
+              "label": "30 sit-ups",
+              "reps": 30
+            },
+            {
+              "exerciseId": "ex-single-under",
+              "label": "20 single-unders",
+              "reps": 20
+            },
+            {
+              "exerciseId": "ex-sit-up",
+              "label": "20 sit-ups",
+              "reps": 20
+            },
+            {
+              "exerciseId": "ex-single-under",
+              "label": "10 single-unders",
+              "reps": 10
+            },
+            {
+              "exerciseId": "ex-sit-up",
+              "label": "10 sit-ups",
+              "reps": 10
+            }
+          ],
+          "scheme": "50-40-30-20-10 single-unders · sit-ups · for time",
+          "estimateMinutes": 12
+        },
+        "music": {
+          "bpm": 164,
+          "style": "upbeat drum and bass",
+          "theme": "Light on the feet, skip, crunch, repeat"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-half-murph-scaled",
+      "template": {
+        "id": "tpl-half-murph-scaled",
+        "name": "Half Murph (scaled)",
+        "branch": "CrossFit Scaled",
+        "description": "Half of Murph, scaled for before your first pull-up: ring rows in place of pull-ups, no vest. Push-ups from the knees or with hands on a box are fine. Partition the middle however you like.",
+        "level": "intermediate",
+        "plan": {
+          "kind": "forTime",
+          "stages": [
+            {
+              "exerciseId": "ex-run",
+              "label": "800 m run",
+              "meters": 800
+            },
+            {
+              "exerciseId": "ex-ring-row",
+              "label": "50 ring rows",
+              "reps": 50
+            },
+            {
+              "exerciseId": "ex-push-up",
+              "label": "100 push-ups",
+              "reps": 100
+            },
+            {
+              "exerciseId": "ex-air-squat",
+              "label": "150 air squats",
+              "reps": 150
+            },
+            {
+              "exerciseId": "ex-run",
+              "label": "800 m run",
+              "meters": 800
+            }
+          ],
+          "scheme": "800 m run · 50 ring rows · 100 push-ups · 150 air squats · 800 m run · for time",
+          "estimateMinutes": 35
+        },
+        "music": {
+          "bpm": 170,
+          "style": "aggressive electronic rock, pounding drums",
+          "theme": "Half the hero, all the honour, earn the full one"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-pullup-path-1",
+      "template": {
+        "id": "tpl-pullup-path-1",
+        "name": "Pull-up Path 1",
+        "branch": "Varg",
+        "description": "For when a pull-up is still out of reach. Hangs build the grip, scapular pulls the first inch, rows the back, and slow negatives the strength to pull. Two or three times a week. Ready for Path 2 when you can hang the full 30 s and lower for 3–5 s on every negative.",
+        "level": "beginner",
+        "plan": {
+          "kind": "interval",
+          "stations": [
+            "ex-dead-hang",
+            "ex-scap-pull-up",
+            "ex-ring-row",
+            "ex-pull-up-negative"
+          ],
+          "work": 30,
+          "rest": 30,
+          "rounds": 4
+        },
+        "music": {
+          "bpm": 150,
+          "style": "steady hip-hop beat, heavy bass, no vocals",
+          "theme": "Patient strength, one more second on the bar each week"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-pullup-path-2",
+      "template": {
+        "id": "tpl-pullup-path-2",
+        "name": "Pull-up Path 2",
+        "branch": "Varg",
+        "description": "The next step: longer hangs and negatives, band-assisted pull-ups and rows. Use the thinnest band that still lets you do clean reps; when that band gets easy, try one strict pull-up at the start of the session.",
+        "level": "intermediate",
+        "plan": {
+          "kind": "interval",
+          "stations": [
+            "ex-dead-hang",
+            "ex-pull-up-negative",
+            "ex-band-pull-up",
+            "ex-ring-row"
+          ],
+          "work": 40,
+          "rest": 30,
+          "rounds": 4
+        },
+        "music": {
+          "bpm": 154,
+          "style": "boom-bap hip-hop beat, deep bass, no vocals",
+          "theme": "Closing in on the first pull-up, grind and believe"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-rasteplads",
+      "template": {
+        "id": "tpl-rasteplads",
+        "name": "Rasteplads",
+        "branch": "Varg",
+        "description": "Rest-stop reset after one to two hours behind the wheel. Standing only: nothing goes on the tarmac. Opens the hips the seat closed down, unlocks the shoulders, moves blood without soaking your shirt for the next leg.",
+        "level": "beginner",
+        "plan": {
+          "kind": "interval",
+          "stations": [
+            "ex-air-squat",
+            "ex-reverse-lunge",
+            "ex-knee-lift",
+            "ex-run-in-place",
+            "ex-arm-circles",
+            "ex-air-boxing"
+          ],
+          "work": 15,
+          "rest": 0,
+          "rounds": 3,
+          "note": "90 s a round"
+        },
+        "music": {
+          "bpm": 140,
+          "style": "motorik krautrock, hypnotic driving rhythm, analog synth, no vocals",
+          "theme": "Four and a half minutes at a roadside stop, no pauses, shake the highway out of the legs and get back on the road"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-dk-grund",
+      "template": {
+        "id": "tpl-dk-grund",
+        "name": "Grundtræning",
+        "branch": "Forsvaret",
+        "description": "Basic soldier conditioning circuit, inspired by Træn med Forsvaret. Push-ups, air squats, sit-ups, burpees, run on the spot.",
+        "level": "beginner",
+        "plan": {
+          "kind": "interval",
+          "stations": [
+            "ex-push-up",
+            "ex-air-squat",
+            "ex-sit-up",
+            "ex-burpee",
+            "ex-run-in-place"
+          ],
+          "work": 40,
+          "rest": 20,
+          "rounds": 3
+        },
+        "music": {
+          "bpm": 155,
+          "style": "nordic electronic rock, driving drums, cold synths",
+          "theme": "Danish soldier basic training, disciplined, no-nonsense grind"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-dk-march",
+      "template": {
+        "id": "tpl-dk-march",
+        "name": "Feltmarch",
+        "branch": "Forsvaret",
+        "description": "March training under load, inspired by Træn med Forsvaret.",
+        "level": "intermediate",
+        "gear": {
+          "detail": {
+            "ruck": "10 kg"
+          }
+        },
+        "plan": {
+          "kind": "logged",
+          "exercises": [
+            "ex-ruck"
+          ],
+          "scheme": "10 km march · 10 kg pack · steady pace",
+          "estimateMinutes": 110
+        },
+        "music": {
+          "bpm": 120,
+          "style": "marching drums, nordic folk undertones, hypnotic low drone",
+          "theme": "Field march across Danish terrain, endless steady kilometres"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-dk-kredsloeb",
+      "template": {
+        "id": "tpl-dk-kredsloeb",
+        "name": "Kredsløbstræning",
+        "branch": "Forsvaret",
+        "description": "Cardio circuit intervals, inspired by Træn med Forsvaret. Run on the spot, kettlebell swings, burpees.",
+        "level": "intermediate",
+        "plan": {
+          "kind": "interval",
+          "stations": [
+            "ex-run-in-place",
+            "ex-kb-swing",
+            "ex-burpee"
+          ],
+          "work": 60,
+          "rest": 20,
+          "rounds": 5
+        },
+        "music": {
+          "bpm": 165,
+          "style": "high-energy drum and bass, relentless breakbeats",
+          "theme": "Circuit intervals, heart pounding, quick transitions"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-murph",
+      "template": {
+        "id": "tpl-murph",
+        "name": "Murph",
+        "branch": "CrossFit Hero WOD",
+        "description": "In memory of Lt. Michael Murphy. Traditionally done wearing a 9 kg vest.",
+        "level": "advanced",
+        "gear": {
+          "extra": [
+            "vest"
+          ],
+          "detail": {
+            "vest": "9 kg · traditional"
+          }
+        },
+        "plan": {
+          "kind": "forTime",
+          "stages": [
+            {
+              "exerciseId": "ex-run",
+              "label": "1.6 km run",
+              "meters": 1600
+            },
+            {
+              "exerciseId": "ex-pull-up",
+              "label": "100 pull-ups",
+              "reps": 100
+            },
+            {
+              "exerciseId": "ex-push-up",
+              "label": "200 push-ups",
+              "reps": 200
+            },
+            {
+              "exerciseId": "ex-air-squat",
+              "label": "300 air squats",
+              "reps": 300
+            },
+            {
+              "exerciseId": "ex-run",
+              "label": "1.6 km run",
+              "meters": 1600
+            }
+          ],
+          "scheme": "1.6 km run · 100 pull-ups · 200 push-ups · 300 air squats · 1.6 km run · for time",
+          "estimateMinutes": 60
+        },
+        "music": {
+          "bpm": 175,
+          "style": "aggressive electronic rock, pounding drums, distorted guitar",
+          "theme": "Relentless hero tribute, pain, honor, pushing past the limit"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-acft",
+      "template": {
+        "id": "tpl-acft",
+        "name": "ACFT (Army Combat Fitness Test)",
+        "branch": "U.S. Army",
+        "description": "Six-event test of combat readiness. Log each event's score.",
+        "level": "advanced",
+        "gear": {
+          "detail": {
+            "barbell": "Hex bar",
+            "medBall": "4.5 kg",
+            "sled": "41 kg",
+            "carryPair": "2 × 18 kg"
+          }
+        },
+        "plan": {
+          "kind": "logged",
+          "exercises": [
+            "ex-deadlift",
+            "ex-power-throw",
+            "ex-push-up",
+            "ex-sprint-drag-carry",
+            "ex-plank",
+            "ex-run"
+          ],
+          "scheme": "3-rep deadlift · power throw · hand-release push-ups · sprint-drag-carry · plank · 3.2 km run",
+          "estimateMinutes": 50
+        },
+        "music": {
+          "bpm": 160,
+          "style": "hard military trap, heavy 808s, snare cadence",
+          "theme": "Combat readiness test, focused aggression under pressure"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-usmc-pft",
+      "template": {
+        "id": "tpl-usmc-pft",
+        "name": "USMC PFT",
+        "branch": "U.S. Marine Corps",
+        "description": "Physical Fitness Test: max effort on each event.",
+        "level": "intermediate",
+        "plan": {
+          "kind": "logged",
+          "exercises": [
+            "ex-pull-up",
+            "ex-plank",
+            "ex-run"
+          ],
+          "scheme": "Pull-ups (max) · plank (max hold) · 4.8 km run (for time)",
+          "estimateMinutes": 35
+        },
+        "music": {
+          "bpm": 165,
+          "style": "hard rock, driving double-time drums",
+          "theme": "Max effort test day, no slack, all out"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-navy-prt",
+      "template": {
+        "id": "tpl-navy-prt",
+        "name": "Navy PRT",
+        "branch": "U.S. Navy",
+        "description": "Physical Readiness Test.",
+        "level": "intermediate",
+        "plan": {
+          "kind": "logged",
+          "exercises": [
+            "ex-plank",
+            "ex-push-up",
+            "ex-run"
+          ],
+          "scheme": "Forearm plank (max) · push-ups 2:00 · 2.4 km run",
+          "estimateMinutes": 25
+        },
+        "music": {
+          "bpm": 150,
+          "style": "electronic rock, steady pulse",
+          "theme": "Disciplined readiness, steady grind to the finish"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-cindy",
+      "template": {
+        "id": "tpl-cindy",
+        "name": "Cindy",
+        "branch": "CrossFit Benchmark",
+        "description": "Cindy is a 20-minute AMRAP: 5 pull-ups, 10 push-ups, 15 air squats, as many rounds as possible. The guided player counts the clock, not rounds, so this is the timed adaptation.",
+        "level": "advanced",
+        "plan": {
+          "kind": "interval",
+          "stations": [
+            "ex-pull-up",
+            "ex-push-up",
+            "ex-air-squat"
+          ],
+          "work": 40,
+          "rest": 0,
+          "rounds": 10,
+          "note": "Timed adaptation"
+        },
+        "music": {
+          "bpm": 170,
+          "style": "fast punk rock, upbeat and raw",
+          "theme": "Twenty minutes of relentless rounds, keep moving"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-full-body-emom-20",
+      "template": {
+        "id": "tpl-full-body-emom-20",
         "name": "Full Body EMOM - 20 Minutes",
         "branch": "CrossFit",
         "description": "Two minutes of warm-up, then 18 minutes on the minute: a new exercise at the top of every minute, whatever is left of the minute is rest. Six stations, three rounds, the reps climbing each round. A jump rope, and a resistance band or loaded backpack for the rows.",
-        "scheme": "20:00 · 2:00 warm-up · 18:00 EMOM · 3 rounds · 6 stations",
         "level": "intermediate",
-        "exerciseIds": [
-          "ex-run-in-place",
-          "ex-arm-circles",
-          "ex-air-squat",
-          "ex-burpee",
-          "ex-reverse-lunge",
-          "ex-push-up",
-          "ex-single-under",
-          "ex-band-backpack-row",
-          "ex-dead-bug"
-        ],
-        "emom": {
+        "plan": {
+          "kind": "emom",
           "minute": 60,
           "rounds": 3,
           "warmup": [
@@ -963,12 +3312,382 @@
         }
       },
       "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-kettlebell-emom-20",
+      "template": {
+        "id": "tpl-kettlebell-emom-20",
+        "name": "Kettlebell EMOM - 20 Minutes",
+        "branch": "CrossFit",
+        "description": "One kettlebell, twenty minutes. Two minutes of warm-up, then 18 minutes on the minute: swings, goblet squats, clean and press, skipping to breathe, rows, dead bugs. Three rounds, the reps climbing each round; the rest of the minute is rest.",
+        "level": "intermediate",
+        "gear": {
+          "detail": {
+            "kettlebell": "12–24 kg"
+          }
+        },
+        "plan": {
+          "kind": "emom",
+          "minute": 60,
+          "rounds": 3,
+          "warmup": [
+            {
+              "exerciseId": "ex-run-in-place",
+              "seconds": 40
+            },
+            {
+              "exerciseId": "ex-arm-circles",
+              "seconds": 40
+            },
+            {
+              "exerciseId": "ex-air-squat",
+              "seconds": 40
+            }
+          ],
+          "stations": [
+            {
+              "exerciseId": "ex-kb-swing",
+              "reps": [
+                15,
+                18,
+                20
+              ],
+              "focus": "Hips, posterior chain, power"
+            },
+            {
+              "exerciseId": "ex-goblet-squat",
+              "reps": [
+                10,
+                11,
+                12
+              ],
+              "focus": "Legs, glutes, core"
+            },
+            {
+              "exerciseId": "ex-kb-clean-press",
+              "reps": [
+                10,
+                10,
+                10
+              ],
+              "perSide": "arm",
+              "focus": "Shoulders, full body"
+            },
+            {
+              "exerciseId": "ex-single-under",
+              "reps": [
+                50,
+                60,
+                70
+              ],
+              "focus": "Cardio, footwork"
+            },
+            {
+              "exerciseId": "ex-kb-row",
+              "reps": [
+                16,
+                16,
+                16
+              ],
+              "perSide": "arm",
+              "focus": "Back, biceps"
+            },
+            {
+              "exerciseId": "ex-dead-bug",
+              "reps": [
+                10,
+                13,
+                16
+              ],
+              "focus": "Core, stability"
+            }
+          ]
+        },
+        "music": {
+          "bpm": 150,
+          "style": "heavy industrial electronic, iron-hammer percussion, dark bass, no vocals",
+          "theme": "Swinging iron every minute on the minute, three rounds, no wasted breath"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-ruck-standard",
+      "template": {
+        "id": "tpl-ruck-standard",
+        "name": "Standard Ruck",
+        "branch": "Army Ranger / SF",
+        "description": "Foot-march standard: 19.3 km with a 16 kg dry pack.",
+        "level": "advanced",
+        "gear": {
+          "detail": {
+            "ruck": "16 kg"
+          }
+        },
+        "plan": {
+          "kind": "forTime",
+          "stages": [
+            {
+              "exerciseId": "ex-ruck",
+              "label": "19.3 km ruck",
+              "meters": 19300
+            }
+          ],
+          "scheme": "19.3 km ruck · 16 kg load · target sub-3:00 · for time",
+          "estimateMinutes": 180
+        },
+        "music": {
+          "bpm": 130,
+          "style": "dark folk percussion, marching cadence, low drone",
+          "theme": "Long ruck under load, one step after another for hours"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-dt",
+      "template": {
+        "id": "tpl-dt",
+        "name": "DT",
+        "branch": "CrossFit Hero WOD",
+        "description": "In memory of USAF SSgt Timothy Davis.",
+        "level": "advanced",
+        "gear": {
+          "detail": {
+            "barbell": "70/48 kg"
+          }
+        },
+        "plan": {
+          "kind": "forTime",
+          "stages": [
+            {
+              "exerciseId": "ex-deadlift",
+              "label": "Round 1 · 12 deadlifts",
+              "reps": 12
+            },
+            {
+              "exerciseId": "ex-hang-power-clean",
+              "label": "Round 1 · 9 hang power cleans",
+              "reps": 9
+            },
+            {
+              "exerciseId": "ex-push-press",
+              "label": "Round 1 · 6 push press",
+              "reps": 6
+            },
+            {
+              "exerciseId": "ex-deadlift",
+              "label": "Round 2 · 12 deadlifts",
+              "reps": 12
+            },
+            {
+              "exerciseId": "ex-hang-power-clean",
+              "label": "Round 2 · 9 hang power cleans",
+              "reps": 9
+            },
+            {
+              "exerciseId": "ex-push-press",
+              "label": "Round 2 · 6 push press",
+              "reps": 6
+            },
+            {
+              "exerciseId": "ex-deadlift",
+              "label": "Round 3 · 12 deadlifts",
+              "reps": 12
+            },
+            {
+              "exerciseId": "ex-hang-power-clean",
+              "label": "Round 3 · 9 hang power cleans",
+              "reps": 9
+            },
+            {
+              "exerciseId": "ex-push-press",
+              "label": "Round 3 · 6 push press",
+              "reps": 6
+            },
+            {
+              "exerciseId": "ex-deadlift",
+              "label": "Round 4 · 12 deadlifts",
+              "reps": 12
+            },
+            {
+              "exerciseId": "ex-hang-power-clean",
+              "label": "Round 4 · 9 hang power cleans",
+              "reps": 9
+            },
+            {
+              "exerciseId": "ex-push-press",
+              "label": "Round 4 · 6 push press",
+              "reps": 6
+            },
+            {
+              "exerciseId": "ex-deadlift",
+              "label": "Round 5 · 12 deadlifts",
+              "reps": 12
+            },
+            {
+              "exerciseId": "ex-hang-power-clean",
+              "label": "Round 5 · 9 hang power cleans",
+              "reps": 9
+            },
+            {
+              "exerciseId": "ex-push-press",
+              "label": "Round 5 · 6 push press",
+              "reps": 6
+            }
+          ],
+          "scheme": "5 rounds: 12 deadlifts · 9 hang power cleans · 6 push press @ 70/48 kg · for time",
+          "estimateMinutes": 15
+        },
+        "music": {
+          "bpm": 172,
+          "style": "heavy metal, barbell-slamming riffs",
+          "theme": "Five brutal barbell rounds in tribute, heavy and fast"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-varg-mobility-5",
+      "template": {
+        "id": "tpl-varg-mobility-5",
+        "name": "Varg Mobility 5",
+        "branch": "Varg",
+        "description": "Daily mobility, short form. Six stations through ankles, hips, spine and shoulders, straight through with no rest; the station change is the breather. Floor work included; do it every day, not just leg day.",
+        "level": "beginner",
+        "plan": {
+          "kind": "interval",
+          "stations": [
+            "ex-ankle-rock",
+            "ex-arm-circles",
+            "ex-cat-cow",
+            "ex-hip-90-switch",
+            "ex-worlds-greatest-stretch",
+            "ex-down-dog-cobra"
+          ],
+          "work": 50,
+          "rest": 0,
+          "rounds": 1,
+          "note": "5 min flow"
+        },
+        "music": {
+          "energy": 1,
+          "bpm": 90,
+          "style": "calm ambient, soft pads, minimal percussion, no vocals",
+          "theme": "Five minutes to unlock stiff joints before the day starts, unhurried, deliberate breath"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-varg-mobility-20",
+      "template": {
+        "id": "tpl-varg-mobility-20",
+        "name": "Varg Mobility 20",
+        "branch": "Varg",
+        "description": "Daily mobility, full form. Eight stations through ankles, hips, spine and shoulders across three rounds, straight through with no rest. Floor work included: the long version for a rest day or a stiff morning.",
+        "level": "beginner",
+        "plan": {
+          "kind": "interval",
+          "stations": [
+            "ex-ankle-rock",
+            "ex-arm-circles",
+            "ex-cat-cow",
+            "ex-hip-90-switch",
+            "ex-worlds-greatest-stretch",
+            "ex-hip-flexor-stretch",
+            "ex-open-book",
+            "ex-down-dog-cobra"
+          ],
+          "work": 50,
+          "rest": 0,
+          "rounds": 3,
+          "note": "20 min flow"
+        },
+        "music": {
+          "energy": 1,
+          "bpm": 80,
+          "style": "spacious ambient drone, slow evolving textures, gentle rhythmic pulse, no vocals",
+          "theme": "Twenty minutes moving through hips, spine, shoulders and ankles, patient, full range, a wolf stretching out before the hunt"
+        }
+      },
+      "savedAt": "2026-11-17"
+    },
+    {
+      "id": "tpl-chad",
+      "template": {
+        "id": "tpl-chad",
+        "name": "Chad 1000x",
+        "branch": "Navy SEAL",
+        "description": "1,000 box step-ups with a rucksack. Honors LT Chad Wilkinson.",
+        "level": "advanced",
+        "gear": {
+          "extra": [
+            "ruck"
+          ],
+          "detail": {
+            "box": "50 cm",
+            "ruck": "20/16 kg"
+          }
+        },
+        "plan": {
+          "kind": "forTime",
+          "stages": [
+            {
+              "exerciseId": "ex-box-step-up",
+              "label": "1000 box step-ups",
+              "reps": 1000
+            }
+          ],
+          "scheme": "1000 step-ups @ 50 cm box · 20/16 kg ruck · for time",
+          "estimateMinutes": 75
+        },
+        "music": {
+          "bpm": 135,
+          "style": "somber cinematic percussion, steady stomping beat",
+          "theme": "A thousand step-ups in remembrance, solemn, unbroken rhythm"
+        }
+      },
+      "savedAt": "2026-11-17"
     }
   ],
   "mimirItems": [
     {
-      "id": "i",
+      "id": "i0",
       "seq": 1,
+      "body": {
+        "kind": "user",
+        "text": "Build me a circuit"
+      }
+    },
+    {
+      "id": "i1",
+      "seq": 2,
+      "body": {
+        "kind": "mimir",
+        "text": "Building it."
+      }
+    },
+    {
+      "id": "i2",
+      "seq": 3,
+      "body": {
+        "kind": "error",
+        "text": "Stopped after 10 steps"
+      }
+    },
+    {
+      "id": "i3",
+      "seq": 4,
+      "body": {
+        "kind": "pick",
+        "templateId": "tpl-varg-18",
+        "why": "Fresh legs."
+      }
+    },
+    {
+      "id": "i4",
+      "seq": 5,
       "body": {
         "kind": "program",
         "template": {
@@ -976,20 +3695,9 @@
           "name": "Full Body EMOM - 20 Minutes",
           "branch": "CrossFit",
           "description": "Two minutes of warm-up, then 18 minutes on the minute: a new exercise at the top of every minute, whatever is left of the minute is rest. Six stations, three rounds, the reps climbing each round. A jump rope, and a resistance band or loaded backpack for the rows.",
-          "scheme": "20:00 · 2:00 warm-up · 18:00 EMOM · 3 rounds · 6 stations",
           "level": "intermediate",
-          "exerciseIds": [
-            "ex-run-in-place",
-            "ex-arm-circles",
-            "ex-air-squat",
-            "ex-burpee",
-            "ex-reverse-lunge",
-            "ex-push-up",
-            "ex-single-under",
-            "ex-band-backpack-row",
-            "ex-dead-bug"
-          ],
-          "emom": {
+          "plan": {
+            "kind": "emom",
             "minute": 60,
             "rounds": 3,
             "warmup": [
@@ -1072,12 +3780,124 @@
         },
         "saved": true
       }
+    },
+    {
+      "id": "i5",
+      "seq": 6,
+      "body": {
+        "kind": "program",
+        "template": {
+          "id": "mimir-y",
+          "name": "Full Body EMOM - 20 Minutes",
+          "branch": "CrossFit",
+          "description": "Two minutes of warm-up, then 18 minutes on the minute: a new exercise at the top of every minute, whatever is left of the minute is rest. Six stations, three rounds, the reps climbing each round. A jump rope, and a resistance band or loaded backpack for the rows.",
+          "level": "intermediate",
+          "plan": {
+            "kind": "emom",
+            "minute": 60,
+            "rounds": 3,
+            "warmup": [
+              {
+                "exerciseId": "ex-run-in-place",
+                "seconds": 40
+              },
+              {
+                "exerciseId": "ex-arm-circles",
+                "seconds": 40
+              },
+              {
+                "exerciseId": "ex-air-squat",
+                "seconds": 40
+              }
+            ],
+            "stations": [
+              {
+                "exerciseId": "ex-burpee",
+                "reps": [
+                  8,
+                  10,
+                  12
+                ],
+                "focus": "Cardio, explosiveness"
+              },
+              {
+                "exerciseId": "ex-reverse-lunge",
+                "reps": [
+                  16,
+                  16,
+                  16
+                ],
+                "perSide": "leg",
+                "focus": "Legs, glutes, balance"
+              },
+              {
+                "exerciseId": "ex-push-up",
+                "reps": [
+                  10,
+                  12,
+                  15
+                ],
+                "focus": "Chest, shoulders, triceps"
+              },
+              {
+                "exerciseId": "ex-single-under",
+                "reps": [
+                  50,
+                  60,
+                  70
+                ],
+                "focus": "Cardio, footwork"
+              },
+              {
+                "exerciseId": "ex-band-backpack-row",
+                "reps": [
+                  12,
+                  14,
+                  15
+                ],
+                "focus": "Back, biceps"
+              },
+              {
+                "exerciseId": "ex-dead-bug",
+                "reps": [
+                  10,
+                  13,
+                  16
+                ],
+                "focus": "Core, stability"
+              }
+            ]
+          },
+          "music": {
+            "bpm": 150,
+            "style": "driving hard electronic, heavy kick, gritty synth bass, no vocals",
+            "theme": "Every minute on the minute, attack the work, steal the rest, three rounds"
+          }
+        },
+        "replaces": "mimir-x"
+      }
     }
   ],
   "mimirMessages": [
     {
-      "id": "m",
+      "id": "m0",
       "seq": 1,
+      "body": {
+        "role": "system",
+        "content": "You are Mímir."
+      }
+    },
+    {
+      "id": "m1",
+      "seq": 2,
+      "body": {
+        "role": "user",
+        "content": "What should I train today?"
+      }
+    },
+    {
+      "id": "m2",
+      "seq": 3,
       "body": {
         "role": "assistant",
         "content": null,
@@ -1091,6 +3911,23 @@
             }
           }
         ]
+      }
+    },
+    {
+      "id": "m3",
+      "seq": 4,
+      "body": {
+        "role": "tool",
+        "tool_call_id": "c1",
+        "content": "{\"days\":42}"
+      }
+    },
+    {
+      "id": "m4",
+      "seq": 5,
+      "body": {
+        "role": "assistant",
+        "content": "Varg 18 today."
       }
     }
   ],

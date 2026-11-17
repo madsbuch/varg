@@ -7,10 +7,12 @@ use diesel::prelude::*;
 use diesel::sql_types::Text;
 use diesel::sqlite::SqliteConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
-use serde_json::{Map, Value};
+use serde_json::Value;
+
+use crate::legacy::{read_chat_item, read_template};
 
 use crate::model::{
-    enum_from_text, enum_text, BlobInfo, ChatRow, Exercise, HeartRate, PersonalRecord, SavedProgram, Session,
+    enum_from_text, enum_text, BlobInfo, ChatEntry, ChatItem, ChatMessage, Exercise, HeartRate, PersonalRecord, SavedProgram, Session,
     SessionEntry, Snapshot, WorkoutSet,
 };
 use crate::schema::{
@@ -179,12 +181,9 @@ struct NameRow {
 
 /* ----------------------------- Conversions ------------------------------- */
 
-fn json_object(text: &str, what: &str) -> std::result::Result<Map<String, Value>, String> {
-    match serde_json::from_str::<Value>(text) {
-        Ok(Value::Object(m)) => Ok(m),
-        Ok(_) => Err(format!("{what}: not a JSON object")),
-        Err(e) => Err(format!("{what}: {e}")),
-    }
+/// The JSON text of a stored body, as a value for its typed reader.
+fn json_value(text: &str, what: &str) -> std::result::Result<Value, String> {
+    serde_json::from_str::<Value>(text).map_err(|e| format!("{what}: {e}"))
 }
 
 fn exercise_row(ex: &Exercise) -> Result<ExerciseRow> {
@@ -239,10 +238,7 @@ fn pr_from(row: PrRow) -> std::result::Result<PersonalRecord, String> {
     })
 }
 
-fn chat_from(id: String, seq: i32, body: &str, table: &str) -> std::result::Result<ChatRow, String> {
-    let body = json_object(body, &format!("{table} {id}"))?;
-    Ok(ChatRow { id, seq, body })
-}
+
 
 /* ------------------------------- The store ------------------------------- */
 
@@ -366,23 +362,39 @@ impl Store {
                 }
             }
 
+            // Programs and program cards in the old template shape are
+            // converted here and written back in the new one, once.
             for row in programs::table.select(ProgramRow::as_select()).order(programs::saved_at).load(c)? {
-                match json_object(&row.template, &format!("program {}", row.id)) {
-                    Ok(template) => snap.programs.push(SavedProgram { id: row.id, template, saved_at: row.saved_at }),
+                let what = format!("program {}", row.id);
+                match json_value(&row.template, &what).and_then(|v| read_template(v).map_err(|e| format!("{what}: {e}"))) {
+                    Ok((template, converted)) => {
+                        if converted {
+                            let text = serde_json::to_string(&template)?;
+                            diesel::update(programs::table.find(&row.id)).set(programs::template.eq(text)).execute(c)?;
+                        }
+                        snap.programs.push(SavedProgram { id: row.id, template, saved_at: row.saved_at });
+                    }
                     Err(p) => snap.problems.push(p),
                 }
             }
 
             for row in mimir_items::table.select(ItemRow::as_select()).order(mimir_items::seq).load(c)? {
-                match chat_from(row.id, row.seq, &row.body, "chat item") {
-                    Ok(r) => snap.mimir_items.push(r),
+                let what = format!("chat item {}", row.id);
+                match json_value(&row.body, &what).and_then(|v| read_chat_item(v).map_err(|e| format!("{what}: {e}"))) {
+                    Ok((body, converted)) => {
+                        if converted {
+                            let text = serde_json::to_string(&body)?;
+                            diesel::update(mimir_items::table.find(&row.id)).set(mimir_items::body.eq(text)).execute(c)?;
+                        }
+                        snap.mimir_items.push(ChatEntry { id: row.id, seq: row.seq, body });
+                    }
                     Err(p) => snap.problems.push(p),
                 }
             }
             for row in mimir_messages::table.select(MessageRow::as_select()).order(mimir_messages::seq).load(c)? {
-                match chat_from(row.id, row.seq, &row.body, "chat message") {
-                    Ok(r) => snap.mimir_messages.push(r),
-                    Err(p) => snap.problems.push(p),
+                match serde_json::from_str::<ChatMessage>(&row.body) {
+                    Ok(body) => snap.mimir_messages.push(ChatEntry { id: row.id, seq: row.seq, body }),
+                    Err(e) => snap.problems.push(format!("chat message {}: {e}", row.id)),
                 }
             }
             Ok(snap)
@@ -561,7 +573,7 @@ impl Store {
         })
     }
 
-    pub fn save_chat_item(&self, r: &ChatRow) -> Result<()> {
+    pub fn save_chat_item(&self, r: &ChatEntry<ChatItem>) -> Result<()> {
         let row = ItemRow { id: r.id.clone(), seq: r.seq, body: serde_json::to_string(&r.body)? };
         self.with(|c| {
             diesel::insert_into(mimir_items::table)
@@ -581,7 +593,7 @@ impl Store {
         })
     }
 
-    pub fn save_chat_message(&self, r: &ChatRow) -> Result<()> {
+    pub fn save_chat_message(&self, r: &ChatEntry<ChatMessage>) -> Result<()> {
         let row = MessageRow { id: r.id.clone(), seq: r.seq, body: serde_json::to_string(&r.body)? };
         self.with(|c| {
             diesel::insert_into(mimir_messages::table)

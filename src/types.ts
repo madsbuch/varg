@@ -1,85 +1,52 @@
-// Core domain types for Varg.
-import type { GearId } from "./lib/gear";
-// Weights are always kilograms, distances always meters — kg or death.
+// Core domain types for Varg. Weights are always kilograms, distances
+// always metres — kg or death.
+//
+// The data types are derived from the zod schemas in lib/schema.ts, where
+// each field is documented: one definition, so a type and the check that
+// guards it at runtime cannot drift apart.
+import type { z } from "zod";
+import type {
+  CategorySchema,
+  ChatItemSchema,
+  ChatMessageSchema,
+  EmomStationSchema,
+  EmomWarmupSchema,
+  ExerciseSchema,
+  FlowStepSchema,
+  ForTimeStageSchema,
+  HeartRateSchema,
+  IntensitySchema,
+  LevelSchema,
+  MetricSchema,
+  MusicProfileSchema,
+  PersonalRecordSchema,
+  PlanSchema,
+  PRKindSchema,
+  RideSegmentSchema,
+  SavedProgramSchema,
+  SessionEntrySchema,
+  SessionSchema,
+  SideSchema,
+  TemplateGearSchema,
+  TemplateSchema,
+  ToolCallSchema,
+  WorkoutSetSchema,
+} from "./lib/schema";
 
 /**
- * How an exercise is measured. This drives which inputs a set shows.
- * - weight_reps: barbell/dumbbell work (weight + reps)
- * - reps: bodyweight reps (pull-ups, push-ups)
- * - time: for-time or holds (planks, runs measured by time)
- * - distance_time: rucks / runs (distance + time)
+ * How an exercise is measured; this drives which inputs a set shows.
+ * weight_reps (barbell), reps (bodyweight), time (holds), distance_time
+ * (rucks, runs).
  */
-export type Metric = "weight_reps" | "reps" | "time" | "distance_time";
-
-export type Category =
-  | "strength"
-  | "bodyweight"
-  | "cardio"
-  | "ruck"
-  | "core"
-  | "conditioning";
-
-export interface Exercise {
-  id: string;
-  name: string;
-  category: Category;
-  metric: Metric;
-  muscles: string[];
-  builtIn: boolean;
-  /**
-   * Superseded by a corrected built-in with a different id. Kept so old
-   * sessions and PRs still resolve, but never offered when picking an
-   * exercise. Set by mergeBuiltIns on load, not stored in seed content.
-   */
-  deprecated?: boolean | undefined;
-}
-
-/** A single logged set inside a session entry. */
-export interface WorkoutSet {
-  id: string;
-  weight?: number | undefined; // kg
-  reps?: number | undefined;
-  seconds?: number | undefined;
-  meters?: number | undefined;
-  rpe?: number | undefined; // rate of perceived exertion 1-10
-  done: boolean;
-}
-
-export interface SessionEntry {
-  id: string;
-  exerciseId: string;
-  sets: WorkoutSet[];
-  note?: string | undefined;
-}
-
-export interface Session {
-  id: string;
-  name: string;
-  date: string; // ISO timestamp of start
-  finishedAt?: string | undefined; // ISO timestamp when completed
-  templateId?: string | undefined;
-  entries: SessionEntry[];
-  note?: string | undefined;
-  /** From the paired chest strap, when one recorded the session. */
-  heartRate?: HeartRate | undefined;
-}
-
-/** A session's heart rate, from the strap (see lib/hr.ts). */
-export interface HeartRate {
-  avg: number; // bpm, time-weighted
-  max: number; // bpm
-  /** Seconds per trace value. */
-  every: number;
-  /** Average bpm per `every` seconds from the start; 0 = no reading. */
-  trace: number[];
-}
-
-export type PRKind =
-  | "1rm" // best estimated one-rep max (weight_reps)
-  | "weight" // heaviest weight for reps
-  | "reps" // most reps in a set
-  | "time" // longest hold — see PR_DIRECTION before assuming otherwise
-  | "distance"; // longest distance
+export type Metric = z.infer<typeof MetricSchema>;
+export type Category = z.infer<typeof CategorySchema>;
+export type Exercise = z.infer<typeof ExerciseSchema>;
+export type WorkoutSet = z.infer<typeof WorkoutSetSchema>;
+export type SessionEntry = z.infer<typeof SessionEntrySchema>;
+export type Session = z.infer<typeof SessionSchema>;
+export type HeartRate = z.infer<typeof HeartRateSchema>;
+export type PRKind = z.infer<typeof PRKindSchema>;
+export type PersonalRecord = z.infer<typeof PersonalRecordSchema>;
 
 /** Which way a record improves: a bigger number, or a smaller one. */
 export type PRDirection = "higher" | "lower";
@@ -103,271 +70,42 @@ export const PR_DIRECTION: Record<PRKind, PRDirection> = {
   distance: "higher",
 };
 
-/** A personal record for an exercise. Auto-detected from sessions or entered manually. */
-export interface PersonalRecord {
-  id: string;
-  exerciseId: string;
-  kind: PRKind;
-  value: number; // canonical unit (kg, reps, seconds, meters)
-  reps?: number | undefined; // context for weight/1rm PRs
-  date: string; // ISO
-  sessionId?: string | undefined; // set when auto-detected
-  note?: string | undefined;
-  manual: boolean;
-}
+/* -------------------------------- Templates ------------------------------- */
 
-/** What a generated workout track should sound like. */
-export interface MusicProfile {
-  bpm: number;
-  style: string; // genre / instrumentation tags
-  theme: string; // mood and story of the workout
-  /**
-   * Adaptive rides: the song set (src/lib/songs.ts) played unless the
-   * owner picks another on the workout's page (music-choice.ts).
-   */
-  set?: "techno" | "jazz-house" | "anthems" | undefined;
-  /**
-   * When the workout plays a song set (not its own track): the intensity
-   * of its main part. The music follows the workout's shape on a high
-   * level only (workout-music.ts): an EMOM's warm-up and every yoga flow
-   * play Low, everything else this. Default Peak; mobility work sets Low.
-   */
-  energy?: Intensity | undefined;
-}
+export type Level = z.infer<typeof LevelSchema>;
+/** Music intensity: 1 low, 2 mid, 3 peak. */
+export type Intensity = z.infer<typeof IntensitySchema>;
+export type Side = z.infer<typeof SideSchema>;
+export type MusicProfile = z.infer<typeof MusicProfileSchema>;
+export type TemplateGear = z.infer<typeof TemplateGearSchema>;
+export type EmomStation = z.infer<typeof EmomStationSchema>;
+export type EmomWarmup = z.infer<typeof EmomWarmupSchema>;
+export type FlowStep = z.infer<typeof FlowStepSchema>;
+export type ForTimeStage = z.infer<typeof ForTimeStageSchema>;
+export type RideSegment = z.infer<typeof RideSegmentSchema>;
 
-/** Interval prescription for circuit templates that run guided. */
-export interface IntervalPlan {
-  work: number; // seconds per station
-  rest: number; // seconds between stations
-  rounds: number;
-}
+/** How a workout runs: exactly one kind, which picks the player. */
+export type Plan = z.infer<typeof PlanSchema>;
+export type PlanKind = Plan["kind"];
+export type IntervalPlan = Extract<Plan, { kind: "interval" }>;
+export type EmomPlan = Extract<Plan, { kind: "emom" }>;
+export type FlowPlan = Extract<Plan, { kind: "flow" }>;
+export type ForTimePlan = Extract<Plan, { kind: "forTime" }>;
+export type RidePlan = Extract<Plan, { kind: "ride" }>;
+export type LoggedPlan = Extract<Plan, { kind: "logged" }>;
 
-/**
- * One leg of a for-time workout: a fixed amount of one exercise, done before
- * moving on. The athlete taps Done when it is finished; the gap between taps
- * is the stage's split.
- */
-export interface ForTimeStage {
-  exerciseId: string;
-  /** What the athlete sees, e.g. "100 pull-ups" or "1.6 km run". */
-  label: string;
-  /** Prescribed reps — for reps and weight_reps exercises. */
-  reps?: number | undefined;
-  /** Prescribed distance in metres — for distance_time exercises. */
-  meters?: number | undefined;
-}
+/** A workout: a built-in (seed.ts) or one Mímir wrote. */
+export type Template = z.infer<typeof TemplateSchema>;
 
-export type Side = "left" | "right";
-
-/** One timed pose in a flow. One-sided poses come as a left/right pair. */
-export interface FlowStep {
-  exerciseId: string;
-  seconds: number;
-  side?: Side | undefined;
-}
-
-/**
- * A guided sequence where every step has its own length — a yoga class.
- * No rests: the next pose is the transition. Pose names are spoken and form
- * cues shown on screen.
- */
-export interface FlowPlan {
-  steps: FlowStep[];
-  /**
-   * Seconds between poses to move into the next one. The voice names the
-   * next pose as the transition starts, so the hold that follows is all hold.
-   * The lead-in before the first pose is the same length.
-   */
-  transition: number;
-}
-
-/**
- * One station of an EMOM: it owns one whole minute. The athlete does the
- * prescribed work from the top of the minute; whatever is left of the
- * minute is rest.
- *
- * Exactly one of `reps` or `seconds`, ONE NUMBER PER ROUND — never a range:
- * a range is not a prescription anyone can do mid-set. Burpees 8, 10, 12
- * is `reps: [8, 10, 12]`; the same count every round repeats it.
- *  - `reps`: the athlete does them and the rest of the minute is theirs.
- *  - `seconds`: timed work; the player shows rest by itself after it.
- */
-export interface EmomStation {
-  exerciseId: string;
-  reps?: number[] | undefined;
-  seconds?: number[] | undefined;
-  /** Reps split over two sides: "16 reps · 8 per leg". The count must be even. */
-  perSide?: "leg" | "arm" | undefined;
-  /** What the station trains, for the details sheet: "Cardio, explosiveness". */
-  focus?: string | undefined;
-}
-
-/** One timed warm-up exercise, run back to back before the first minute. */
-export interface EmomWarmup {
-  exerciseId: string;
-  seconds: number;
-}
-
-/**
- * Every Minute On the Minute: the stations in order, each owning one
- * `minute`, repeated for `rounds`. An optional warm-up runs first, each
- * movement for its own time with no rest between.
- */
-export interface EmomPlan {
-  /** Seconds each station owns; 60 for a true EMOM. */
-  minute: number;
-  rounds: number;
-  stations: EmomStation[];
-  warmup?: EmomWarmup[] | undefined;
-}
-
-/** A fixed amount of work, scored by the time it takes. */
-export interface ForTimePlan {
-  stages: ForTimeStage[];
-}
-
-/**
- * One block of an indoor-bike ride. It ends after `seconds`, or once the
- * rider has burned `kcal` more — exactly one of the two. The target is a
- * share of the rider's FTP, so it follows the FTP set in Settings.
- */
-export interface RideSegment {
-  /** What the block is, spoken and shown: "Zone 2", "Sweet spot", "Sprint". */
-  label: string;
-  /** Target power as % of FTP, low to high. */
-  ftp: [number, number];
-  seconds?: number | undefined;
-  kcal?: number | undefined;
-  /** Target cadence in rpm, low to high. */
-  cadence?: [number, number] | undefined;
-  /**
-   * Ride by heart rate: the target is this zone (1-5) of the rider's
-   * heart-rate zones (Skipan, copied from Garmin Connect), and `ftp` is
-   * only the watts to start at. The ride will not start without zones
-   * and a paired strap.
-   */
-  hrZone?: number | undefined;
-  /**
-   * How hard the battle track drives in this block: 1 held back (muffled),
-   * 2 full groove, 3 everything with a build into it. Adaptive rides set it
-   * on every block; the player books each change on the audio clock ahead
-   * of time. Without it the track plays as recorded.
-   */
-  intensity?: Intensity | undefined;
-}
-
-/** Battle-track intensity of a ride block; see RideSegment.intensity. */
-export type Intensity = 1 | 2 | 3;
-
-/** A ride on the indoor bike, run by the ride player against live bike data. */
-export interface RidePlan {
-  segments: RideSegment[];
-  /** Scored by total time (kcal races): best time on the card, like for time. */
-  race?: boolean | undefined;
-  /**
-   * No program: the bike console. No segments, no targets, no end; the
-   * clock counts up and the rider finishes when they like.
-   */
-  free?: boolean | undefined;
-}
-
-/** How hard a workout is to start with — the Hunt screen filters on it. */
-export type Level = "beginner" | "intermediate" | "advanced";
-
-/** A military-style workout template — a prescribed session. */
-export interface Template {
-  id: string;
-  name: string;
-  branch: string; // "Army", "USMC", "CrossFit Hero", etc.
-  description: string;
-  scheme: string; // human-readable prescription
-  level: Level;
-  /**
-   * Typical finishing time in minutes, for workouts whose length depends on
-   * the athlete (for time, logged sessions). Interval and flow workouts
-   * leave it out: their clock time is computed exactly.
-   */
-  estimateMinutes?: number | undefined;
-  exerciseIds: string[];
-  music: MusicProfile;
-  /** When set, starting the template launches the guided interval player. */
-  interval?: IntervalPlan | undefined;
-  /**
-   * When set, starting the template launches the for-time player: a running
-   * stopwatch and the stages in order. Never set together with `interval`.
-   */
-  forTime?: ForTimePlan | undefined;
-  /**
-   * When set, starting the template launches the guided player with these
-   * steps, each its own length. Never set together with interval or forTime.
-   */
-  flow?: FlowPlan | undefined;
-  /**
-   * When set, starting the template launches the guided player as an
-   * EMOM: a new station at the top of every minute, Done for rep targets,
-   * automatic rest after timed work. Never set together with interval,
-   * forTime, flow or ride.
-   */
-  emom?: EmomPlan | undefined;
-  /**
-   * The kit list on the card is derived from the exercises (library.ts).
-   * Here only what no exercise implies (`extra`: Murph's vest) and the
-   * specifics of this prescription (`detail`: kettlebell "24/16 kg").
-   */
-  gear?: {
-    extra?: GearId[] | undefined;
-    detail?: Partial<Record<GearId, string>> | undefined;
-  } | undefined;
-  /**
-   * An indoor-bike ride: starting it launches the ride player, which reads
-   * power, cadence and kcal from the bike over Bluetooth. Never set
-   * together with interval, forTime or flow.
-   */
-  ride?: RidePlan | undefined;
-}
-
-export interface AppData {
-  version: number;
-  exercises: Exercise[];
-  sessions: Session[];
-  prs: PersonalRecord[];
-  /** Programs Mímir wrote with the owner (lib/programs.ts). */
-  programs: SavedProgram[];
-  /** The conversation with Mímir. */
-  mimir: MimirChat;
-}
-
-/* ------------------------------ Mímir ------------------------------------ */
+/* ---------------------------------- Mímir --------------------------------- */
 
 /** A program the owner saved from Mímir. Its id is the template's (`mimir-…`). */
-export interface SavedProgram {
-  id: string;
-  template: Template;
-  /** ISO, when the owner saved it. */
-  savedAt: string;
-}
-
-/** One OpenAI-style tool call from the model. */
-export interface ToolCall {
-  id: string;
-  type: "function";
-  function: { name: string; arguments: string };
-}
-
+export type SavedProgram = z.infer<typeof SavedProgramSchema>;
+export type ToolCall = z.infer<typeof ToolCallSchema>;
 /** The API history, as OpenRouter's chat completions take it. */
-export type ChatMessage =
-  | { role: "system"; content: string }
-  | { role: "user"; content: string }
-  | { role: "assistant"; content: string | null; tool_calls?: ToolCall[] | undefined }
-  | { role: "tool"; tool_call_id: string; content: string };
-
+export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 /** What the owner sees in the chat. */
-export type ChatItem =
-  | { kind: "user"; text: string }
-  | { kind: "mimir"; text: string }
-  | { kind: "program"; template: Template; replaces?: string | undefined; saved?: boolean | undefined }
-  | { kind: "pick"; templateId: string; why: string }
-  | { kind: "error"; text: string };
+export type ChatItem = z.infer<typeof ChatItemSchema>;
 
 /** A stored chat row: its id, its place in the order, and what it holds. */
 export interface ChatEntry<T> {
@@ -379,4 +117,16 @@ export interface ChatEntry<T> {
 export interface MimirChat {
   items: ChatEntry<ChatItem>[];
   messages: ChatEntry<ChatMessage>[];
+}
+
+/** Everything the app holds in memory; written through to the store. */
+export interface AppData {
+  version: number;
+  exercises: Exercise[];
+  sessions: Session[];
+  prs: PersonalRecord[];
+  /** Programs Mímir wrote with the owner (lib/programs.ts). */
+  programs: SavedProgram[];
+  /** The conversation with Mímir. */
+  mimir: MimirChat;
 }

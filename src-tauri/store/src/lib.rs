@@ -9,6 +9,7 @@
 
 #![forbid(unsafe_code)]
 
+mod legacy;
 pub mod model;
 pub mod schema;
 mod store;

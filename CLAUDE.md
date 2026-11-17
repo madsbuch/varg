@@ -63,12 +63,20 @@ should shape what you build:
    workout card's "What you need" list is derived from it. A template
    adds only what no exercise implies (`gear.extra`: Murph's vest) and the
    specifics of its prescription (`gear.detail`: kettlebell "24/16 kg").
-3. Add the `Template` to `seedTemplates()`. If it has an `interval`, starting
-   it launches the guided interval player. If it is a fixed amount of work
-   scored by time ("— for time"), give it `forTime` stages instead: starting
-   it launches the for-time player (stopwatch, one Done per stage, splits
+3. Add the `Template` to `seedTemplates()`. A template is its card (`name`,
+   `branch`, `description`, `level`, `music`, optional `gear`) and one
+   `plan`, whose `kind` picks the player ([`src/lib/schema.ts`](src/lib/schema.ts),
+   `PlanSchema`). Nothing is stored twice: the exercises are the ones the
+   plan names (`planExercises` in [`src/lib/plan.ts`](src/lib/plan.ts)), and
+   interval, EMOM and flow plans have their scheme computed from their
+   numbers (`schemeOf`), with an optional `note` appended ("both sides");
+   for time, ride and logged plans carry their own `scheme`. A plan of
+   kind `interval` (its `stations` in order, `work`, `rest`, `rounds`)
+   launches the guided interval player. A fixed amount of work scored by
+   time ("— for time") is kind `forTime` with `stages`: starting it
+   launches the for-time player (stopwatch, one Done per stage, splits
    and best time). Each stage's label must state the reps or distance it
-   logs. For an EMOM (every minute on the minute) give it `emom`: the
+   logs. An EMOM (every minute on the minute) is kind `emom`: the
    stations in order, each owning one `minute`, `rounds`, and an optional
    timed `warmup` run back to back first. A station prescribes `reps`
    or `seconds` as ONE FIXED COUNT PER ROUND, never a range ("8-12
@@ -78,17 +86,18 @@ should shape what you build:
    all minute, a timed one shows rest by itself once its seconds have
    run. The minute is one player step, so the boundaries are fixed by the
    clock; rest inside it is a phase (`emomPhase` in `wod.ts`), never a
-   timer of its own. For a yoga class — every pose its own hold, one-sided poses left
-   then right — give it `flow` steps and a `transition` (seconds to move
+   timer of its own. A yoga class — every pose its own hold, one-sided poses left
+   then right — is kind `flow`: `steps` and a `transition` (seconds to move
    between poses): the guided player names each next pose as the move
    begins and shows its cues. A one-sided pose needs `side` declared on its `LIB`
    entry (which side the animation draws) so the player mirrors the right
-   one. With none of these, it opens as a logged session. Every template
-   also gets a `level` (beginner / intermediate / advanced — how hard it is
-   to start with) and, unless it is an interval, EMOM or flow whose length
-   is computed, `estimateMinutes`: the typical finishing time the library's
-   length filter and cards use. An indoor-bike session gets `ride`
-   segments instead: each targets a % of FTP (the rider's FTP lives in
+   one. Kind `logged` (its `exercises`) opens as a logged session. Every
+   template has a `level` (beginner / intermediate / advanced — how hard
+   it is to start with); for time and logged plans, and rides whose length
+   cannot be computed (kcal blocks, the free ride), carry `estimateMinutes`:
+   the typical finishing time the library's length filter and cards use.
+   An indoor-bike session is kind `ride` with
+   `segments`: each targets a % of FTP (the rider's FTP lives in
    Settings, so watts follow it) and ends on `seconds` or on `kcal` —
    exactly one. A segment with `hrZone` (1-5) is steered by the chest strap
    against the rider's Garmin heart-rate zones (Skipan) instead; its `ftp`
@@ -132,16 +141,17 @@ should shape what you build:
 4. Run `bun run build && bun run check:content`. The content check is the only
    reviewer this content gets. It asserts that every built-in exercise has its
    own animation, that no template references an exercise that does
-   not exist, that a template with an `interval` has a scheme written in the
-   units the guided player actually enforces — no metres, no AMRAP, no rep
+   not exist, that an interval's note promises nothing the guided player
+   cannot enforce — no metres, no AMRAP, no rep
    counts — that the interval itself is within sane bounds, that every
    for-time stage prescribes the amount its exercise's metric measures and
    says so in its label, that a template's gear details name gear the
    workout actually uses, that an EMOM's stations prescribe what their
-   exercise counts, one whole count per round, and its scheme states its real total, warm-up, EMOM
-   length, rounds and stations, that a flow's sides are paired and its scheme states
-   its real total, pose count and hold range, that every template has a level
-   and a length (computed or estimated), and that every metric has a declared PR direction.
+   exercise counts, one whole count per round, with its warm-up on the
+   music's bar grid, that a flow's sides are paired, that every template has
+   a length (computed or estimated), and that every metric has a declared PR
+   direction. The template's shape itself (one plan kind, whole numbers,
+   known values) is the schema's and the type checker's job.
 5. Existing installs get *new* built-ins through `mergeBuiltIns`, which the
    database loader (`src/db/rust.ts`) applies on every open. Without that they would never see
    them, because their database was seeded on first launch and never again.
@@ -167,9 +177,11 @@ cards; saving a program is always the owner's tap.
   non-deprecated exercises, each with its own animation and cues. A program
   that needs a new exercise is still a code change.
 - **The app writes what it can compute.** `readProgram` reads the model's
-  JSON strictly (wrong types are named, nothing unknown is carried over) and
-  writes the scheme of interval, EMOM and flow programs itself, so the
-  arithmetic on the card is the player's, never the model's.
+  JSON with a strict zod schema (`ProgramInputSchema`: wrong types and
+  unknown fields come back to the model with their path), and the model
+  writes `plan` in exactly the stored shape. Interval, EMOM and flow
+  schemes are computed (`schemeOf`), so the arithmetic on the card is the
+  player's, never the model's. Each tool's arguments have a schema too.
 - **Storage.** Saved programs are `Template`s in the training data
   (`AppData.programs`, the store's `programs` table, decoded strictly on
   every load), ids starting `mimir-` (built-ins never do: check:content).
@@ -393,23 +405,35 @@ joints and makes limbs shrink in the intermediate frames.
   before any module loads), and generated audio (`src/lib/blobs.ts`: raw
   bytes over the bridge, never JSON arrays). Do not add `localStorage` or
   IndexedDB anywhere else; use those three.
-- **Strict across the bridge.** Rust's types use `deny_unknown_fields` and no
-  coercion; the app sends exactly their fields (`exerciseWire`…) and decodes
-  everything that comes back with `Reader` ([`src/lib/decode.ts`](src/lib/decode.ts)):
-  no `as`, no `Number(x)` on unknown data. A row that does not decode is
-  named in the red banner and the rest loads. The same holds for all of
-  `src`, and ESLint enforces it: no type assertions, no `!`, no coercion
-  (`Number()`, `String()`, `!!`), no raw `JSON.parse` outside `decode.ts`.
-  Stored settings go through `kvRead` with a decoder (an unreadable one is
-  named in red and the default used); typed numbers through `parseDecimal`
-  or `parseWhole`; network answers whose every field is optional (Garmin,
-  kie.ai) through `at()` plus a typeof check. `scripts/` is held to the same
+- **No untyped JSON, anywhere.** Every shape the app stores or sends is a
+  zod schema in [`src/lib/schema.ts`](src/lib/schema.ts), and the data types
+  in `src/types.ts` are derived from them: one definition per shape. JSON
+  enters the app only through `parseAs` / `parseJsonAs` (ESLint refuses
+  `JSON.parse` everywhere else): the Rust store's answers (`db/read.ts`,
+  row by row, a bad row named in red), every stored setting (`kvRead` /
+  `kvReadEach` with a schema: an unreadable one is named in red and its
+  default used), the network (OpenRouter, Garmin, kie.ai: their own
+  schemas, non-strict because those services add fields, every field that
+  is read typed), the model's programs and tool arguments, test fixtures.
+  Stored shapes are strict (`z.strictObject`): an unknown field is an
+  error. Settings an older version wrote with more fields use `z.object`.
+  The Rust side has the same shapes as serde types
+  ([`model.rs`](src-tauri/store/src/model.rs): `Template`, `Plan`,
+  `ChatItem`, `ChatMessage`, every enum), `deny_unknown_fields`, no
+  coercion; nothing there is a `serde_json::Value` once read. Programs
+  stored in an older template shape are converted on load and written back
+  ([`legacy.rs`](src-tauri/store/src/legacy.rs)). The app sends exactly the
+  Rust types' fields (`exerciseWire`…). ESLint also enforces, for all of
+  `src`: no type assertions, no `!`, no coercion (`Number()`, `String()`,
+  `!!`, `.map(Number)`); typed numbers go through `parseDecimal` or
+  `parseWhole`. `scripts/` is held to the same
   rules (type-checked with `tsconfig.scripts.json`, linted with `src`): a test
   uses `must(x)` (`scripts/must.ts`) where it would have written `x!`. In the
   Kotlin plugins: no `!!`, and system services by class
   (`getSystemService(LocationManager::class.java)`, nullable), never
-  `getSystemService(NAME) as T`. The two sides share a fixture
-  (`src-tauri/store/tests/fixtures/wire.json`) that `scripts/store.test.ts`
+  `getSystemService(NAME) as T`. The two sides share fixtures
+  (`src-tauri/store/tests/fixtures/wire.json`: every built-in as a program,
+  every chat kind and role; `enums.json`: every enum's values) that `scripts/store.test.ts`
   writes and the Rust tests decode; after a deliberate change to a stored
   shape, regenerate it with `UPDATE_FIXTURES=1 bun test scripts/store.test.ts`.
 - **Migrations.** `diesel migration generate <name> --migration-dir

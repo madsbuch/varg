@@ -12,7 +12,8 @@
 import { useSyncExternalStore } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { errorText } from "./http";
-import { Reader } from "./decode";
+import { z } from "zod";
+import { BlobInfoSchema, parseAs } from "./schema";
 import { inTauri, kvGet, kvSet } from "./kv";
 
 export type BlobStore = "tracks" | "clips";
@@ -30,28 +31,22 @@ export interface StoredBlob extends BlobMeta {
   blob: Blob;
 }
 
-function readMeta(r: Reader, v: unknown, path: string): BlobMeta {
-  const f = r.obj(v, path);
-  return {
-    key: r.str(f.get("key"), `${path}.key`),
-    title: r.text(f.get("title"), `${path}.title`),
-    mime: r.text(f.get("mime"), `${path}.mime`),
-    createdAt: r.text(f.get("createdAt"), `${path}.createdAt`),
-  };
+/** The value, or an error naming every way the audio store's answer was off. */
+function checked<S extends z.ZodType>(schema: S, raw: unknown, what: string): z.infer<S> {
+  const r = parseAs(schema, raw, what);
+  if (!r.ok) throw new Error(`Audio store answered unexpectedly: ${r.problems.join("; ")}`);
+  return r.value;
 }
 
-function checked<T>(r: Reader, value: T): T {
-  if (!r.ok()) throw new Error(`Audio store answered unexpectedly: ${r.problems.join("; ")}`);
-  return value;
-}
+/** A browser-side file: its description and the Blob itself. */
+const BrowserFileSchema = BlobInfoSchema.extend({ store: z.string(), blob: z.instanceof(Blob) });
 
 /* --------------------------------- Rust ---------------------------------- */
 
 async function rustInfo(store: BlobStore, key: string): Promise<BlobMeta | undefined> {
   const raw: unknown = await invoke("blob_info", { storeName: store, key });
   if (raw === null) return undefined;
-  const r = new Reader();
-  return checked(r, readMeta(r, raw, "blob_info"));
+  return checked(BlobInfoSchema, raw, "blob_info");
 }
 
 /** A blob as standard base64, encoded natively (FileReader), not byte by byte. */
@@ -95,8 +90,7 @@ async function rustPut(store: BlobStore, b: StoredBlob): Promise<void> {
 
 async function rustList(store: BlobStore): Promise<BlobMeta[]> {
   const raw: unknown = await invoke("blob_list", { storeName: store });
-  const r = new Reader();
-  return checked(r, r.arr(raw, "blob_list").map((x, i) => readMeta(r, x, `blob_list[${i}]`)));
+  return checked(z.array(BlobInfoSchema), raw, "blob_list");
 }
 
 /* ------------------------------- IndexedDB ------------------------------- */
@@ -125,19 +119,12 @@ function idbRequest(db: IDBDatabase, store: string, mode: IDBTransactionMode, fn
 const BROWSER_DB = "varg-blobs";
 const BROWSER_STORE = "files";
 
-function readStored(r: Reader, v: unknown, path: string): StoredBlob {
-  const f = r.obj(v, path);
-  const blob = f.get("blob");
-  if (!(blob instanceof Blob)) r.fail(`${path}.blob must be a Blob`);
-  return { ...readMeta(r, v, path), blob: blob instanceof Blob ? blob : new Blob() };
-}
-
 async function browserGet(store: BlobStore, key: string): Promise<StoredBlob | undefined> {
   const db = await idbOpen(BROWSER_DB, BROWSER_STORE, ["store", "key"]);
   const raw = await idbRequest(db, BROWSER_STORE, "readonly", (s) => s.get([store, key]));
   if (raw === undefined) return undefined;
-  const r = new Reader();
-  return checked(r, readStored(r, raw, `${store}/${key}`));
+  const f = checked(BrowserFileSchema, raw, `${store}/${key}`);
+  return { key: f.key, title: f.title, mime: f.mime, createdAt: f.createdAt, blob: f.blob };
 }
 
 async function browserPut(store: BlobStore, b: StoredBlob): Promise<void> {
@@ -153,12 +140,8 @@ async function browserDelete(store: BlobStore, key: string): Promise<void> {
 async function browserList(store: BlobStore): Promise<BlobMeta[]> {
   const db = await idbOpen(BROWSER_DB, BROWSER_STORE, ["store", "key"]);
   const raw = await idbRequest(db, BROWSER_STORE, "readonly", (s) => s.getAll());
-  const r = new Reader();
-  const all = r.arr(raw, "files").map((x, i) => {
-    const f = r.obj(x, `files[${i}]`);
-    return { store: r.text(f.get("store"), `files[${i}].store`), meta: readMeta(r, x, `files[${i}]`) };
-  });
-  return checked(r, all.filter((x) => x.store === store).map((x) => x.meta));
+  const all = checked(z.array(BrowserFileSchema), raw, "files");
+  return all.filter((f) => f.store === store).map((f) => ({ key: f.key, title: f.title, mime: f.mime, createdAt: f.createdAt }));
 }
 
 /* --------------------------------- API ----------------------------------- */
@@ -189,6 +172,14 @@ export function blobList(store: BlobStore): Promise<BlobMeta[]> {
 /* ------------------------- From the WebView, once ------------------------ */
 
 const IMPORTED = "varg.blobs.imported-from-webview.v1";
+
+/** A file in the WebView's old caches (varg-music tracks, varg-voice clips). */
+const OldFileSchema = z.object({
+  key: z.string().min(1),
+  title: z.string().optional(),
+  createdAt: z.string().optional(),
+  blob: z.instanceof(Blob),
+});
 
 /** The WebView's old caches: database, object store, our store. */
 const OLD: readonly { db: string; store: string; into: BlobStore }[] = [
@@ -244,23 +235,15 @@ async function copyWebViewAudio(): Promise<void> {
     const db = await idbOpen(old.db, old.store, "key");
     const raw = await idbRequest(db, old.store, "readonly", (s) => s.getAll());
     db.close();
-    const r = new Reader();
-    const rows = r.arr(raw, old.db).map((x, i) => {
-      const f = r.obj(x, `${old.db}[${i}]`);
-      const blob = f.get("blob");
-      if (!(blob instanceof Blob)) r.fail(`${old.db}[${i}].blob must be a Blob`);
-      const title = f.get("title");
-      const createdAt = f.get("createdAt");
-      const row: StoredBlob = {
-        key: r.str(f.get("key"), `${old.db}[${i}].key`),
-        title: typeof title === "string" ? title : "",
-        mime: blob instanceof Blob ? blob.type : "",
-        createdAt: typeof createdAt === "string" ? createdAt : new Date(0).toISOString(),
-        blob: blob instanceof Blob ? blob : new Blob(),
-      };
-      return row;
-    });
-    checked(r, rows);
+    // The old caches: tracks carried a title and date, voice clips only a key.
+    const oldRows = checked(z.array(OldFileSchema), raw, old.db);
+    const rows = oldRows.map((f): StoredBlob => ({
+      key: f.key,
+      title: f.title ?? "",
+      mime: f.blob.type,
+      createdAt: f.createdAt ?? new Date(0).toISOString(),
+      blob: f.blob,
+    }));
     for (const row of rows) {
       if (!(await blobHas(old.into, row.key))) await blobPut(old.into, row);
     }

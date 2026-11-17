@@ -9,7 +9,8 @@
  * kie's own message.
  */
 import { errorText, httpFetch } from "./http";
-import { at, numberOr, parseJson, stringOr } from "./decode";
+import { z } from "zod";
+import { parseAs, parseJsonAs } from "./schema";
 
 export const KIE_BASE = "https://api.kie.ai";
 
@@ -35,26 +36,45 @@ function describe(code: number, msg: string | undefined): string {
   return `kie.ai refused the request (${code}): ${detail}`;
 }
 
-/** kie's envelope opened: `data`, still unknown, for the caller to read field by field. */
-async function call(apiKey: string, path: string, init: RequestInit = {}): Promise<unknown> {
+/** kie's envelope: its own status code and message around the `data`. */
+const EnvelopeSchema = z.object({ code: z.int().nullish(), msg: z.string().nullish(), data: z.unknown() });
+
+/** What createTask answers. */
+const CreatedSchema = z.object({ taskId: z.string().min(1) });
+
+/** What recordInfo answers, as far as Varg reads it. */
+const RecordSchema = z.object({
+  state: z.string().nullish(),
+  failCode: z.union([z.string(), z.number()]).nullish(),
+  failMsg: z.string().nullish(),
+  resultJson: z.string().nullish(),
+  response: z.unknown(),
+});
+
+/**
+ * Call kie and read its `data` as `schema`. Anything else (another code, no
+ * data, a data of the wrong shape) is a KieError carrying kie's own words.
+ */
+async function call<S extends z.ZodType>(apiKey: string, path: string, schema: S, init: RequestInit = {}): Promise<z.infer<S>> {
   const res = await httpFetch(`${KIE_BASE}${path}`, {
     ...init,
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
   });
   const raw = await res.text().catch(() => "");
-  const parsed = parseJson(raw);
-  const body = parsed.ok ? parsed.value : undefined;
-  const code = numberOr(at(body, "code")) ?? res.status;
-  const data = at(body, "data");
-  if (!res.ok || code !== 200 || data === undefined || data === null) {
-    throw new KieError(describe(code, stringOr(at(body, "msg")) ?? raw.slice(0, 200)), code);
+  const envelope = parseJsonAs(EnvelopeSchema, raw, "kie");
+  const body = envelope.ok ? envelope.value : undefined;
+  const code = body?.code ?? res.status;
+  if (!res.ok || code !== 200 || body?.data === undefined || body.data === null) {
+    throw new KieError(describe(code, body?.msg ?? raw.slice(0, 200)), code);
   }
-  return data;
+  const data = parseAs(schema, body.data, "kie data");
+  if (!data.ok) throw new KieError(`kie.ai answered in an unexpected shape: ${data.problems.slice(0, 3).join("; ")}`, 500);
+  return data.value;
 }
 
 /** Submit a job. Returns kie's taskId. */
 export async function createTask(apiKey: string, model: string, input: Record<string, unknown>): Promise<string> {
-  const data = await call(apiKey, "/api/v1/jobs/createTask", {
+  const data = await call(apiKey, "/api/v1/jobs/createTask", CreatedSchema, {
     method: "POST",
     body: JSON.stringify({
       model,
@@ -63,9 +83,7 @@ export async function createTask(apiKey: string, model: string, input: Record<st
       input,
     }),
   });
-  const taskId = stringOr(at(data, "taskId"));
-  if (taskId === undefined || taskId === "") throw new KieError("kie.ai accepted the job but returned no taskId.", 500);
-  return taskId;
+  return data.taskId;
 }
 
 export type TaskState = "waiting" | "queuing" | "generating" | "success" | "fail";
@@ -79,23 +97,22 @@ export interface TaskInfo {
 }
 
 export async function getTask(apiKey: string, taskId: string): Promise<TaskInfo> {
-  const data = await call(apiKey, `/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`);
-  let result: unknown = at(data, "response") ?? null;
-  const resultJson = stringOr(at(data, "resultJson"));
-  if (result === null && resultJson !== undefined && resultJson !== "") {
-    const parsed = parseJson(resultJson);
+  const data = await call(apiKey, `/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`, RecordSchema);
+  let result: unknown = data.response ?? null;
+  if (result === null && data.resultJson !== undefined && data.resultJson !== null && data.resultJson !== "") {
+    // Read as a value only: audioResults reads each node of it by schema.
+    const parsed = parseJsonAs(z.unknown(), data.resultJson, "resultJson");
     result = parsed.ok ? parsed.value : null;
   }
   // "Internal Error" alone says nothing; kie's failCode tells a server fault
   // (500) from a refused input (422) or a failed generation (501).
-  const failCode = at(data, "failCode");
-  const codeText = typeof failCode === "number" ? failCode.toString() : (stringOr(failCode)?.trim() ?? "");
+  const failCode = data.failCode;
+  const codeText = typeof failCode === "number" ? failCode.toString() : (failCode?.trim() ?? "");
   const code = codeText === "" ? "" : ` [failCode ${codeText}]`;
-  const rawState = at(data, "state");
   // A state kie adds later reads as still waiting: polling goes on, and the
   // overall timeout still ends it, in red.
-  const state = TASK_STATES.find((s) => s === rawState) ?? "waiting";
-  return { state, failMsg: (stringOr(at(data, "failMsg")) ?? "") + code, result };
+  const state = TASK_STATES.find((s) => s === data.state) ?? "waiting";
+  return { state, failMsg: (data.failMsg ?? "") + code, result };
 }
 
 export interface AudioResult {
@@ -113,26 +130,38 @@ export interface AudioResult {
 export function audioResults(result: unknown): AudioResult[] {
   const out: AudioResult[] = [];
   const visit = (node: unknown, depth: number) => {
-    if (depth > 4 || node == null || typeof node !== "object") return;
-    if (Array.isArray(node)) {
-      for (const n of node) visit(n, depth + 1);
+    if (depth > 4) return;
+    const list = z.array(z.unknown()).safeParse(node);
+    if (list.success) {
+      for (const n of list.data) visit(n, depth + 1);
       return;
     }
-    const url = stringOr(at(node, "audio_url")) ?? stringOr(at(node, "audioUrl"));
-    if (url !== undefined && url !== "") {
-      out.push({ url, duration: numberOr(at(node, "duration")), title: stringOr(at(node, "title")) });
+    const o = ResultNodeSchema.safeParse(node);
+    if (!o.success) return; // a string, a number, a node of another shape: no audio here
+    const url = o.data.audio_url ?? o.data.audioUrl;
+    if (url !== undefined && url !== null && url !== "") {
+      out.push({ url, duration: o.data.duration ?? undefined, title: o.data.title ?? undefined });
       return;
     }
-    const urls = at(node, "resultUrls");
-    if (Array.isArray(urls)) {
-      const list: readonly unknown[] = urls;
-      for (const u of list) if (typeof u === "string" && u !== "") out.push({ url: u });
-    }
-    for (const key of ["data", "response", "sunoData", "resultObject"]) visit(at(node, key), depth + 1);
+    for (const u of o.data.resultUrls ?? []) if (u !== "") out.push({ url: u });
+    for (const child of [o.data.data, o.data.response, o.data.sunoData, o.data.resultObject]) visit(child, depth + 1);
   };
   visit(result, 0);
   return out;
 }
+
+/** One node of a finished job's result, as far as audio is concerned. */
+const ResultNodeSchema = z.object({
+  audio_url: z.string().nullish(),
+  audioUrl: z.string().nullish(),
+  duration: z.number().nullish(),
+  title: z.string().nullish(),
+  resultUrls: z.array(z.string()).nullish(),
+  data: z.unknown(),
+  response: z.unknown(),
+  sunoData: z.unknown(),
+  resultObject: z.unknown(),
+});
 
 /** Download a finished file, with the URL in the error if it fails. */
 export async function download(url: string): Promise<Blob> {

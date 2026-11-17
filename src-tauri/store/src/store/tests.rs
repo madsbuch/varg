@@ -1,5 +1,5 @@
 use super::*;
-use crate::model::{Category, Metric, PrKind};
+use crate::model::{Category, ChatItem, ChatMessage, GearId, Intensity, Level, Metric, MusicProfile, PerSide, Plan, PrKind, SetId, Side, Template};
 use std::path::PathBuf;
 
 fn temp_db(name: &str) -> PathBuf {
@@ -165,7 +165,7 @@ fn adopts_a_current_drizzle_database() {
     let store = Store::open(&path).expect("open");
     assert_eq!(store.load().expect("load").sessions.len(), 1);
     assert_eq!(store.kv_all().expect("kv"), vec![("varg.ftp.v1".to_owned(), "250".to_owned())]);
-    store.save_program(&SavedProgram { id: "mimir-x".into(), template: Map::new(), saved_at: "now".into() }).expect("new table");
+    store.save_program(&SavedProgram { id: "mimir-x".into(), template: template("mimir-x"), saved_at: "now".into() }).expect("new table");
 }
 
 #[test]
@@ -237,15 +237,12 @@ fn unreadable_rows_are_named_not_dropped_quietly() {
 #[test]
 fn mimir_rows_keep_their_order() {
     let store = Store::open_in_memory().expect("open");
-    let row = |id: &str, seq: i32, text: &str| {
-        let mut body = Map::new();
-        body.insert("kind".into(), Value::String("user".into()));
-        body.insert("text".into(), Value::String(text.into()));
-        ChatRow { id: id.into(), seq, body }
-    };
+    let row = |id: &str, seq: i32, text: &str| ChatEntry { id: id.into(), seq, body: ChatItem::User { text: text.into() } };
     store.save_chat_item(&row("b", 2, "second")).expect("b");
     store.save_chat_item(&row("a", 1, "first")).expect("a");
-    store.save_chat_message(&row("m", 1, "hi")).expect("m");
+    store
+        .save_chat_message(&ChatEntry { id: "m".into(), seq: 1, body: ChatMessage::Assistant { content: None, tool_calls: None } })
+        .expect("m");
     let snap = store.load().expect("load");
     assert_eq!(snap.mimir_items, vec![row("a", 1, "first"), row("b", 2, "second")]);
     assert_eq!(snap.mimir_messages.len(), 1);
@@ -342,4 +339,114 @@ fn as_f64(v: &mut Value) {
         Value::Object(m) => m.values_mut().for_each(as_f64),
         _ => {}
     }
+}
+
+fn template(id: &str) -> Template {
+    Template {
+        id: id.into(),
+        name: "Wolf Circuit".into(),
+        branch: "Mímir".into(),
+        description: "x".into(),
+        level: Level::Beginner,
+        plan: Plan::Interval { stations: vec!["ex-push-up".into()], work: 20, rest: 10, rounds: 3, note: None },
+        music: MusicProfile { bpm: 140, style: "s".into(), theme: "t".into(), set: None, energy: Some(Intensity::Peak) },
+        gear: None,
+    }
+}
+
+/// A program Mímir saved before plans: read, converted, written back once.
+#[test]
+fn old_shape_programs_and_cards_are_converted_once() {
+    let store = Store::open_in_memory().expect("open");
+    let old = r#"{"id":"mimir-old","name":"Old Circuit","branch":"Mímir","description":"x","scheme":"3 rounds · 1 stations · 20 s work / 10 s rest","level":"beginner","exerciseIds":["ex-push-up"],"music":{"bpm":140,"style":"s","theme":"t","energy":3},"interval":{"work":20,"rest":10,"rounds":3}}"#;
+    let logged = r#"{"id":"mimir-heavy","name":"Heavy","branch":"Mímir","description":"x","scheme":"5 × 5","level":"advanced","estimateMinutes":45,"exerciseIds":["ex-back-squat"],"music":{"bpm":140,"style":"s","theme":"t"}}"#;
+    let card = format!(r#"{{"kind":"program","template":{old},"saved":true}}"#);
+    store
+        .with(|c| {
+            diesel::sql_query(format!("INSERT INTO programs VALUES ('mimir-old', '{old}', 'a')")).execute(c)?;
+            diesel::sql_query(format!("INSERT INTO programs VALUES ('mimir-heavy', '{logged}', 'b')")).execute(c)?;
+            diesel::sql_query(format!("INSERT INTO mimir_items VALUES ('i', 1, '{card}')")).execute(c)?;
+            Ok(())
+        })
+        .expect("seed");
+    let snap = store.load().expect("load");
+    assert!(snap.problems.is_empty(), "{:?}", snap.problems);
+    assert_eq!(snap.programs[0].template, Template { name: "Old Circuit".into(), ..template("mimir-old") });
+    assert_eq!(
+        snap.programs[1].template.plan,
+        Plan::Logged { exercises: vec!["ex-back-squat".into()], scheme: "5 × 5".into(), estimate_minutes: 45 }
+    );
+    match &snap.mimir_items[0].body {
+        ChatItem::Program { template: t, saved, .. } => {
+            assert_eq!(t.plan, template("x").plan);
+            assert_eq!(*saved, Some(true));
+        }
+        other => panic!("not a program card: {other:?}"),
+    }
+    // Written back in the new shape: it now reads without converting.
+    let stored: String = store.with(|c| Ok(programs::table.find("mimir-old").select(programs::template).first(c)?)).expect("row");
+    assert!(stored.contains(r#""plan":{"kind":"interval""#), "{stored}");
+    assert_eq!(store.load().expect("again").programs, snap.programs);
+}
+
+/// Strict like the app: an unknown field in a plan, a string for a number,
+/// a second plan kind, an unknown enum value are all refused.
+#[test]
+fn templates_are_strict() {
+    let good = serde_json::to_value(template("t")).expect("json");
+    assert!(serde_json::from_value::<Template>(good.clone()).is_ok());
+    let mut extra = good.clone();
+    extra["plan"]["scheme"] = Value::String("made up".into());
+    assert!(serde_json::from_value::<Template>(extra).is_err(), "unknown plan field");
+    let mut text = good.clone();
+    text["plan"]["work"] = Value::String("20".into());
+    assert!(serde_json::from_value::<Template>(text).is_err(), "a string is not a number");
+    let mut half = good.clone();
+    half["plan"]["work"] = serde_json::json!(20.5);
+    assert!(serde_json::from_value::<Template>(half).is_err(), "not a whole number");
+    let mut kind = good.clone();
+    kind["plan"]["kind"] = Value::String("amrap".into());
+    assert!(serde_json::from_value::<Template>(kind).is_err(), "unknown kind");
+    let mut energy = good;
+    energy["music"]["energy"] = serde_json::json!(4);
+    assert!(serde_json::from_value::<Template>(energy).is_err(), "intensity is 1-3");
+}
+
+/// Every enum's values, as the app's schemas list them (scripts/store.test.ts
+/// writes the fixture): each decodes here, and the counts match, so neither
+/// side has a value the other lacks.
+#[test]
+fn enums_match_the_app() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/enums.json");
+    let text = std::fs::read_to_string(path).expect("enums fixture");
+    let all: std::collections::BTreeMap<String, Vec<Value>> = serde_json::from_str(&text).expect("json");
+    fn check<T: serde::de::DeserializeOwned>(name: &str, values: &[Value], rust_count: usize) {
+        for v in values {
+            assert!(serde_json::from_value::<T>(v.clone()).is_ok(), "{name}: the app has {v}, Rust refuses it");
+        }
+        assert_eq!(values.len(), rust_count, "{name}: the app lists {} values, Rust has {rust_count}", values.len());
+    }
+    let get = |k: &str| all.get(k).unwrap_or_else(|| panic!("fixture lacks {k}")).clone();
+    check::<Metric>("metric", &get("metric"), 4);
+    check::<Category>("category", &get("category"), 6);
+    check::<PrKind>("prKind", &get("prKind"), 5);
+    check::<Level>("level", &get("level"), 3);
+    check::<Intensity>("intensity", &get("intensity"), 3);
+    check::<Side>("side", &get("side"), 2);
+    check::<PerSide>("perSide", &get("perSide"), 2);
+    check::<SetId>("setId", &get("setId"), 3);
+    check::<GearId>("gearId", &get("gearId"), 22);
+    let kinds: Vec<String> = get("planKind").into_iter().filter_map(|v| v.as_str().map(str::to_owned)).collect();
+    let rust_kinds: Vec<String> = [
+        Plan::Interval { stations: vec![], work: 0, rest: 0, rounds: 0, note: None },
+        Plan::Emom { minute: 0, rounds: 0, stations: vec![], warmup: None, note: None },
+        Plan::Flow { steps: vec![], transition: 0, note: None },
+        Plan::ForTime { stages: vec![], scheme: String::new(), estimate_minutes: 0 },
+        Plan::Ride { segments: vec![], race: None, free: None, scheme: String::new(), estimate_minutes: None },
+        Plan::Logged { exercises: vec![], scheme: String::new(), estimate_minutes: 0 },
+    ]
+    .iter()
+    .map(|p| serde_json::to_value(p).expect("json")["kind"].as_str().unwrap_or_default().to_owned())
+    .collect();
+    assert_eq!(kinds, rust_kinds, "plan kinds");
 }

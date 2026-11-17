@@ -297,28 +297,30 @@ export function seedTemplates(): Template[] {
       description:
         "Twelve stations, strength alternating with cardio, no station " +
         "repeats back to back. Cardio alternates run on the spot and air boxing.",
+      level: "intermediate",
       // No total here: the card computes and shows the real clock time,
       // and two numbers that disagree by ten seconds is worse than one.
-      scheme: "3 rounds · 12 stations · 20 s work / 10 s rest",
-      level: "intermediate",
       // Strength station, cardio, strength station, cardio… The two cardio
       // exercises alternate, and there are six cardio slots per round, so
       // the pattern stays in phase across round boundaries too.
-      exerciseIds: [
-        EX.sitUp,
-        EX.runInPlace,
-        EX.pushUp,
-        EX.airBoxing,
-        EX.backLift,
-        EX.runInPlace,
-        EX.airSquat,
-        EX.airBoxing,
-        EX.benchDip,
-        EX.runInPlace,
-        EX.burpee,
-        EX.airBoxing,
-      ],
-      interval: { work: 20, rest: 10, rounds: 3 },
+      plan: {
+        kind: "interval",
+        stations: [
+          EX.sitUp,
+          EX.runInPlace,
+          EX.pushUp,
+          EX.airBoxing,
+          EX.backLift,
+          EX.runInPlace,
+          EX.airSquat,
+          EX.airBoxing,
+          EX.benchDip,
+          EX.runInPlace,
+          EX.burpee,
+          EX.airBoxing,
+        ],
+        work: 20, rest: 10, rounds: 3,
+      },
       music: {
         bpm: 160,
         style: "hard electronic, punchy drums, dark synth bass, no vocals",
@@ -334,24 +336,26 @@ export function seedTemplates(): Template[] {
         "Varg 18 with longer work: the same twelve stations in the same " +
         "order, strength alternating with cardio, but 40 seconds under load " +
         "per station. Cardio alternates run on the spot and air boxing.",
-      scheme: "3 rounds · 12 stations · 40 s work / 10 s rest",
       level: "advanced",
       // Identical station order to Varg 18 — only the work time changes.
-      exerciseIds: [
-        EX.sitUp,
-        EX.runInPlace,
-        EX.pushUp,
-        EX.airBoxing,
-        EX.backLift,
-        EX.runInPlace,
-        EX.airSquat,
-        EX.airBoxing,
-        EX.benchDip,
-        EX.runInPlace,
-        EX.burpee,
-        EX.airBoxing,
-      ],
-      interval: { work: 40, rest: 10, rounds: 3 },
+      plan: {
+        kind: "interval",
+        stations: [
+          EX.sitUp,
+          EX.runInPlace,
+          EX.pushUp,
+          EX.airBoxing,
+          EX.backLift,
+          EX.runInPlace,
+          EX.airSquat,
+          EX.airBoxing,
+          EX.benchDip,
+          EX.runInPlace,
+          EX.burpee,
+          EX.airBoxing,
+        ],
+        work: 40, rest: 10, rounds: 3,
+      },
       music: {
         bpm: 160,
         style: "hard electronic, punchy drums, dark synth bass, no vocals",
@@ -368,16 +372,11 @@ export function seedTemplates(): Template[] {
         "balance, open the hips, a little core, then settle. Between poses " +
         "you get 10 seconds to move while the voice names the next one, " +
         "with form cues on screen; one-sided poses go left, then right.",
-      scheme: "12:40 flow · 17 poses · holds of 30–40 s · 10 s to move between poses · both sides",
       level: "beginner",
-      exerciseIds: [
-        EX.childsPose, EX.catCow, EX.downwardDog, EX.upwardSalute,
-        EX.standingForwardFold, EX.chairPose, EX.warriorTwo, EX.trianglePose,
-        EX.treePose, EX.pigeonPose, EX.boatPose, EX.bridgePose, EX.savasana,
-      ],
       // Holds: 40+40+40+30+30+30 + 2×40 + 2×35 + 2×30 + 2×40 + 30+40+30
       // = 600 s, plus 16 moves of 10 s = 760 s (12:40).
-      flow: {
+      plan: {
+        kind: "flow",
         transition: 10,
         steps: [
           { exerciseId: EX.childsPose, seconds: 40 },
@@ -398,6 +397,7 @@ export function seedTemplates(): Template[] {
           { exerciseId: EX.bridgePose, seconds: 40 },
           { exerciseId: EX.savasana, seconds: 30 },
         ],
+        note: "both sides",
       },
       music: {
         bpm: 70,
@@ -415,19 +415,12 @@ export function seedTemplates(): Template[] {
         "hips and hamstrings, a spinal twist, and a proper rest at the end. " +
         "10 seconds to move between poses while the voice names the next one, " +
         "and on-screen cues throughout.",
-      scheme: "24:00 flow · 25 poses · holds of 30–85 s · 10 s to move between poses · both sides",
       level: "beginner",
-      exerciseIds: [
-        EX.childsPose, EX.catCow, EX.downwardDog, EX.upwardSalute,
-        EX.standingForwardFold, EX.plank, EX.downDogCobra, EX.lowLunge,
-        EX.chairPose, EX.warriorTwo, EX.trianglePose, EX.treePose,
-        EX.worldsGreatestStretch, EX.boatPose, EX.pigeonPose,
-        EX.seatedForwardFold, EX.bridgePose, EX.openBook, EX.savasana,
-      ],
       // 60+60+45+30+45+30+45 + 2×45 + 45 + 2×45 + 2×45 + 2×40 + 60 + 30
       // + 2×60 + 60 + 45 + 2×45 + 85 = 1200 s of holds, plus 24 moves of
       // 10 s = 1440 s (24:00).
-      flow: {
+      plan: {
+        kind: "flow",
         transition: 10,
         steps: [
           { exerciseId: EX.childsPose, seconds: 60 },
@@ -456,6 +449,7 @@ export function seedTemplates(): Template[] {
           { exerciseId: EX.openBook, seconds: 45, side: "right" },
           { exerciseId: EX.savasana, seconds: 85 },
         ],
+        note: "both sides",
       },
       music: {
         bpm: 72,
@@ -477,11 +471,13 @@ export function seedTemplates(): Template[] {
         "No program, just the bike: live watts, cadence, kcal and your " +
         "power zone, with the clock counting up from the start. Ride as " +
         "long as you like; Finish saves it to your history.",
-      scheme: "Open-ended · live watts, cadence, kcal and zone",
       level: "beginner",
-      estimateMinutes: 30,
-      exerciseIds: [EX.spinBike],
-      ride: { segments: [], free: true },
+      plan: {
+        kind: "ride",
+        segments: [], free: true,
+        scheme: "Open-ended · live watts, cadence, kcal and zone",
+        estimateMinutes: 30,
+      },
       music: { bpm: 124, style: "steady deep house, warm bass, rolling groove, no vocals", theme: "An easy open-ended ride with no plan, just turning the pedals" },
     },
     {
@@ -494,11 +490,11 @@ export function seedTemplates(): Template[] {
         "your Garmin zones, not by watts: start around 56–75 % FTP and let " +
         "the heart rate set the effort as the ride drifts. The ride logs how " +
         "much of it you spent in the zone.",
-      scheme: "40 min in heart-rate zone 2 · 85–95 rpm · needs the strap",
       level: "beginner",
-      exerciseIds: [EX.spinBike],
-      ride: {
+      plan: {
+        kind: "ride",
         segments: [{ label: "Zone 2", ftp: [56, 75], hrZone: 2, seconds: 2400, cadence: [85, 95] }],
+        scheme: "40 min in heart-rate zone 2 · 85–95 rpm · needs the strap",
       },
       music: { bpm: 128, style: "steady deep house, warm bass, rolling groove, no vocals", theme: "Forty easy, even minutes, a long steady engine-building ride" },
     },
@@ -510,13 +506,13 @@ export function seedTemplates(): Template[] {
         "A race against the clock: 200 kcal as fast as you can make them. " +
         "Kcal come from the bike, so it ends itself at 200; the target is " +
         "threshold and above. Pace it, then empty the tank.",
-      scheme: "200 kcal @ 95–120 % FTP · for time",
       level: "intermediate",
-      estimateMinutes: 12,
-      exerciseIds: [EX.spinBike],
-      ride: {
+      plan: {
+        kind: "ride",
         race: true,
         segments: [{ label: "All out", ftp: [95, 120], kcal: 200, cadence: [90, 110] }],
+        scheme: "200 kcal @ 95–120 % FTP · for time",
+        estimateMinutes: 12,
       },
       music: { bpm: 172, style: "hard electronic, driving drums, aggressive synth", theme: "A flat-out calorie race, no pacing after halfway" },
     },
@@ -528,11 +524,10 @@ export function seedTemplates(): Template[] {
         "The FTP builder: three ten-minute blocks just under threshold, five " +
         "easy minutes between, a ten-minute warm-up and a five-minute spin " +
         "to finish.",
-      scheme: "10 min warm-up · 3 × 10 min @ 88–94 % FTP, 5 min easy between · 5 min cool-down",
       level: "intermediate",
-      exerciseIds: [EX.spinBike],
       // 600 + 600 + 300 + 600 + 300 + 600 + 300 = 3300 s (55:00).
-      ride: {
+      plan: {
+        kind: "ride",
         segments: [
           { label: "Warm-up", ftp: [50, 65], seconds: 600, cadence: [85, 95] },
           { label: "Sweet spot", ftp: [88, 94], seconds: 600, cadence: [85, 95] },
@@ -542,6 +537,7 @@ export function seedTemplates(): Template[] {
           { label: "Sweet spot", ftp: [88, 94], seconds: 600, cadence: [85, 95] },
           { label: "Cool-down", ftp: [40, 55], seconds: 300 },
         ],
+        scheme: "10 min warm-up · 3 × 10 min @ 88–94 % FTP, 5 min easy between · 5 min cool-down",
       },
       music: { bpm: 132, style: "progressive house, building synths, steady kick, no vocals", theme: "Long controlled efforts just under the red line" },
     },
@@ -552,12 +548,11 @@ export function seedTemplates(): Template[] {
       description:
         "Five three-minute efforts above threshold with equal recovery. Hard " +
         "from the second minute of each. That's the point.",
-      scheme: "10 min warm-up · 5 × 3 min @ 106–120 % FTP, 3 min easy between · 5 min cool-down",
       level: "advanced",
-      exerciseIds: [EX.spinBike],
       // 600 + 5 × (180 + 180) + 300 = 2700 s (45:00); the fifth recovery
       // runs straight into the cool-down.
-      ride: {
+      plan: {
+        kind: "ride",
         segments: [
           { label: "Warm-up", ftp: [50, 70], seconds: 600, cadence: [85, 95] },
           ...[1, 2, 3, 4, 5].flatMap((n): RideSegment[] => [
@@ -566,6 +561,7 @@ export function seedTemplates(): Template[] {
           ]),
           { label: "Cool-down", ftp: [40, 55], seconds: 300 },
         ],
+        scheme: "10 min warm-up · 5 × 3 min @ 106–120 % FTP, 3 min easy between · 5 min cool-down",
       },
       music: { bpm: 140, style: "hard techno, pounding kick, rising tension, no vocals", theme: "Three minutes at a time, deep in the red" },
     },
@@ -576,11 +572,10 @@ export function seedTemplates(): Template[] {
       description:
         "Eight rounds of 20 seconds all out, 10 seconds easy, after a proper " +
         "warm-up. Four minutes that feel like forty.",
-      scheme: "8 min warm-up · 8 × 20 s all out (150 %+ FTP) / 10 s easy · 6 min cool-down",
       level: "advanced",
-      exerciseIds: [EX.spinBike],
       // 480 + 8 × 30 + 360 = 1080 s (18:00).
-      ride: {
+      plan: {
+        kind: "ride",
         segments: [
           { label: "Warm-up", ftp: [50, 65], seconds: 480, cadence: [85, 95] },
           ...[1, 2, 3, 4, 5, 6, 7, 8].flatMap((): RideSegment[] => [
@@ -589,6 +584,7 @@ export function seedTemplates(): Template[] {
           ]),
           { label: "Cool-down", ftp: [40, 55], seconds: 360 },
         ],
+        scheme: "8 min warm-up · 8 × 20 s all out (150 %+ FTP) / 10 s easy · 6 min cool-down",
       },
       music: { bpm: 174, style: "frantic drum and bass, huge drops, no vocals", theme: "Eight sprints, nothing held back" },
     },
@@ -601,15 +597,12 @@ export function seedTemplates(): Template[] {
         "accelerating, no rest between. The music follows the blocks: one " +
         "song set, low seated, mid standing, its peak accelerating, a " +
         "different song each round.",
-      scheme:
-        "10 × (20 s seated @ 75–85 % FTP / 20 s standing @ 90–105 % FTP, 60–75 rpm / " +
-        "20 s accelerate @ 110–130 % FTP, 105–120 rpm) · 5 min cool-down",
       level: "intermediate",
-      exerciseIds: [EX.spinBike],
       // 10 × (20 + 20 + 20) + 300 = 900 s (15:00). A 20 s block is exactly
       // 12 bars at 144 BPM and 13 at the peaks' 156, so every change lands
       // on a downbeat of both songs.
-      ride: {
+      plan: {
+        kind: "ride",
         segments: [
           ...Array.from({ length: 10 }, (): RideSegment[] => [
             { label: "Seated", ftp: [75, 85], seconds: 20, cadence: [85, 95], intensity: 1 },
@@ -618,6 +611,8 @@ export function seedTemplates(): Template[] {
           ]).flat(),
           { label: "Cool-down", ftp: [40, 55], seconds: 300, intensity: 1 },
         ],
+        scheme: "10 × (20 s seated @ 75–85 % FTP / 20 s standing @ 90–105 % FTP, 60–75 rpm / " +
+          "20 s accelerate @ 110–130 % FTP, 105–120 rpm) · 5 min cool-down",
       },
       music: {
         bpm: 144,
@@ -636,11 +631,9 @@ export function seedTemplates(): Template[] {
         "A race up a ladder: 50, 100, then 150 kcal at threshold, with three " +
         "easy minutes between rungs. The clock never stops: the score is " +
         "your total time.",
-      scheme: "50 kcal · 3 min easy · 100 kcal · 3 min easy · 150 kcal @ 95–110 % FTP · for time",
       level: "intermediate",
-      estimateMinutes: 26,
-      exerciseIds: [EX.spinBike],
-      ride: {
+      plan: {
+        kind: "ride",
         race: true,
         segments: [
           { label: "Rung one", ftp: [95, 110], kcal: 50, cadence: [90, 100] },
@@ -649,6 +642,8 @@ export function seedTemplates(): Template[] {
           { label: "Easy spin", ftp: [45, 55], seconds: 180 },
           { label: "Rung three", ftp: [95, 110], kcal: 150, cadence: [90, 100] },
         ],
+        scheme: "50 kcal · 3 min easy · 100 kcal · 3 min easy · 150 kcal @ 95–110 % FTP · for time",
+        estimateMinutes: 26,
       },
       music: { bpm: 150, style: "driving electro, big bassline, no vocals", theme: "Climb the ladder, every rung longer than the last" },
     },
@@ -663,16 +658,16 @@ export function seedTemplates(): Template[] {
       description:
         "The sprint benchmark: thrusters and pull-ups, 21-15-9. Short and " +
         "savage: most finish between 3 and 10 minutes.",
-      scheme: "21-15-9 thrusters @ 43/29 kg · pull-ups · for time",
       level: "advanced",
       gear: { detail: { barbell: "43/29 kg" } },
-      estimateMinutes: 8,
-      exerciseIds: [EX.thruster, EX.pullUp],
-      forTime: {
+      plan: {
+        kind: "forTime",
         stages: [21, 15, 9].flatMap((n) => [
           { exerciseId: EX.thruster, label: `${n} thrusters`, reps: n },
           { exerciseId: EX.pullUp, label: `${n} pull-ups`, reps: n },
         ]),
+        scheme: "21-15-9 thrusters @ 43/29 kg · pull-ups · for time",
+        estimateMinutes: 8,
       },
       music: { bpm: 178, style: "aggressive industrial metal, pounding drums", theme: "Three minutes of pure redline, no pacing, just go" },
     },
@@ -683,16 +678,16 @@ export function seedTemplates(): Template[] {
       description:
         "Fran for before your first pull-up: the same 21-15-9, with a light " +
         "bar and ring rows. Set the rings so the last rows are hard but clean.",
-      scheme: "21-15-9 thrusters @ 20/15 kg · ring rows · for time",
       level: "beginner",
       gear: { detail: { barbell: "20/15 kg" } },
-      estimateMinutes: 8,
-      exerciseIds: [EX.thruster, EX.ringRow],
-      forTime: {
+      plan: {
+        kind: "forTime",
         stages: [21, 15, 9].flatMap((n) => [
           { exerciseId: EX.thruster, label: `${n} thrusters`, reps: n },
           { exerciseId: EX.ringRow, label: `${n} ring rows`, reps: n },
         ]),
+        scheme: "21-15-9 thrusters @ 20/15 kg · ring rows · for time",
+        estimateMinutes: 8,
       },
       music: { bpm: 172, style: "driving electronic rock, heavy kick", theme: "Short and sharp, learn to suffer for a few minutes" },
     },
@@ -701,17 +696,17 @@ export function seedTemplates(): Template[] {
       name: "Helen",
       branch: "CrossFit Benchmark",
       description: "Three rounds of a run, kettlebell swings and pull-ups.",
-      scheme: "3 rounds: 400 m run · 21 kettlebell swings @ 24/16 kg · 12 pull-ups · for time",
       level: "advanced",
       gear: { detail: { kettlebell: "24/16 kg" } },
-      estimateMinutes: 12,
-      exerciseIds: [EX.run, EX.kettlebellSwing, EX.pullUp],
-      forTime: {
+      plan: {
+        kind: "forTime",
         stages: [1, 2, 3].flatMap((r) => [
           { exerciseId: EX.run, label: `Round ${r} · 400 m run`, meters: 400 },
           { exerciseId: EX.kettlebellSwing, label: `Round ${r} · 21 kettlebell swings`, reps: 21 },
           { exerciseId: EX.pullUp, label: `Round ${r} · 12 pull-ups`, reps: 12 },
         ]),
+        scheme: "3 rounds: 400 m run · 21 kettlebell swings @ 24/16 kg · 12 pull-ups · for time",
+        estimateMinutes: 12,
       },
       music: { bpm: 170, style: "hard rock, galloping drums, distorted bass", theme: "Run, swing, pull, three hard laps" },
     },
@@ -720,17 +715,17 @@ export function seedTemplates(): Template[] {
       name: "Helen (scaled)",
       branch: "CrossFit Scaled",
       description: "Helen with a lighter bell and ring rows in place of pull-ups.",
-      scheme: "3 rounds: 400 m run · 21 kettlebell swings @ 16/12 kg · 12 ring rows · for time",
       level: "beginner",
       gear: { detail: { kettlebell: "16/12 kg" } },
-      estimateMinutes: 15,
-      exerciseIds: [EX.run, EX.kettlebellSwing, EX.ringRow],
-      forTime: {
+      plan: {
+        kind: "forTime",
         stages: [1, 2, 3].flatMap((r) => [
           { exerciseId: EX.run, label: `Round ${r} · 400 m run`, meters: 400 },
           { exerciseId: EX.kettlebellSwing, label: `Round ${r} · 21 kettlebell swings`, reps: 21 },
           { exerciseId: EX.ringRow, label: `Round ${r} · 12 ring rows`, reps: 12 },
         ]),
+        scheme: "3 rounds: 400 m run · 21 kettlebell swings @ 16/12 kg · 12 ring rows · for time",
+        estimateMinutes: 15,
       },
       music: { bpm: 164, style: "punchy rock, steady drive", theme: "Three honest rounds, keep moving" },
     },
@@ -739,17 +734,17 @@ export function seedTemplates(): Template[] {
       name: "Jackie",
       branch: "CrossFit Benchmark",
       description: "Row, thrusters, pull-ups: one long chipper, one lap each.",
-      scheme: "1000 m row · 50 thrusters @ 20/15 kg · 30 pull-ups · for time",
       level: "advanced",
       gear: { detail: { barbell: "20/15 kg" } },
-      estimateMinutes: 12,
-      exerciseIds: [EX.row, EX.thruster, EX.pullUp],
-      forTime: {
+      plan: {
+        kind: "forTime",
         stages: [
           { exerciseId: EX.row, label: "1000 m row", meters: 1000 },
           { exerciseId: EX.thruster, label: "50 thrusters", reps: 50 },
           { exerciseId: EX.pullUp, label: "30 pull-ups", reps: 30 },
         ],
+        scheme: "1000 m row · 50 thrusters @ 20/15 kg · 30 pull-ups · for time",
+        estimateMinutes: 12,
       },
       music: { bpm: 168, style: "dark electronic, rolling bassline, hard drums", theme: "Pull the erg, then grind through the bar" },
     },
@@ -758,17 +753,17 @@ export function seedTemplates(): Template[] {
       name: "Jackie (scaled)",
       branch: "CrossFit Scaled",
       description: "Jackie with a training bar and ring rows.",
-      scheme: "1000 m row · 50 thrusters @ 15/10 kg · 30 ring rows · for time",
       level: "beginner",
       gear: { detail: { barbell: "15/10 kg" } },
-      estimateMinutes: 15,
-      exerciseIds: [EX.row, EX.thruster, EX.ringRow],
-      forTime: {
+      plan: {
+        kind: "forTime",
         stages: [
           { exerciseId: EX.row, label: "1000 m row", meters: 1000 },
           { exerciseId: EX.thruster, label: "50 thrusters", reps: 50 },
           { exerciseId: EX.ringRow, label: "30 ring rows", reps: 30 },
         ],
+        scheme: "1000 m row · 50 thrusters @ 15/10 kg · 30 ring rows · for time",
+        estimateMinutes: 15,
       },
       music: { bpm: 160, style: "dark electronic, steady groove", theme: "A long steady chipper, find a rhythm and hold it" },
     },
@@ -779,12 +774,14 @@ export function seedTemplates(): Template[] {
       description:
         "One movement, one number: 150 wall balls. Break them into sets " +
         "before you have to: 10s or 15s with short rests.",
-      scheme: "150 wall balls @ 9/6 kg to a 3 m target · for time",
       level: "intermediate",
       gear: { detail: { wallBall: "9/6 kg · 3 m target" } },
-      estimateMinutes: 12,
-      exerciseIds: [EX.wallBall],
-      forTime: { stages: [{ exerciseId: EX.wallBall, label: "150 wall balls", reps: 150 }] },
+      plan: {
+        kind: "forTime",
+        stages: [{ exerciseId: EX.wallBall, label: "150 wall balls", reps: 150 }],
+        scheme: "150 wall balls @ 9/6 kg to a 3 m target · for time",
+        estimateMinutes: 12,
+      },
       music: { bpm: 166, style: "relentless techno, four-on-the-floor", theme: "Squat, throw, catch, one hundred and fifty times" },
     },
     {
@@ -792,17 +789,17 @@ export function seedTemplates(): Template[] {
       name: "Kelly",
       branch: "CrossFit Benchmark",
       description: "Five long rounds of running, jumping and throwing: a lung burner.",
-      scheme: "5 rounds: 400 m run · 30 box jumps @ 60/50 cm · 30 wall balls @ 9/6 kg · for time",
       level: "advanced",
       gear: { detail: { box: "60/50 cm", wallBall: "9/6 kg · 3 m target" } },
-      estimateMinutes: 35,
-      exerciseIds: [EX.run, EX.boxJump, EX.wallBall],
-      forTime: {
+      plan: {
+        kind: "forTime",
         stages: [1, 2, 3, 4, 5].flatMap((r) => [
           { exerciseId: EX.run, label: `Round ${r} · 400 m run`, meters: 400 },
           { exerciseId: EX.boxJump, label: `Round ${r} · 30 box jumps`, reps: 30 },
           { exerciseId: EX.wallBall, label: `Round ${r} · 30 wall balls`, reps: 30 },
         ]),
+        scheme: "5 rounds: 400 m run · 30 box jumps @ 60/50 cm · 30 wall balls @ 9/6 kg · for time",
+        estimateMinutes: 35,
       },
       music: { bpm: 168, style: "hard electronic rock, big drums", theme: "Five rounds of lungs and legs, keep the engine running" },
     },
@@ -811,15 +808,15 @@ export function seedTemplates(): Template[] {
       name: "Annie",
       branch: "CrossFit Benchmark",
       description: "Double-unders and sit-ups in a descending ladder.",
-      scheme: "50-40-30-20-10 double-unders · sit-ups · for time",
       level: "advanced",
-      estimateMinutes: 10,
-      exerciseIds: [EX.doubleUnder, EX.sitUp],
-      forTime: {
+      plan: {
+        kind: "forTime",
         stages: [50, 40, 30, 20, 10].flatMap((n) => [
           { exerciseId: EX.doubleUnder, label: `${n} double-unders`, reps: n },
           { exerciseId: EX.sitUp, label: `${n} sit-ups`, reps: n },
         ]),
+        scheme: "50-40-30-20-10 double-unders · sit-ups · for time",
+        estimateMinutes: 10,
       },
       music: { bpm: 172, style: "fast drum and bass, crisp breaks", theme: "Quick feet, hard core, a ladder down to the finish" },
     },
@@ -828,15 +825,15 @@ export function seedTemplates(): Template[] {
       name: "Annie (scaled)",
       branch: "CrossFit Scaled",
       description: "Annie with single-unders while the double-unders come.",
-      scheme: "50-40-30-20-10 single-unders · sit-ups · for time",
       level: "beginner",
-      estimateMinutes: 12,
-      exerciseIds: [EX.singleUnder, EX.sitUp],
-      forTime: {
+      plan: {
+        kind: "forTime",
         stages: [50, 40, 30, 20, 10].flatMap((n) => [
           { exerciseId: EX.singleUnder, label: `${n} single-unders`, reps: n },
           { exerciseId: EX.sitUp, label: `${n} sit-ups`, reps: n },
         ]),
+        scheme: "50-40-30-20-10 single-unders · sit-ups · for time",
+        estimateMinutes: 12,
       },
       music: { bpm: 164, style: "upbeat drum and bass", theme: "Light on the feet, skip, crunch, repeat" },
     },
@@ -848,11 +845,9 @@ export function seedTemplates(): Template[] {
         "Half of Murph, scaled for before your first pull-up: ring rows in " +
         "place of pull-ups, no vest. Push-ups from the knees or with hands " +
         "on a box are fine. Partition the middle however you like.",
-      scheme: "800 m run · 50 ring rows · 100 push-ups · 150 air squats · 800 m run · for time",
       level: "intermediate",
-      estimateMinutes: 35,
-      exerciseIds: [EX.run, EX.ringRow, EX.pushUp, EX.airSquat],
-      forTime: {
+      plan: {
+        kind: "forTime",
         stages: [
           { exerciseId: EX.run, label: "800 m run", meters: 800 },
           { exerciseId: EX.ringRow, label: "50 ring rows", reps: 50 },
@@ -860,6 +855,8 @@ export function seedTemplates(): Template[] {
           { exerciseId: EX.airSquat, label: "150 air squats", reps: 150 },
           { exerciseId: EX.run, label: "800 m run", meters: 800 },
         ],
+        scheme: "800 m run · 50 ring rows · 100 push-ups · 150 air squats · 800 m run · for time",
+        estimateMinutes: 35,
       },
       music: { bpm: 170, style: "aggressive electronic rock, pounding drums", theme: "Half the hero, all the honour, earn the full one" },
     },
@@ -873,10 +870,12 @@ export function seedTemplates(): Template[] {
         "scapular pulls the first inch, rows the back, and slow negatives " +
         "the strength to pull. Two or three times a week. Ready for Path 2 " +
         "when you can hang the full 30 s and lower for 3–5 s on every negative.",
-      scheme: "4 rounds · 4 stations · 30 s work / 30 s rest",
       level: "beginner",
-      exerciseIds: [EX.deadHang, EX.scapPull, EX.ringRow, EX.pullupNegative],
-      interval: { work: 30, rest: 30, rounds: 4 },
+      plan: {
+        kind: "interval",
+        stations: [EX.deadHang, EX.scapPull, EX.ringRow, EX.pullupNegative],
+        work: 30, rest: 30, rounds: 4,
+      },
       music: { bpm: 150, style: "steady hip-hop beat, heavy bass, no vocals", theme: "Patient strength, one more second on the bar each week" },
     },
     {
@@ -888,10 +887,12 @@ export function seedTemplates(): Template[] {
         "and rows. Use the thinnest band that still lets you do clean reps; " +
         "when that band gets easy, try one strict pull-up at the start of " +
         "the session.",
-      scheme: "4 rounds · 4 stations · 40 s work / 30 s rest",
       level: "intermediate",
-      exerciseIds: [EX.deadHang, EX.pullupNegative, EX.bandPullup, EX.ringRow],
-      interval: { work: 40, rest: 30, rounds: 4 },
+      plan: {
+        kind: "interval",
+        stations: [EX.deadHang, EX.pullupNegative, EX.bandPullup, EX.ringRow],
+        work: 40, rest: 30, rounds: 4,
+      },
       music: { bpm: 154, style: "boom-bap hip-hop beat, deep bass, no vocals", theme: "Closing in on the first pull-up, grind and believe" },
     },
     {
@@ -903,23 +904,26 @@ export function seedTemplates(): Template[] {
         "only: nothing goes on the tarmac. Opens the hips the seat closed " +
         "down, unlocks the shoulders, moves blood without soaking your shirt " +
         "for the next leg.",
-      scheme: "3 rounds · 6 stations · 15 s work, no rest · 90 s a round",
       level: "beginner",
       // Legs first: the seat closed the hips down, so the heavy lower-body
       // work goes in while there is still patience for it, then the hip
       // flexors and the cardio, and the shoulders close each round out.
       // Nothing here needs a floor, a wall or more than a parking space.
-      exerciseIds: [
-        EX.airSquat,
-        EX.reverseLunge,
-        EX.kneeLift,
-        EX.runInPlace,
-        EX.armCircles,
-        EX.airBoxing,
-      ],
       // No rest: fifteen seconds a station is short enough to run straight
       // through, and the station change is the breather.
-      interval: { work: 15, rest: 0, rounds: 3 },
+      plan: {
+        kind: "interval",
+        stations: [
+          EX.airSquat,
+          EX.reverseLunge,
+          EX.kneeLift,
+          EX.runInPlace,
+          EX.armCircles,
+          EX.airBoxing,
+        ],
+        work: 15, rest: 0, rounds: 3,
+        note: "90 s a round",
+      },
       music: {
         bpm: 140,
         style:
@@ -935,15 +939,17 @@ export function seedTemplates(): Template[] {
       description:
         "Basic soldier conditioning circuit, inspired by Træn med " +
         "Forsvaret. Push-ups, air squats, sit-ups, burpees, run on the spot.",
+      level: "beginner",
       // The scheme states what the interval enforces, not a prescription
       // the player cannot run: a 400 m station in 40 s is world-record
       // pace, and an interval WOD logs seconds, never metres, so the
       // distance could not have been recorded either. Forty seconds of
       // running with no room to leave is running on the spot.
-      scheme: "3 rounds · 5 stations · 40 s work / 20 s rest",
-      level: "beginner",
-      exerciseIds: [EX.pushUp, EX.airSquat, EX.sitUp, EX.burpee, EX.runInPlace],
-      interval: { work: 40, rest: 20, rounds: 3 },
+      plan: {
+        kind: "interval",
+        stations: [EX.pushUp, EX.airSquat, EX.sitUp, EX.burpee, EX.runInPlace],
+        work: 40, rest: 20, rounds: 3,
+      },
       music: {
         bpm: 155,
         style: "nordic electronic rock, driving drums, cold synths",
@@ -955,11 +961,14 @@ export function seedTemplates(): Template[] {
       name: "Feltmarch",
       branch: "Forsvaret",
       description: "March training under load, inspired by Træn med Forsvaret.",
-      scheme: "10 km march · 10 kg pack · steady pace",
       level: "intermediate",
       gear: { detail: { ruck: "10 kg" } },
-      estimateMinutes: 110,
-      exerciseIds: [EX.ruck],
+      plan: {
+        kind: "logged",
+        exercises: [EX.ruck],
+        scheme: "10 km march · 10 kg pack · steady pace",
+        estimateMinutes: 110,
+      },
       music: {
         bpm: 120,
         style: "marching drums, nordic folk undertones, hypnotic low drone",
@@ -973,12 +982,14 @@ export function seedTemplates(): Template[] {
       description:
         "Cardio circuit intervals, inspired by Træn med Forsvaret. Run on " +
         "the spot, kettlebell swings, burpees.",
+      level: "intermediate",
       // Same correction as Grundtræning: 800 m in a 60 s station was not a
       // prescription anyone could follow, and the station is timed anyway.
-      scheme: "5 rounds · 3 stations · 60 s work / 20 s rest",
-      level: "intermediate",
-      exerciseIds: [EX.runInPlace, EX.kettlebellSwing, EX.burpee],
-      interval: { work: 60, rest: 20, rounds: 5 },
+      plan: {
+        kind: "interval",
+        stations: [EX.runInPlace, EX.kettlebellSwing, EX.burpee],
+        work: 60, rest: 20, rounds: 5,
+      },
       music: {
         bpm: 165,
         style: "high-energy drum and bass, relentless breakbeats",
@@ -991,16 +1002,13 @@ export function seedTemplates(): Template[] {
       branch: "CrossFit Hero WOD",
       description:
         "In memory of Lt. Michael Murphy. Traditionally done wearing a 9 kg vest.",
-      scheme:
-        "1.6 km run · 100 pull-ups · 200 push-ups · 300 air squats · 1.6 km run · for time",
       level: "advanced",
       gear: { extra: ["vest"], detail: { vest: "9 kg · traditional" } },
-      estimateMinutes: 60,
-      exerciseIds: [EX.run, EX.pullUp, EX.pushUp, EX.airSquat, EX.run],
       // The middle 600 reps are one stage each, exactly as prescribed —
       // partition them however you like, the clock only cares when the
       // last squat is done.
-      forTime: {
+      plan: {
+        kind: "forTime",
         stages: [
           { exerciseId: EX.run, label: "1.6 km run", meters: 1600 },
           { exerciseId: EX.pullUp, label: "100 pull-ups", reps: 100 },
@@ -1008,6 +1016,8 @@ export function seedTemplates(): Template[] {
           { exerciseId: EX.airSquat, label: "300 air squats", reps: 300 },
           { exerciseId: EX.run, label: "1.6 km run", meters: 1600 },
         ],
+        scheme: "1.6 km run · 100 pull-ups · 200 push-ups · 300 air squats · 1.6 km run · for time",
+        estimateMinutes: 60,
       },
       music: {
         bpm: 175,
@@ -1021,25 +1031,27 @@ export function seedTemplates(): Template[] {
       branch: "U.S. Army",
       description:
         "Six-event test of combat readiness. Log each event's score.",
+      level: "advanced",
+      gear: { detail: { barbell: "Hex bar", medBall: "4.5 kg", sled: "41 kg", carryPair: "2 × 18 kg" } },
       // Six events named, six cards logged. The power throw and the
       // sprint-drag-carry had no exercise anywhere in the repo, so the
       // session showed four cards under a note promising six; they are
       // seeded rather than dropped from the text, because a service test
       // you can only log two thirds of is not the test. (The 2025 Army
       // Fitness Test retires the power throw — this template is the ACFT.)
-      scheme:
-        "3-rep deadlift · power throw · hand-release push-ups · sprint-drag-carry · plank · 3.2 km run",
-      level: "advanced",
-      gear: { detail: { barbell: "Hex bar", medBall: "4.5 kg", sled: "41 kg", carryPair: "2 × 18 kg" } },
-      estimateMinutes: 50,
-      exerciseIds: [
-        EX.deadlift,
-        EX.powerThrow,
-        EX.pushUp,
-        EX.sprintDragCarry,
-        EX.plank,
-        EX.run,
-      ],
+      plan: {
+        kind: "logged",
+        exercises: [
+          EX.deadlift,
+          EX.powerThrow,
+          EX.pushUp,
+          EX.sprintDragCarry,
+          EX.plank,
+          EX.run,
+        ],
+        scheme: "3-rep deadlift · power throw · hand-release push-ups · sprint-drag-carry · plank · 3.2 km run",
+        estimateMinutes: 50,
+      },
       music: {
         bpm: 160,
         style: "hard military trap, heavy 808s, snare cadence",
@@ -1051,10 +1063,13 @@ export function seedTemplates(): Template[] {
       name: "USMC PFT",
       branch: "U.S. Marine Corps",
       description: "Physical Fitness Test: max effort on each event.",
-      scheme: "Pull-ups (max) · plank (max hold) · 4.8 km run (for time)",
       level: "intermediate",
-      estimateMinutes: 35,
-      exerciseIds: [EX.pullUp, EX.plank, EX.run],
+      plan: {
+        kind: "logged",
+        exercises: [EX.pullUp, EX.plank, EX.run],
+        scheme: "Pull-ups (max) · plank (max hold) · 4.8 km run (for time)",
+        estimateMinutes: 35,
+      },
       music: {
         bpm: 165,
         style: "hard rock, driving double-time drums",
@@ -1066,10 +1081,13 @@ export function seedTemplates(): Template[] {
       name: "Navy PRT",
       branch: "U.S. Navy",
       description: "Physical Readiness Test.",
-      scheme: "Forearm plank (max) · push-ups 2:00 · 2.4 km run",
       level: "intermediate",
-      estimateMinutes: 25,
-      exerciseIds: [EX.plank, EX.pushUp, EX.run],
+      plan: {
+        kind: "logged",
+        exercises: [EX.plank, EX.pushUp, EX.run],
+        scheme: "Forearm plank (max) · push-ups 2:00 · 2.4 km run",
+        estimateMinutes: 25,
+      },
       music: {
         bpm: 150,
         style: "electronic rock, steady pulse",
@@ -1084,15 +1102,18 @@ export function seedTemplates(): Template[] {
         "Cindy is a 20-minute AMRAP: 5 pull-ups, 10 push-ups, 15 air " +
         "squats, as many rounds as possible. The guided player counts the " +
         "clock, not rounds, so this is the timed adaptation.",
+      level: "advanced",
       // Twenty minutes of continuous work at a fixed station pace. Rest is
       // zero because an AMRAP has none: the old 30/10 × 10 injected 290 s
       // of rest into the one format defined by not having any, and traded
       // the score for a fixed round count. Count your own rounds for the
       // real Cindy.
-      scheme: "Timed adaptation · 10 rounds · 3 stations · 40 s work, no rest",
-      level: "advanced",
-      exerciseIds: [EX.pullUp, EX.pushUp, EX.airSquat],
-      interval: { work: 40, rest: 0, rounds: 10 },
+      plan: {
+        kind: "interval",
+        stations: [EX.pullUp, EX.pushUp, EX.airSquat],
+        work: 40, rest: 0, rounds: 10,
+        note: "Timed adaptation",
+      },
       music: {
         bpm: 170,
         style: "fast punk rock, upbeat and raw",
@@ -1108,16 +1129,12 @@ export function seedTemplates(): Template[] {
         "exercise at the top of every minute, whatever is left of the minute " +
         "is rest. Six stations, three rounds, the reps climbing each round. " +
         "A jump rope, and a resistance band or loaded backpack for the rows.",
+      level: "intermediate",
       // Warm-up 3 × 40 s = 120 s, then 3 rounds × 6 stations × 60 s =
       // 1080 s: 1200 s, exactly 20:00. The 5 s get-ready lead-in every
       // guided workout has is not workout time.
-      scheme: "20:00 · 2:00 warm-up · 18:00 EMOM · 3 rounds · 6 stations",
-      level: "intermediate",
-      exerciseIds: [
-        EX.runInPlace, EX.armCircles, EX.airSquat,
-        EX.burpee, EX.reverseLunge, EX.pushUp, EX.singleUnder, EX.packRow, EX.deadBug,
-      ],
-      emom: {
+      plan: {
+        kind: "emom",
         minute: 60,
         rounds: 3,
         warmup: [
@@ -1149,16 +1166,12 @@ export function seedTemplates(): Template[] {
         "minutes on the minute: swings, goblet squats, clean and press, " +
         "skipping to breathe, rows, dead bugs. Three rounds, the reps " +
         "climbing each round; the rest of the minute is rest.",
-      // Warm-up 3 × 40 s = 120 s, then 3 rounds × 6 stations × 60 s =
-      // 1080 s: 1200 s, exactly 20:00 after the 5 s lead-in.
-      scheme: "20:00 · 2:00 warm-up · 18:00 EMOM · 3 rounds · 6 stations",
       level: "intermediate",
       gear: { detail: { kettlebell: "12–24 kg" } },
-      exerciseIds: [
-        EX.runInPlace, EX.armCircles, EX.airSquat,
-        EX.kettlebellSwing, EX.gobletSquat, EX.kbCleanPress, EX.singleUnder, EX.kbRow, EX.deadBug,
-      ],
-      emom: {
+      // Warm-up 3 × 40 s = 120 s, then 3 rounds × 6 stations × 60 s =
+      // 1080 s: 1200 s, exactly 20:00 after the 5 s lead-in.
+      plan: {
+        kind: "emom",
         minute: 60,
         rounds: 3,
         warmup: [
@@ -1186,15 +1199,15 @@ export function seedTemplates(): Template[] {
       name: "Standard Ruck",
       branch: "Army Ranger / SF",
       description: "Foot-march standard: 19.3 km with a 16 kg dry pack.",
-      scheme: "19.3 km ruck · 16 kg load · target sub-3:00 · for time",
       level: "advanced",
       gear: { detail: { ruck: "16 kg" } },
-      estimateMinutes: 180,
-      exerciseIds: [EX.ruck],
       // One stage on the stopwatch. With GPS on, the distance is measured
       // with the phone in a pocket and the stage completes at 19.3 km.
-      forTime: {
+      plan: {
+        kind: "forTime",
         stages: [{ exerciseId: EX.ruck, label: "19.3 km ruck", meters: 19300 }],
+        scheme: "19.3 km ruck · 16 kg load · target sub-3:00 · for time",
+        estimateMinutes: 180,
       },
       music: {
         bpm: 130,
@@ -1207,20 +1220,19 @@ export function seedTemplates(): Template[] {
       name: "DT",
       branch: "CrossFit Hero WOD",
       description: "In memory of USAF SSgt Timothy Davis.",
-      scheme:
-        "5 rounds: 12 deadlifts · 9 hang power cleans · 6 push press @ 70/48 kg · for time",
       level: "advanced",
       gear: { detail: { barbell: "70/48 kg" } },
-      estimateMinutes: 15,
-      exerciseIds: [EX.deadlift, EX.hangPowerClean, EX.pushPress],
       // Five rounds of three movements: fifteen stages, round number in
       // each label so the athlete always knows where they are.
-      forTime: {
+      plan: {
+        kind: "forTime",
         stages: [1, 2, 3, 4, 5].flatMap((r) => [
           { exerciseId: EX.deadlift, label: `Round ${r} · 12 deadlifts`, reps: 12 },
           { exerciseId: EX.hangPowerClean, label: `Round ${r} · 9 hang power cleans`, reps: 9 },
           { exerciseId: EX.pushPress, label: `Round ${r} · 6 push press`, reps: 6 },
         ]),
+        scheme: "5 rounds: 12 deadlifts · 9 hang power cleans · 6 push press @ 70/48 kg · for time",
+        estimateMinutes: 15,
       },
       music: {
         bpm: 172,
@@ -1237,22 +1249,25 @@ export function seedTemplates(): Template[] {
         "spine and shoulders, straight through with no rest; the station " +
         "change is the breather. Floor work included; do it every day, not " +
         "just leg day.",
-      scheme: "1 round · 6 stations · 50 s work, no rest · 5 min flow",
       level: "beginner",
       // Ankles, then shoulders, then onto the floor for spine, hip and a
       // combined hip-and-spine rotation, closing on a flow that opens
       // shoulders, spine and ankles together. The 20-minute version below
       // uses the same order plus the two static holds this one drops to
       // stay moving.
-      exerciseIds: [
-        EX.ankleRock,
-        EX.armCircles,
-        EX.catCow,
-        EX.hip90Switch,
-        EX.worldsGreatestStretch,
-        EX.downDogCobra,
-      ],
-      interval: { work: 50, rest: 0, rounds: 1 },
+      plan: {
+        kind: "interval",
+        stations: [
+          EX.ankleRock,
+          EX.armCircles,
+          EX.catCow,
+          EX.hip90Switch,
+          EX.worldsGreatestStretch,
+          EX.downDogCobra,
+        ],
+        work: 50, rest: 0, rounds: 1,
+        note: "5 min flow",
+      },
       music: {
         energy: 1,
         bpm: 90,
@@ -1270,19 +1285,22 @@ export function seedTemplates(): Template[] {
         "spine and shoulders across three rounds, straight through with no " +
         "rest. Floor work included: the long version for a rest day or a " +
         "stiff morning.",
-      scheme: "3 rounds · 8 stations · 50 s work, no rest · 20 min flow",
       level: "beginner",
-      exerciseIds: [
-        EX.ankleRock,
-        EX.armCircles,
-        EX.catCow,
-        EX.hip90Switch,
-        EX.worldsGreatestStretch,
-        EX.hipFlexorStretch,
-        EX.openBook,
-        EX.downDogCobra,
-      ],
-      interval: { work: 50, rest: 0, rounds: 3 },
+      plan: {
+        kind: "interval",
+        stations: [
+          EX.ankleRock,
+          EX.armCircles,
+          EX.catCow,
+          EX.hip90Switch,
+          EX.worldsGreatestStretch,
+          EX.hipFlexorStretch,
+          EX.openBook,
+          EX.downDogCobra,
+        ],
+        work: 50, rest: 0, rounds: 3,
+        note: "20 min flow",
+      },
       music: {
         energy: 1,
         bpm: 80,
@@ -1298,21 +1316,22 @@ export function seedTemplates(): Template[] {
       branch: "Navy SEAL",
       description:
         "1,000 box step-ups with a rucksack. Honors LT Chad Wilkinson.",
-      scheme: "1000 step-ups @ 50 cm box · 20/16 kg ruck · for time",
       level: "advanced",
-      gear: { detail: { box: "50 cm", ruck: "20/16 kg" } },
-      estimateMinutes: 75,
+      // The ruck is load worn throughout, not an exercise of its own.
+      gear: { extra: ["ruck"], detail: { box: "50 cm", ruck: "20/16 kg" } },
       // Step-ups, not box jumps. The station used to map to Box Jump,
       // whose cues say "explode up, land soft" — a thousand jumps under a
       // ruck is a different, and much worse, workout — and it filed the
       // reps as a Box Jump record.
-      exerciseIds: [EX.boxStepUp, EX.ruck],
       // One stage: the thousand step-ups. The ruck is the load worn
       // throughout, not a leg of its own.
-      forTime: {
+      plan: {
+        kind: "forTime",
         stages: [
           { exerciseId: EX.boxStepUp, label: "1000 box step-ups", reps: 1000 },
         ],
+        scheme: "1000 step-ups @ 50 cm box · 20/16 kg ruck · for time",
+        estimateMinutes: 75,
       },
       music: {
         bpm: 135,

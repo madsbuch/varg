@@ -16,6 +16,7 @@ import { allSongs, INTENSITY_NAMES, SETS, setById } from "../lib/songs";
 import { sectionLevels, templateSections } from "../lib/workout-music";
 import { BattleTrack } from "./BattleTrack";
 import { SongStateChip, useSongStates } from "./song-status";
+import { rideOf } from "../lib/plan";
 
 /** A choice in a word or two: "Own track", "Anthems", "Shuffle". */
 export function choiceLabel(c: MixChoice): string {
@@ -34,7 +35,7 @@ export function MusicPicker({ template }: { template: Template }) {
   const effective = loadMixChoice(template.id, rideSet);
   const songs = allSongs();
   const used: Intensity[] = adaptive
-    ? ([1, 2, 3] as const).filter((l) => template.ride?.segments.some((sg) => sg.intensity === l))
+    ? ([1, 2, 3] as const).filter((l) => rideOf(template)?.segments.some((sg) => sg.intensity === l))
     : sectionLevels(templateSections(template));
 
   const choose = (c: MixChoice | undefined) => {

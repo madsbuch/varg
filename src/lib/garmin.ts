@@ -23,7 +23,8 @@ import { errorText, httpFetch } from "./http";
 import { loadFtp, saveFtp } from "./ride";
 import type { Session } from "../types";
 import { kvGet, kvRead, kvRemove, kvSet } from "./kv";
-import { at, numberOr, parseJson, Reader, stringOr } from "./decode";
+import { z } from "zod";
+import { parseAs, parseJsonAs } from "./schema";
 
 const BASE = "https://personal.connectapi.garmin.com";
 const TOKEN_PATH = "/personalapitoken-service/personal-api/personal-api-key/token";
@@ -43,123 +44,78 @@ const MAX_PAGES = 20;
 // --- What Varg keeps ---------------------------------------------------------
 
 /** One watch activity, trimmed to what Varg shows. Times in ms UTC, durations in s. */
-export interface GarminActivity {
-  id: number;
-  name: string;
+const GarminActivitySchema = z.strictObject({
+  id: z.int(),
+  name: z.string(),
   /** Garmin's type key: "running", "indoor_cycling", "strength_training"… */
-  type: string;
-  start: number;
+  type: z.string(),
+  start: z.number(),
   /** Elapsed, pauses included: the window the watch was running. */
-  seconds: number;
-  meters?: number | undefined;
-  kcal?: number | undefined;
-  avgHr?: number | undefined;
-  maxHr?: number | undefined;
-  avgPower?: number | undefined;
-  normPower?: number | undefined;
+  seconds: z.number(),
+  meters: z.number().optional(),
+  kcal: z.number().optional(),
+  avgHr: z.number().optional(),
+  maxHr: z.number().optional(),
+  avgPower: z.number().optional(),
+  normPower: z.number().optional(),
   /** Seconds in heart-rate zones 1-5. */
-  hrZones?: number[] | undefined;
-}
+  hrZones: z.array(z.number()).optional(),
+});
+export type GarminActivity = z.infer<typeof GarminActivitySchema>;
 
-export interface GarminFtp {
-  watts: number;
-  activityId: number;
-  activityName: string;
+const GarminFtpSchema = z.strictObject({
+  watts: z.number(),
+  activityId: z.int(),
+  activityName: z.string(),
   /** When that ride started, ms UTC. */
-  rideStart: number;
-}
+  rideStart: z.number(),
+});
+export type GarminFtp = z.infer<typeof GarminFtpSchema>;
 
-export interface GarminReadiness {
+const GarminReadinessSchema = z.strictObject({
   /** The local calendar date it describes, yyyy-MM-dd. */
-  date: string;
-  sleepSeconds?: number | undefined;
-  sleepScore?: number | undefined;
-  hrvLastNight?: number | undefined;
-  hrvWeekly?: number | undefined;
+  date: z.string(),
+  sleepSeconds: z.number().optional(),
+  sleepScore: z.number().optional(),
+  hrvLastNight: z.number().optional(),
+  hrvWeekly: z.number().optional(),
   /** BALANCED, UNBALANCED, LOW, POOR… */
-  hrvStatus?: string | undefined;
-  bodyBatteryAtWake?: number | undefined;
-  bodyBatteryNow?: number | undefined;
-  restingHr?: number | undefined;
+  hrvStatus: z.string().optional(),
+  bodyBatteryAtWake: z.number().optional(),
+  bodyBatteryNow: z.number().optional(),
+  restingHr: z.number().optional(),
   /** Parts that failed, with why. The rest still shows. */
-  errors: string[];
-}
+  errors: z.array(z.string()),
+});
+export type GarminReadiness = z.infer<typeof GarminReadinessSchema>;
 
-export interface GarminState {
-  activities: GarminActivity[];
-  ftp?: GarminFtp | undefined;
+/** The cache as stored (`syncing` is written but describes one run only). */
+const GarminStateSchema = z.strictObject({
+  activities: z.array(GarminActivitySchema),
+  ftp: GarminFtpSchema.optional(),
   /** Why the last FTP lookup did not produce one. */
-  ftpError?: string | undefined;
-  readiness?: GarminReadiness | undefined;
+  ftpError: z.string().optional(),
+  readiness: GarminReadinessSchema.optional(),
   /** Last sync that completed, ISO. */
-  lastSync?: string | undefined;
+  lastSync: z.string().optional(),
   /** Last attempt, ISO, successful or not. */
-  lastAttempt?: string | undefined;
+  lastAttempt: z.string().optional(),
   /** Set when the last sync failed outright; cleared by the next success. */
-  error?: string | undefined;
+  error: z.string().optional(),
+  /** Activities Garmin sent that did not read, each with why: shown in red. */
+  problems: z.array(z.string()).optional(),
   /** Take FTP from Garmin. On by default; off keeps the FTP typed in Skipan. */
-  followFtp: boolean;
-  syncing: boolean;
-}
+  followFtp: z.boolean(),
+  syncing: z.boolean(),
+});
+export type GarminState = z.infer<typeof GarminStateSchema>;
 
 const EMPTY: GarminState = { activities: [], followFtp: true, syncing: false };
 
-function readStoredActivity(r: Reader, v: unknown, path: string): GarminActivity {
-  const f = r.obj(v, path);
-  const zones = f.get("hrZones");
-  return {
-    id: r.int(f.get("id"), `${path}.id`),
-    name: r.text(f.get("name"), `${path}.name`),
-    type: r.text(f.get("type"), `${path}.type`),
-    start: r.num(f.get("start"), `${path}.start`),
-    seconds: r.num(f.get("seconds"), `${path}.seconds`),
-    meters: r.optNum(f.get("meters"), `${path}.meters`),
-    kcal: r.optNum(f.get("kcal"), `${path}.kcal`),
-    avgHr: r.optNum(f.get("avgHr"), `${path}.avgHr`),
-    maxHr: r.optNum(f.get("maxHr"), `${path}.maxHr`),
-    avgPower: r.optNum(f.get("avgPower"), `${path}.avgPower`),
-    normPower: r.optNum(f.get("normPower"), `${path}.normPower`),
-    hrZones: zones === undefined || zones === null ? undefined : r.arr(zones, `${path}.hrZones`).map((z, i) => r.num(z, `${path}.hrZones[${i}]`)),
-  };
-}
-
-function readStoredState(r: Reader, v: unknown): GarminState {
-  const f = r.obj(v, "garmin");
-  const ftp = r.optObj(f.get("ftp"), "garmin.ftp");
-  const rd = r.optObj(f.get("readiness"), "garmin.readiness");
-  const n = (o: ReadonlyMap<string, unknown>, k: string) => r.optNum(o.get(k), `garmin.readiness.${k}`);
-  return {
-    activities: r.arr(f.get("activities"), "garmin.activities").map((a, i) => readStoredActivity(r, a, `garmin.activities[${i}]`)),
-    ftp: ftp && {
-      watts: r.num(ftp.get("watts"), "garmin.ftp.watts"),
-      activityId: r.int(ftp.get("activityId"), "garmin.ftp.activityId"),
-      activityName: r.text(ftp.get("activityName"), "garmin.ftp.activityName"),
-      rideStart: r.num(ftp.get("rideStart"), "garmin.ftp.rideStart"),
-    },
-    ftpError: r.optStr(f.get("ftpError"), "garmin.ftpError"),
-    readiness: rd && {
-      date: r.str(rd.get("date"), "garmin.readiness.date"),
-      sleepSeconds: n(rd, "sleepSeconds"),
-      sleepScore: n(rd, "sleepScore"),
-      hrvLastNight: n(rd, "hrvLastNight"),
-      hrvWeekly: n(rd, "hrvWeekly"),
-      hrvStatus: r.optStr(rd.get("hrvStatus"), "garmin.readiness.hrvStatus"),
-      bodyBatteryAtWake: n(rd, "bodyBatteryAtWake"),
-      bodyBatteryNow: n(rd, "bodyBatteryNow"),
-      restingHr: n(rd, "restingHr"),
-      errors: r.arr(rd.get("errors"), "garmin.readiness.errors").map((e, i) => r.text(e, `garmin.readiness.errors[${i}]`)),
-    },
-    lastSync: r.optStr(f.get("lastSync"), "garmin.lastSync"),
-    lastAttempt: r.optStr(f.get("lastAttempt"), "garmin.lastAttempt"),
-    error: r.optStr(f.get("error"), "garmin.error"),
-    followFtp: r.bool(f.get("followFtp"), "garmin.followFtp"),
-    syncing: false,
-  };
-}
-
 /** The cache as stored. Unreadable, it is fetched again (and named in red). */
 function readState(): GarminState {
-  return kvRead(STATE_KEY, readStoredState) ?? EMPTY;
+  const stored = kvRead(STATE_KEY, GarminStateSchema);
+  return stored ? { ...stored, syncing: false } : EMPTY;
 }
 
 let state: GarminState = readState();
@@ -220,24 +176,21 @@ export function saveGarminKey(key: string): void {
 
 // --- Auth ---------------------------------------------------------------------
 
-interface CachedToken { token: string; exp: number; key: string }
+const CachedTokenSchema = z.strictObject({ token: z.string().min(1), exp: z.number(), key: z.string() });
+type CachedToken = z.infer<typeof CachedTokenSchema>;
 
 /** The JWT's exp claim, in ms. No signature check: Garmin checks it. */
 function jwtExpiry(token: string): number {
   const part = token.split(".")[1];
   if (!part) throw new Error("Garmin returned a token Varg cannot read");
   const json = atob(part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "="));
-  const parsed = parseJson(json);
-  const exp = parsed.ok ? numberOr(at(parsed.value, "exp")) : undefined;
-  if (exp === undefined) throw new Error("Garmin's token carries no expiry");
-  return exp * 1000;
+  const claims = parseJsonAs(z.object({ exp: z.number() }), json, "token");
+  if (!claims.ok) throw new Error(`Garmin's token carries no expiry (${claims.problems.join("; ")})`);
+  return claims.value.exp * 1000;
 }
 
 async function bearer(key: string): Promise<string> {
-  const cached = kvRead(TOKEN_KEY, (r, v): CachedToken => {
-    const f = r.obj(v, "token");
-    return { token: r.str(f.get("token"), "token.token"), exp: r.num(f.get("exp"), "token.exp"), key: r.text(f.get("key"), "token.key") };
-  });
+  const cached = kvRead(TOKEN_KEY, CachedTokenSchema);
   // Same margin as Garmin's own client: renew with an hour to spare.
   if (cached?.key === key && cached.exp - Date.now() > 60 * 60 * 1000) return cached.token;
   const res = await httpFetch(BASE + TOKEN_PATH, {
@@ -258,8 +211,12 @@ async function bearer(key: string): Promise<string> {
   return token;
 }
 
-/** GET a Garmin path. Resolves undefined on 204/404 (no data for that day). */
-async function get(token: string, path: string, params: Record<string, string | number> = {}): Promise<unknown> {
+/**
+ * GET a Garmin path and read the answer as `schema`. Resolves undefined on
+ * 204/404 (no data for that day); throws with every problem when the answer
+ * is not what the schema says, so the part fails in red.
+ */
+async function get<S extends z.ZodType>(token: string, path: string, schema: S, params: Record<string, string | number> = {}): Promise<z.infer<S> | undefined> {
   const q = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, typeof v === "number" ? v.toString() : v]));
   const qs = q.toString();
   const url = `${BASE}${path}${qs ? `?${qs}` : ""}`;
@@ -272,8 +229,9 @@ async function get(token: string, path: string, params: Record<string, string | 
   if (!res.ok) throw new Error(`Garmin ${path.split("/")[1] ?? path}: HTTP ${res.status}`);
   const text = await res.text();
   if (text === "") return undefined;
-  const parsed = parseJson(text);
-  if (!parsed.ok) throw new Error(`Garmin ${path.split("/")[1] ?? path}: not JSON (${parsed.error})`);
+  const what = path.split("/")[1] ?? path;
+  const parsed = parseJsonAs(schema, text, what);
+  if (!parsed.ok) throw new Error(`Garmin ${what}: ${parsed.problems.slice(0, 3).join("; ")}`);
   return parsed.value;
 }
 
@@ -286,51 +244,92 @@ export function localDate(ms: number): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-const num = numberOr;
-
 /** "2026-08-31 22:01:18", GMT without a suffix. */
-function gmt(s: unknown): number | undefined {
-  if (typeof s !== "string") return undefined;
+function gmt(s: string | null | undefined): number | undefined {
+  if (s === null || s === undefined) return undefined;
   const ms = Date.parse(`${s.replace(" ", "T")}Z`);
   return Number.isFinite(ms) ? ms : undefined;
 }
 
-/**
- * One entry from the activity search, trimmed. Undefined if it has no
- * usable window. Every field Garmin sends may be missing or another type:
- * each is read with `at` and checked, none assumed.
+/*
+ * Garmin's answers, as far as Varg reads them. Every field may be missing or
+ * null (Garmin's "no data"); one that is there must be the type said here,
+ * or the answer is refused with why. Fields Varg does not read are ignored.
  */
-export function parseActivity(a: unknown): GarminActivity | undefined {
-  const id = num(at(a, "activityId"));
-  const start = num(at(a, "beginTimestamp")) ?? gmt(at(a, "startTimeGMT"));
-  const seconds = num(at(a, "elapsedDuration")) ?? num(at(a, "duration"));
-  if (id === undefined || start === undefined || seconds === undefined) return undefined;
-  const type = stringOr(at(a, "activityType", "typeKey"));
-  const name = stringOr(at(a, "activityName"));
-  const zones = [1, 2, 3, 4, 5].map((z) => num(at(a, `hrTimeInZone_${z}`)) ?? 0);
-  const meters = num(at(a, "distance"));
+const num = z.number().nullish();
+const RawActivitySchema = z.object({
+  activityId: z.int().nullish(),
+  activityName: z.string().nullish(),
+  activityType: z.object({ typeKey: z.string().nullish() }).nullish(),
+  beginTimestamp: num,
+  startTimeGMT: z.string().nullish(),
+  elapsedDuration: num,
+  duration: num,
+  distance: num,
+  calories: num,
+  averageHR: num,
+  maxHR: num,
+  avgPower: num,
+  normPower: num,
+  hrTimeInZone_1: num,
+  hrTimeInZone_2: num,
+  hrTimeInZone_3: num,
+  hrTimeInZone_4: num,
+  hrTimeInZone_5: num,
+});
+const RawDetailSchema = z.object({ summaryDTO: z.object({ functionalThresholdPower: num }).nullish() });
+const RawSleepCore = z.object({
+  sleepTimeSeconds: num,
+  sleepScores: z.object({ overall: z.object({ value: num }).nullish() }).nullish(),
+});
+const RawSleepSchema = RawSleepCore.extend({ dailySleepDTO: RawSleepCore.nullish() });
+const RawHrvSchema = z.object({
+  hrvSummary: z.object({ lastNightAvg: num, weeklyAvg: num, status: z.string().nullish() }).nullish(),
+});
+const RawDailySchema = z.object({ bodyBatteryAtWakeTime: num, bodyBatteryMostRecentValue: num, restingHeartRate: num });
+
+/** null and undefined alike are "no data". */
+const has = (v: number | null | undefined): number | undefined => (v === null ? undefined : v);
+const has_s = (v: string | null | undefined): string | undefined => (v === null ? undefined : v);
+
+/**
+ * One entry from the activity search, trimmed. `activity` is undefined when
+ * it has no usable window (a manual entry with no start); `problem` says why
+ * when Garmin sent a field of the wrong type.
+ */
+export function readActivity(raw: unknown): { activity?: GarminActivity; problem?: string } {
+  const parsed = parseAs(RawActivitySchema, raw, "activity");
+  if (!parsed.ok) return { problem: parsed.problems.join("; ") };
+  const a = parsed.value;
+  const id = has(a.activityId);
+  const start = has(a.beginTimestamp) ?? gmt(a.startTimeGMT);
+  const seconds = has(a.elapsedDuration) ?? has(a.duration);
+  if (id === undefined || start === undefined || seconds === undefined) return {};
+  const zones = [a.hrTimeInZone_1, a.hrTimeInZone_2, a.hrTimeInZone_3, a.hrTimeInZone_4, a.hrTimeInZone_5].map((z) => has(z) ?? 0);
+  const name = has_s(a.activityName);
+  const meters = has(a.distance);
   return {
-    id,
-    name: name !== undefined && name.trim() !== "" ? name : "Garmin activity",
-    type: type ?? "other",
-    start,
-    seconds,
-    // Zero distance (strength, yoga) means none, not a 0 km outing.
-    meters: meters !== undefined && meters > 0 ? meters : undefined,
-    kcal: num(at(a, "calories")),
-    avgHr: num(at(a, "averageHR")),
-    maxHr: num(at(a, "maxHR")),
-    avgPower: num(at(a, "avgPower")),
-    normPower: num(at(a, "normPower")),
-    hrZones: zones.some((z) => z > 0) ? zones : undefined,
+    activity: {
+      id,
+      name: name !== undefined && name.trim() !== "" ? name : "Garmin activity",
+      type: has_s(a.activityType?.typeKey) ?? "other",
+      start,
+      seconds,
+      // Zero distance (strength, yoga) means none, not a 0 km outing.
+      meters: meters !== undefined && meters > 0 ? meters : undefined,
+      kcal: has(a.calories),
+      avgHr: has(a.averageHR),
+      maxHr: has(a.maxHR),
+      avgPower: has(a.avgPower),
+      normPower: has(a.normPower),
+      hrZones: zones.some((z) => z > 0) ? zones : undefined,
+    },
   };
 }
 
-/** Garmin's list answers: the array, or nothing when it sent something else. */
-function list(v: unknown): readonly unknown[] {
-  if (!Array.isArray(v)) return [];
-  const xs: readonly unknown[] = v;
-  return xs;
+/** The activity, if it has a usable window and reads. */
+export function parseActivity(raw: unknown): GarminActivity | undefined {
+  return readActivity(raw).activity;
 }
 
 export function isRide(a: GarminActivity): boolean {
@@ -389,29 +388,31 @@ export function matchSessions(sessions: Session[], activities: GarminActivity[])
 
 // --- Sync ----------------------------------------------------------------------
 
-async function syncActivities(token: string): Promise<GarminActivity[]> {
+async function syncActivities(token: string): Promise<{ activities: GarminActivity[]; problems: string[] }> {
   const now = Date.now();
   const since = state.lastSync
     ? new Date(state.lastSync).getTime() - RESYNC_OVERLAP_DAYS * 864e5
     : now - FIRST_SYNC_DAYS * 864e5;
   const fetched: GarminActivity[] = [];
+  const problems: string[] = [];
   for (let page = 0; page < MAX_PAGES; page++) {
-    const answer = await get(token, "/activitylist-service/activities/search/activities", {
+    const answer = await get(token, "/activitylist-service/activities/search/activities", z.array(z.unknown()), {
       start: page * PAGE,
       limit: PAGE,
       startDate: localDate(since),
       endDate: localDate(now + 864e5),
     });
-    const rows = list(answer);
+    const rows = answer ?? [];
     for (const r of rows) {
-      const a = parseActivity(r);
-      if (a) fetched.push(a);
+      const read = readActivity(r);
+      if (read.activity) fetched.push(read.activity);
+      if (read.problem !== undefined) problems.push(read.problem);
     }
     if (rows.length < PAGE) break;
   }
   const byId = new Map(state.activities.map((a) => [a.id, a]));
   for (const a of fetched) byId.set(a.id, a);
-  return [...byId.values()].sort((a, b) => b.start - a.start);
+  return { activities: [...byId.values()].sort((a, b) => b.start - a.start), problems };
 }
 
 /**
@@ -419,16 +420,16 @@ async function syncActivities(token: string): Promise<GarminActivity[]> {
  * was ridden. The newest ride that has one is the current figure.
  */
 async function fetchFtp(token: string): Promise<GarminFtp> {
-  const answer = await get(token, "/activitylist-service/activities/search/activities", {
+  const answer = await get(token, "/activitylist-service/activities/search/activities", z.array(z.unknown()), {
     start: 0,
     limit: 5,
     activityType: "cycling",
   });
-  const rides = list(answer).map(parseActivity).filter((a): a is GarminActivity => a !== undefined);
+  const rides = (answer ?? []).map(parseActivity).filter((a): a is GarminActivity => a !== undefined);
   if (rides.length === 0) throw new Error("No rides on Garmin yet, so no FTP to take");
   for (const ride of rides) {
-    const detail = await get(token, `/activity-service/activity/${ride.id}`);
-    const watts = num(at(detail, "summaryDTO", "functionalThresholdPower"));
+    const detail = await get(token, `/activity-service/activity/${ride.id}`, RawDetailSchema);
+    const watts = has(detail?.summaryDTO?.functionalThresholdPower);
     if (watts != null && watts >= 50 && watts <= 600) {
       return { watts: Math.round(watts), activityId: ride.id, activityName: ride.name, rideStart: ride.start };
     }
@@ -449,22 +450,22 @@ async function fetchReadiness(token: string): Promise<GarminReadiness> {
   await Promise.all([
     part("Sleep", async () => {
       // The spec returns the sleep object itself; older responses wrapped it.
-      const raw = await get(token, "/sleep-service/sleep/dailySleep", { date });
-      const s = at(raw, "dailySleepDTO") ?? raw;
-      r.sleepSeconds = num(at(s, "sleepTimeSeconds"));
-      r.sleepScore = num(at(s, "sleepScores", "overall", "value"));
+      const raw = await get(token, "/sleep-service/sleep/dailySleep", RawSleepSchema, { date });
+      const s = raw?.dailySleepDTO ?? raw;
+      r.sleepSeconds = has(s?.sleepTimeSeconds);
+      r.sleepScore = has(s?.sleepScores?.overall?.value);
     }),
     part("HRV", async () => {
-      const h = await get(token, `/hrv-service/hrv/${date}`);
-      r.hrvLastNight = num(at(h, "hrvSummary", "lastNightAvg"));
-      r.hrvWeekly = num(at(h, "hrvSummary", "weeklyAvg"));
-      r.hrvStatus = stringOr(at(h, "hrvSummary", "status"));
+      const h = await get(token, `/hrv-service/hrv/${date}`, RawHrvSchema);
+      r.hrvLastNight = has(h?.hrvSummary?.lastNightAvg);
+      r.hrvWeekly = has(h?.hrvSummary?.weeklyAvg);
+      r.hrvStatus = has_s(h?.hrvSummary?.status);
     }),
     part("Daily summary", async () => {
-      const d = await get(token, "/usersummary-service/usersummary/daily", { calendarDate: date });
-      r.bodyBatteryAtWake = num(at(d, "bodyBatteryAtWakeTime"));
-      r.bodyBatteryNow = num(at(d, "bodyBatteryMostRecentValue"));
-      r.restingHr = num(at(d, "restingHeartRate"));
+      const d = await get(token, "/usersummary-service/usersummary/daily", RawDailySchema, { calendarDate: date });
+      r.bodyBatteryAtWake = has(d?.bodyBatteryAtWakeTime);
+      r.bodyBatteryNow = has(d?.bodyBatteryMostRecentValue);
+      r.restingHr = has(d?.restingHeartRate);
     }),
   ]);
   return r;
@@ -488,7 +489,7 @@ export function syncGarmin(force = false): Promise<void> {
     setState({ syncing: true, lastAttempt: new Date().toISOString() });
     try {
       const token = await bearer(key);
-      const [activities, readiness, ftp] = await Promise.all([
+      const [synced, readiness, ftp] = await Promise.all([
         syncActivities(token),
         fetchReadiness(token),
         fetchFtp(token).then(
@@ -497,7 +498,8 @@ export function syncGarmin(force = false): Promise<void> {
         ),
       ]);
       const patch: Partial<GarminState> = {
-        activities,
+        activities: synced.activities,
+        problems: synced.problems.length > 0 ? synced.problems : undefined,
         readiness,
         lastSync: new Date().toISOString(),
         error: undefined,

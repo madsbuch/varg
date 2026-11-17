@@ -19,7 +19,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "../db/persistence";
 import type { HeartRate, Session } from "../types";
 import { kvRead, kvRemove, kvSet } from "./kv";
-import { Reader } from "./decode";
+import { z } from "zod";
 
 /** One parsed measurement. */
 export interface HrSample {
@@ -173,19 +173,14 @@ export function hrZonesProblem(z: HrZones): string | null {
   return null;
 }
 
-function readZones(r: Reader, v: unknown): HrZones {
-  const f = r.obj(v, "zones");
-  const fl = r.arr(f.get("floors"), "zones.floors").map((x, i) => r.int(x, `zones.floors[${i}]`));
-  const [a, b, c, d, e] = fl;
-  if (fl.length !== 5 || a === undefined || b === undefined || c === undefined || d === undefined || e === undefined) {
-    r.fail("zones.floors must be five numbers");
-    return { floors: [0, 0, 0, 0, 0], max: 0 };
-  }
-  return { floors: [a, b, c, d, e], max: r.int(f.get("max"), "zones.max") };
-}
+/** The zones as stored: five floors and the max, whole bpm. */
+const ZonesSchema = z.strictObject({
+  floors: z.tuple([z.int(), z.int(), z.int(), z.int(), z.int()]),
+  max: z.int(),
+});
 
 export function loadHrZones(): HrZones | null {
-  const zones = kvRead(ZONES_KEY, readZones);
+  const zones = kvRead(ZONES_KEY, ZonesSchema);
   return zones && hrZonesProblem(zones) === null ? zones : null;
 }
 
@@ -251,14 +246,11 @@ export function hrAvailable(): boolean {
   return isTauri() && /Android/i.test(navigator.userAgent);
 }
 
-/** A paired Bluetooth device as stored. */
-function readDevice(r: Reader, v: unknown): { address: string; name: string } {
-  const f = r.obj(v, "device");
-  return { address: r.str(f.get("address"), "device.address"), name: r.text(f.get("name"), "device.name") };
-}
+/** A paired Bluetooth device as stored. Older versions wrote no extra fields; any are ignored. */
+const DeviceSchema = z.object({ address: z.string().min(1), name: z.string() });
 
 export function loadStrap(): { address: string; name: string } | null {
-  return kvRead(DEVICE_KEY, readDevice) ?? null;
+  return kvRead(DEVICE_KEY, DeviceSchema) ?? null;
 }
 
 export function saveStrap(s: { address: string; name: string } | null): void {

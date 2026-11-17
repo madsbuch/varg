@@ -17,8 +17,9 @@
 import type { Intensity } from "../types";
 import { allSongs, SETS } from "./songs";
 import type { SetId } from "./songs";
-import { kvRead, kvSet } from "./kv";
-import { Reader, SET_IDS } from "./decode";
+import { kvRead, kvReadEach, kvSet } from "./kv";
+import { z } from "zod";
+import { SetIdSchema } from "./schema";
 
 export type MixChoice =
   | { mode: "track" }
@@ -34,41 +35,24 @@ export type Mix = Record<Intensity, string[]>;
 const KEY = "varg.music.choice.v1";
 const DEFAULT_KEY = "varg.music.default.v1";
 
-const MODES: readonly MixChoice["mode"][] = ["track", "set", "shuffle", "custom"];
-
 /** One stored choice. A set that no longer exists is refused, like any bad value. */
-function readChoice(r: Reader, v: unknown, path: string): MixChoice {
-  const f = r.obj(v, path);
-  const mode = r.oneOf(f.get("mode"), MODES, `${path}.mode`);
-  switch (mode) {
-    case "track":
-    case "shuffle":
-      return { mode };
-    case "set":
-      return { mode, set: r.oneOf(f.get("set"), SET_IDS, `${path}.set`) };
-    case "custom": {
-      const songs = r.obj(f.get("songs"), `${path}.songs`);
-      const list = (l: Intensity) => r.strs(songs.get(l.toString()), `${path}.songs.${l}`);
-      return { mode, songs: { 1: list(1), 2: list(2), 3: list(3) } };
-    }
-  }
-}
+const MixChoiceSchema = z.discriminatedUnion("mode", [
+  z.strictObject({ mode: z.literal("track") }),
+  z.strictObject({ mode: z.literal("set"), set: SetIdSchema }),
+  z.strictObject({ mode: z.literal("shuffle") }),
+  z.strictObject({
+    mode: z.literal("custom"),
+    songs: z.strictObject({ 1: z.array(z.string()), 2: z.array(z.string()), 3: z.array(z.string()) }),
+  }),
+]) satisfies z.ZodType<MixChoice>;
 
 /**
- * Every workout's own choice. Read one by one: a choice that does not
- * decode (a set since removed) is dropped from the map and named in the
- * unreadable-settings banner, and the workout follows the default.
+ * Every workout's own choice, read one by one: a choice that does not
+ * decode (a set since removed) is named in red and its workout follows the
+ * default.
  */
 function all(): Record<string, MixChoice | undefined> {
-  return kvRead(KEY, (r, v) => {
-    const out: Record<string, MixChoice | undefined> = {};
-    for (const [id, c] of r.obj(v, "choices")) {
-      const one = new Reader();
-      const choice = readChoice(one, c, id);
-      if (one.ok()) out[id] = choice;
-    }
-    return out;
-  }) ?? {};
+  return kvReadEach(KEY, MixChoiceSchema);
 }
 
 /**
@@ -77,7 +61,7 @@ function all(): Record<string, MixChoice | undefined> {
  * plays its own track, as before there was a choice.
  */
 export function loadDefaultChoice(): MixChoice {
-  const c = kvRead(DEFAULT_KEY, (r, v) => readChoice(r, v, "default"));
+  const c = kvRead(DEFAULT_KEY, MixChoiceSchema);
   return c && c.mode !== "custom" ? c : { mode: "track" };
 }
 

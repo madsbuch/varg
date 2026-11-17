@@ -293,6 +293,11 @@ function GarminSetting() {
             ) : (
               <div className="muted">{garmin.syncing ? "First sync, fetching a year of activities…" : "Not synced yet."}</div>
             )}
+            {garmin.problems && garmin.problems.length > 0 && (
+              <div style={{ color: "var(--danger)", marginTop: 4, wordBreak: "break-word" }}>
+                {garmin.problems.length} {garmin.problems.length === 1 ? "activity" : "activities"} unreadable · {garmin.problems.slice(0, 2).join(" · ")}
+              </div>
+            )}
             {garmin.readiness && garmin.readiness.errors.length > 0 && (
               <div style={{ color: "var(--danger)", marginTop: 4 }}>
                 {garmin.readiness.errors.join(" · ")}

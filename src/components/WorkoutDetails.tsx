@@ -7,6 +7,7 @@ import { emomRoundsTarget } from "../lib/wod";
 import { MusicPicker } from "./MusicPicker";
 import ExerciseAnim from "./ExerciseAnim";
 import { Sheet } from "./ui";
+import { emomOf, flowOf, forTimeOf, intervalOf, isGuided, planExercises, schemeOf, templateExerciseIds } from "../lib/plan";
 
 export function WorkoutDetails({ template, exercises, onStart, onClose }: {
   template: Template;
@@ -18,13 +19,11 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
   // Keep every slot, including repeated movements and missing exercises.
   // A flow lists its steps — each pose with its own time and side.
   // An EMOM lists its warm-up, then its stations, each with its target.
-  const emom = template.emom;
+  const emom = emomOf(template);
   const warmupCount = emom?.warmup?.length ?? 0;
-  const ids = template.flow
-    ? template.flow.steps.map(s => s.exerciseId)
-    : emom
-    ? [...(emom.warmup ?? []).map(w => w.exerciseId), ...emom.stations.map(s => s.exerciseId)]
-    : template.exerciseIds;
+  // Guided plans list every slot in running order; for time, ride and
+  // logged list each exercise once.
+  const ids = isGuided(template.plan) ? planExercises(template.plan) : templateExerciseIds(template);
   const emomSub = (i: number): string => {
     if (!emom) return "";
     const w = emom.warmup?.[i];
@@ -34,9 +33,9 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
   };
   const stations = ids.map(id => byId.get(id));
   const missing = stations.some(ex => !ex);
-  const plan = template.interval;
-  const forTime = template.forTime;
-  const flow = template.flow;
+  const plan = intervalOf(template);
+  const forTime = forTimeOf(template);
+  const flow = flowOf(template);
   const kit = templateGear(template, exerciseGear);
 
   return (
@@ -61,7 +60,7 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
       </div>
       <div className="card">
         <h3 style={{ fontSize: 15 }}>The workout</h3>
-        <p style={{ margin: "8px 0 0" }}>{template.scheme}</p>
+        <p style={{ margin: "8px 0 0" }}>{schemeOf(template.plan)}</p>
         {plan && <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
           Follow the stations below {plan.rounds === 1 ? "once" : `for ${plan.rounds} rounds`}.
           {plan.rest > 0
@@ -99,13 +98,13 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
               <span className="workout-station-number">{emom ? (i < warmupCount ? "W" : i - warmupCount + 1) : i + 1}</span>
               {ex && guide ? <details className="workout-station">
                 <summary>
-                  <ExerciseAnim anim={guide.anim} size={62} mirror={flowMirror(guide.side, template.flow?.steps[i]?.side)} />
+                  <ExerciseAnim anim={guide.anim} size={62} mirror={flowMirror(guide.side, flow?.steps[i]?.side)} />
                   <span>
-                    <strong>{ex.name}{template.flow?.steps[i]?.side ? ` · ${template.flow.steps[i].side}` : ""}</strong>
+                    <strong>{ex.name}{flow?.steps[i]?.side ? ` · ${flow.steps[i].side}` : ""}</strong>
                     <span className="sub">
                       {plan ? `${plan.work} s work · ` : ""}
                       {emomSub(i)}
-                      {template.flow?.steps[i] ? `${template.flow.steps[i].seconds} s · ` : ""}
+                      {flow?.steps[i] ? `${flow.steps[i].seconds} s · ` : ""}
                       View form cues
                     </span>
                   </span>
