@@ -239,7 +239,8 @@ function AddPRSheet({ onClose }: { onClose: () => void }) {
           <select
             value={kind}
             onChange={(e) => {
-              setKind(e.target.value as PRKind);
+              const k = kinds.find((x) => x === e.target.value);
+              if (k) setKind(k);
               setError(null);
             }}
           >

@@ -15,9 +15,10 @@
  * per-workout music settings.
  */
 import type { Intensity } from "../types";
-import { allSongs, SETS, setById } from "./songs";
+import { allSongs, SETS } from "./songs";
 import type { SetId } from "./songs";
-import { kvGet, kvSet } from "./kv";
+import { kvRead, kvSet } from "./kv";
+import { Reader, SET_IDS } from "./decode";
 
 export type MixChoice =
   | { mode: "track" }
@@ -33,21 +34,41 @@ export type Mix = Record<Intensity, string[]>;
 const KEY = "varg.music.choice.v1";
 const DEFAULT_KEY = "varg.music.default.v1";
 
-function all(): Record<string, MixChoice | undefined> {
-  try {
-    return JSON.parse(kvGet(KEY) ?? "{}") as Record<string, MixChoice | undefined>;
-  } catch {
-    return {};
+const MODES: readonly MixChoice["mode"][] = ["track", "set", "shuffle", "custom"];
+
+/** One stored choice. A set that no longer exists is refused, like any bad value. */
+function readChoice(r: Reader, v: unknown, path: string): MixChoice {
+  const f = r.obj(v, path);
+  const mode = r.oneOf(f.get("mode"), MODES, `${path}.mode`);
+  switch (mode) {
+    case "track":
+    case "shuffle":
+      return { mode };
+    case "set":
+      return { mode, set: r.oneOf(f.get("set"), SET_IDS, `${path}.set`) };
+    case "custom": {
+      const songs = r.obj(f.get("songs"), `${path}.songs`);
+      const list = (l: Intensity) => r.strs(songs.get(l.toString()), `${path}.songs.${l}`);
+      return { mode, songs: { 1: list(1), 2: list(2), 3: list(3) } };
+    }
   }
 }
 
-/** A stored choice that still makes sense: a set that exists, a known mode. */
-function valid(c: MixChoice | undefined): MixChoice | undefined {
-  if (!c) return undefined;
-  if (c.mode === "set") return setById(c.set) ? c : undefined;
-  // Stored JSON: the mode is whatever was written, not what the type says.
-  const mode: string = c.mode;
-  return ["track", "shuffle", "custom"].includes(mode) ? c : undefined;
+/**
+ * Every workout's own choice. Read one by one: a choice that does not
+ * decode (a set since removed) is dropped from the map and named in the
+ * unreadable-settings banner, and the workout follows the default.
+ */
+function all(): Record<string, MixChoice | undefined> {
+  return kvRead(KEY, (r, v) => {
+    const out: Record<string, MixChoice | undefined> = {};
+    for (const [id, c] of r.obj(v, "choices")) {
+      const one = new Reader();
+      const choice = readChoice(one, c, id);
+      if (one.ok()) out[id] = choice;
+    }
+    return out;
+  }) ?? {};
 }
 
 /**
@@ -56,13 +77,8 @@ function valid(c: MixChoice | undefined): MixChoice | undefined {
  * plays its own track, as before there was a choice.
  */
 export function loadDefaultChoice(): MixChoice {
-  try {
-    const c = valid(JSON.parse(kvGet(DEFAULT_KEY) ?? "null") as MixChoice | undefined);
-    if (c && c.mode !== "custom") return c;
-  } catch {
-    // fall through
-  }
-  return { mode: "track" };
+  const c = kvRead(DEFAULT_KEY, (r, v) => readChoice(r, v, "default"));
+  return c && c.mode !== "custom" ? c : { mode: "track" };
 }
 
 export function saveDefaultChoice(choice: MixChoice): void {
@@ -71,7 +87,7 @@ export function saveDefaultChoice(choice: MixChoice): void {
 
 /** This workout's own choice, if the owner made one (else it follows the default). */
 export function loadOwnChoice(templateId: string): MixChoice | undefined {
-  return valid(all()[templateId]);
+  return all()[templateId];
 }
 
 /**

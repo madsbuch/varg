@@ -58,7 +58,7 @@ export function skeleton(p: Pose) {
     hip: p.hip, shoulder,
     head: add(shoulder, vector(p.headLean - 90, 8)),
     arms: [solveLimb(shoulder, p.hands[0], ARM, p.elbows[0]), solveLimb(shoulder, p.hands[1], ARM, p.elbows[1])] as const,
-    legs: [solveLimb(p.hip, p.feet[0], LEG, p.knees[0]), solveLimb(p.hip, p.feet[1], LEG, p.knees[1])].map(chain => chain.map(point => [point[0], p.hip[1] + (point[1] - p.hip[1]) * p.legProjection] as Point)) ,
+    legs: [solveLimb(p.hip, p.feet[0], LEG, p.knees[0]), solveLimb(p.hip, p.feet[1], LEG, p.knees[1])].map(chain => chain.map((point): Point => [point[0], p.hip[1] + (point[1] - p.hip[1]) * p.legProjection])) ,
   };
 }
 type Skeleton = ReturnType<typeof skeleton>;
@@ -75,7 +75,7 @@ interface Motion {
   at: (t: number) => Pose;
   equipment?: (t: number, s: Skeleton) => { shapes?: Shape[]; balls?: Ball[] };
 }
-const f = (n: number) => Number(n.toFixed(3));
+const f = (n: number) => Number.parseFloat(n.toFixed(3));
 export function path(points: readonly Point[]): string { return points.map((p, i) => `${i ? "L" : "M"}${f(p[0])} ${f(p[1])}`).join(" "); }
 const gear = (d: string, opacity = 1): Shape => ({ d, style: "gear", opacity });
 const ball = (center: Point, radius = 4, opacity = 1): Ball => ({ center, radius, opacity });

@@ -13,7 +13,8 @@ export function errorText(e: unknown): string {
   } catch {
     // fall through
   }
-  return String(e);
+  if (typeof e === "number" || typeof e === "boolean" || typeof e === "bigint") return e.toString();
+  return "unknown error";
 }
 
 export async function httpFetch(url: string, init?: RequestInit): Promise<Response> {

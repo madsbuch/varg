@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "./lib/app-context";
-import { useKvFailure } from "./lib/kv";
+import { useKvFailure, useUnreadableSettings } from "./lib/kv";
 import { installBackButton, useBackHandler } from "./lib/back";
 import { ensureAllTracks } from "./lib/music";
 import { ensureSongLoops } from "./lib/song-loops";
@@ -69,6 +69,7 @@ async function exitApp(): Promise<void> {
 function SaveFailureBanner() {
   const { saveFailure, loadProblems } = useApp();
   const kvFailure = useKvFailure();
+  const unreadable = useUnreadableSettings();
   const [dismissed, setDismissed] = useState(false);
   return (
     <>
@@ -80,7 +81,7 @@ function SaveFailureBanner() {
               Not saved, retrying
               <div style={{ fontWeight: 400, wordBreak: "break-word" }}>
                 {saveFailure.message}
-                {saveFailure.attempts > 1 && ` · ${String(saveFailure.attempts)} attempts`}
+                {saveFailure.attempts > 1 && ` · ${saveFailure.attempts} attempts`}
               </div>
             </div>
             <button className="btn ghost sm" onClick={saveFailure.retry}>
@@ -94,6 +95,19 @@ function SaveFailureBanner() {
           <div className="persist-error" role="status">
             <IconFlag />
             <div style={{ flex: 1, minWidth: 0, wordBreak: "break-word" }}>{kvFailure} · retrying</div>
+          </div>
+        </div>
+      )}
+      {unreadable.size > 0 && (
+        <div className="save-failure">
+          <div className="persist-error" role="status">
+            <IconFlag />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              Setting unreadable · default used
+              <div style={{ fontWeight: 400, wordBreak: "break-word" }}>
+                {[...unreadable].map(([k, why]) => `${k}: ${why}`).join(" · ")}
+              </div>
+            </div>
           </div>
         </div>
       )}

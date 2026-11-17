@@ -48,9 +48,9 @@ export interface EmomStationConfig {
 /** What a station asks for in one round, as the athlete reads it: "8 reps", "16 reps · 8 per leg", "40 s". */
 export function emomTarget(st: { reps?: number[] | undefined; seconds?: number[] | undefined; perSide?: "leg" | "arm" | undefined }, round: number): string {
   const reps = st.reps?.[round - 1];
-  if (reps !== undefined) return `${String(reps)} reps${st.perSide ? ` · ${String(reps / 2)} per ${st.perSide}` : ""}`;
+  if (reps !== undefined) return `${reps} reps${st.perSide ? ` · ${reps / 2} per ${st.perSide}` : ""}`;
   const secs = st.seconds?.[round - 1];
-  return secs !== undefined ? `${String(secs)} s` : "";
+  return secs !== undefined ? `${secs} s` : "";
 }
 
 export interface EmomConfig {
@@ -141,7 +141,7 @@ export function buildSteps(cfg: WodConfig): Step[] {
     warmup.forEach((w, i) => {
       push({
         kind: "work", exercise: w.exercise, round: 1, secs: w.secs,
-        emom: { block: "warmup", position: i + 1, of: warmup.length, target: `${String(w.secs)} s` },
+        emom: { block: "warmup", position: i + 1, of: warmup.length, target: `${w.secs} s` },
       });
     });
     for (let r = 1; r <= cfg.rounds; r++) {
@@ -189,7 +189,7 @@ export function buildSteps(cfg: WodConfig): Step[] {
  */
 export function configForTemplate(tpl: Template, exById: Map<string, Exercise>): WodConfig | string {
   const missing = (have: number, want: number, what: string) =>
-    `${tpl.name} needs ${String(want)} ${what} but only ${String(have)} exist on this device. ` +
+    `${tpl.name} needs ${want} ${what} but only ${have} exist on this device. ` +
     `Reinstalling or updating the app restores the built-in exercises.`;
   if (tpl.flow) {
     const sequence = tpl.flow.steps.flatMap((st) => {
@@ -215,7 +215,7 @@ export function configForTemplate(tpl: Template, exById: Map<string, Exercise>):
     if (stations.length !== plan.stations.length) return missing(stations.length, plan.stations.length, "stations");
     // Every round needs its own count: never run a round with no target.
     const short = stations.find((st) => (st.reps ?? st.seconds ?? []).length !== plan.rounds);
-    if (short) return `${tpl.name}: ${short.exercise.name} has no count for every one of its ${String(plan.rounds)} rounds.`;
+    if (short) return `${tpl.name}: ${short.exercise.name} has no count for every one of its ${plan.rounds} rounds.`;
     const wantWarmup = plan.warmup ?? [];
     const warmup = wantWarmup.flatMap((w) => {
       const exercise = resolve(w.exerciseId);
@@ -362,7 +362,7 @@ export function recordedSession(
   startedAt: string,
   stoppedEarly: boolean,
 ) {
-  const session = newSession(config.title ?? `WOD ${String(config.work)}/${String(config.rest)}`);
+  const session = newSession(config.title ?? `WOD ${config.work}/${config.rest}`);
   session.date = startedAt;
   session.finishedAt = new Date().toISOString();
   if (config.trackKey) session.templateId = config.trackKey;
@@ -371,10 +371,10 @@ export function recordedSession(
   const emom = config.emom;
   const warm = emom?.warmup.reduce((a, w) => a + w.secs, 0) ?? 0;
   const planned = emom
-    ? `planned ${warm > 0 ? `${formatSeconds(warm)} warm-up + ` : ""}${String(config.rounds)} rounds of ${String(emom.stations.length)} stations EMOM`
+    ? `planned ${warm > 0 ? `${formatSeconds(warm)} warm-up + ` : ""}${config.rounds} rounds of ${emom.stations.length} stations EMOM`
     : config.sequence
-    ? `planned ${String(config.sequence.length)}-pose flow`
-    : `planned ${String(config.rounds)} rounds of ${String(config.work)}s on / ${String(config.rest)}s off`;
-  session.note = `${stoppedEarly ? "Stopped early" : "Finished"} · ${formatSeconds(progress.duration)} recorded · ${String(stations)} ${config.sequence ? "poses" : emom ? "sets" : "station intervals"} · ${planned}`;
+    ? `planned ${config.sequence.length}-pose flow`
+    : `planned ${config.rounds} rounds of ${config.work}s on / ${config.rest}s off`;
+  session.note = `${stoppedEarly ? "Stopped early" : "Finished"} · ${formatSeconds(progress.duration)} recorded · ${stations} ${config.sequence ? "poses" : emom ? "sets" : "station intervals"} · ${planned}`;
   return session;
 }

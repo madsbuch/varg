@@ -13,6 +13,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "../db/persistence";
 import { duckMusic } from "./beep";
 import { kvGet, kvSet } from "./kv";
+import { errorText } from "./http";
 
 const SETTING_KEY = "varg.voice.v1";
 
@@ -47,7 +48,7 @@ export async function speak(text: string): Promise<void> {
       await invoke("plugin:varg-voice|speak", { text });
       return;
     } catch (e) {
-      throw new Error(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
+      throw new Error(typeof e === "string" ? e : errorText(e));
     }
   }
   if (typeof window === "undefined" || !("speechSynthesis" in window)) {

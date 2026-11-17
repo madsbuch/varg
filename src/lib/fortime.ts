@@ -84,7 +84,7 @@ export function recordedForTimeSession(
   } else {
     const at = stoppedAt ?? marks[marks.length - 1] ?? 0;
     session.note =
-      `${STOPPED} at ${formatSeconds(at)} · ${String(marks.length)}/${String(cfg.stages.length)} stages` +
+      `${STOPPED} at ${formatSeconds(at)} · ${marks.length}/${cfg.stages.length} stages` +
       (splits ? ` · ${splits}` : "");
   }
   return session;

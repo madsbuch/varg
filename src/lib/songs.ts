@@ -15,7 +15,8 @@
  * kick on every beat with no intro (music.ts buildSongStyle).
  */
 import type { Intensity } from "../types";
-import { kvGet, kvSet } from "./kv";
+import { kvRead, kvSet } from "./kv";
+import { INTENSITIES, SET_IDS } from "./decode";
 
 export type SetId = "techno" | "jazz-house" | "anthems";
 
@@ -153,13 +154,25 @@ export function onSongsChange(fn: () => void): () => void {
 }
 
 function userSongs(): Song[] {
-  try {
-    const raw = JSON.parse(kvGet(USER_KEY) ?? "[]") as Song[];
-    // Tempo always follows the set: re-derive rather than trust storage.
-    return raw.map((s) => ({ ...s, bpm: setById(s.set)?.bpm[s.intensity] ?? s.bpm, user: true as const }));
-  } catch {
-    return [];
-  }
+  const raw = kvRead(USER_KEY, (r, v) =>
+    r.arr(v, "songs").map((x, i): Song => {
+      const p = `songs[${i}]`;
+      const f = r.obj(x, p);
+      const set = r.oneOf(f.get("set"), SET_IDS, `${p}.set`);
+      const intensity = r.oneOf(f.get("intensity"), INTENSITIES, `${p}.intensity`);
+      return {
+        id: r.str(f.get("id"), `${p}.id`),
+        name: r.str(f.get("name"), `${p}.name`),
+        set,
+        intensity,
+        // Tempo always follows the set: derived, never read from storage.
+        bpm: setById(set)?.bpm[intensity] ?? 0,
+        style: r.text(f.get("style"), `${p}.style`),
+        lyrics: r.optStr(f.get("lyrics"), `${p}.lyrics`),
+        user: true,
+      };
+    }));
+  return raw ?? [];
 }
 
 /** Every song: built in, then the owner's. */

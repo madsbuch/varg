@@ -118,7 +118,7 @@ function ExerciseSheet({
       case "distance":
         return `${kmFromMeters(value)} km`;
       default:
-        return String(value);
+        return `${value}`;
     }
   };
 

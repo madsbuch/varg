@@ -138,7 +138,7 @@ function NewExerciseForm({
       <Field label="Category">
         <select
           value={category}
-          onChange={(e) => { setCategory(e.target.value as Category); }}
+          onChange={(e) => { const c = CATEGORIES.find((x) => x === e.target.value); if (c) setCategory(c); }}
         >
           {CATEGORIES.map((c) => (
             <option key={c} value={c}>

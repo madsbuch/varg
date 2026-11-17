@@ -5,6 +5,7 @@
  * run beside it. Requests are answered one at a time, in order.
  */
 import { runBeatThis } from "./beat-model";
+import { errorText } from "./http";
 
 export interface BeatRequest {
   id: number;
@@ -23,7 +24,7 @@ self.onmessage = (e: MessageEvent<BeatRequest>) => {
     try {
       reply = { id, ...(await runBeatThis(mono)) };
     } catch (err) {
-      reply = { id, error: err instanceof Error ? err.message : String(err) };
+      reply = { id, error: errorText(err) };
     }
     self.postMessage(reply);
   });

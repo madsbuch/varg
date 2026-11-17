@@ -38,10 +38,11 @@ import {
 import { Field, Segmented } from "../components/ui";
 import { loadTheme, saveTheme, type ThemeChoice } from "../lib/theme";
 import { loadGarminKey, saveGarminKey, setFollowFtp, syncGarmin, useGarmin } from "../lib/garmin";
-import { formatDate, formatRelative } from "../lib/units";
+import { formatDate, formatRelative, parseWhole } from "../lib/units";
 import { IconCheck } from "../components/icons";
 import { DEFAULT_MODEL, listModels, loadMimirSettings, saveMimirSettings } from "../lib/openrouter";
 import type { ModelInfo } from "../lib/openrouter";
+import { errorText } from "../lib/http";
 
 export default function Settings() {
   const [settings, setSettings] = useState(loadMusicSettings);
@@ -78,7 +79,7 @@ export default function Settings() {
           <div className="title">Music</div>
           <div className="sub">
             Default · {choiceLabel(loadDefaultChoice())} · {SETS.map((s) => s.name).join(" · ")} · own tracks
-            {status?.running ? ` · composing ${String(status.ready)}/${String(status.total)}` : ""}
+            {status?.running ? ` · composing ${status.ready}/${status.total}` : ""}
           </div>
         </div>
         {status?.error ? <span className="chip danger">Error</span> : <span className="chip">›</span>}
@@ -162,7 +163,7 @@ function MimirSetting() {
     setProblem(null);
     listModels()
       .then(setModels)
-      .catch((e: unknown) => { setProblem(e instanceof Error ? e.message : String(e)); })
+      .catch((e: unknown) => { setProblem(errorText(e)); })
       .finally(() => { setLoading(false); });
   };
   const known = models?.find((m) => m.id === model.trim());
@@ -201,7 +202,7 @@ function MimirSetting() {
           )}
         </Field>
         {models && (
-          <Field label={`${String(models.length)} models with tools`}>
+          <Field label={`${models.length} models with tools`}>
             <select value={known ? model.trim() : ""} onChange={(e) => { if (e.target.value) setModel(e.target.value); }}>
               {!known && <option value="">Pick a model</option>}
               {models.map((m) => (
@@ -362,7 +363,7 @@ function VoiceSetting({ hasKey, saveKey }: { hasKey: boolean; saveKey: () => voi
     setBusy("Generating lines on kie.ai…");
     setProblem(null);
     ensureVoiceClips((r) => { setReady(r); })
-      .catch((e: unknown) => { setProblem(e instanceof Error ? e.message : String(e)); })
+      .catch((e: unknown) => { setProblem(errorText(e)); })
       .finally(() => { setBusy(null); refreshCount(); });
   };
 
@@ -376,7 +377,7 @@ function VoiceSetting({ hasKey, saveKey }: { hasKey: boolean; saveKey: () => voi
     if (!isGemini(settings.model)) {
       // ElevenLabs voices have free samples on kie's CDN.
       play(previewUrl(voiceIdFor(settings, role))).catch((e: unknown) => {
-        setProblem(`Could not play the sample: ${e instanceof Error ? e.message : String(e)}`);
+        setProblem(`Could not play the sample: ${errorText(e)}`);
       });
       return;
     }
@@ -385,7 +386,7 @@ function VoiceSetting({ hasKey, saveKey }: { hasKey: boolean; saveKey: () => voi
     setBusy("Speaking a sample on kie.ai…");
     previewLine(settings, role, role === "yoga" ? "Next: Warrior two, left side" : "Next: Push-up")
       .then((blob) => play(URL.createObjectURL(blob), true))
-      .catch((e: unknown) => { setProblem(e instanceof Error ? e.message : String(e)); })
+      .catch((e: unknown) => { setProblem(errorText(e)); })
       .finally(() => { setBusy(null); });
   };
   const { voices } = voicesFor(settings.model);
@@ -465,11 +466,11 @@ function CyclingSetting() {
   const garmin = useGarmin();
   const hasGarmin = loadGarminKey() !== "";
   const fromGarmin = hasGarmin && garmin.followFtp && garmin.ftp;
-  const [ftpText, setFtpText] = useState(() => String(loadFtp()));
+  const [ftpText, setFtpText] = useState(() => loadFtp().toString());
   const [bike, setBike] = useState(loadBike);
   const [changing, setChanging] = useState(false);
-  const ftp = Number(ftpText);
-  const ftpValid = Number.isInteger(ftp) && ftp >= 50 && ftp <= 600;
+  const ftp = parseWhole(ftpText);
+  const ftpValid = ftp !== undefined && ftp >= 50 && ftp <= 600;
 
   return (
     <>
@@ -489,7 +490,7 @@ function CyclingSetting() {
                 style={{ width: "auto" }}
                 onClick={() => {
                   setFollowFtp(false);
-                  setFtpText(String(loadFtp()));
+                  setFtpText(loadFtp().toString());
                 }}
               >
                 Set by hand
@@ -503,8 +504,8 @@ function CyclingSetting() {
             value={ftpText}
             onChange={(e) => {
               setFtpText(e.target.value);
-              const v = Number(e.target.value);
-              if (Number.isInteger(v) && v >= 50 && v <= 600) saveFtp(v);
+              const v = parseWhole(e.target.value);
+              if (v !== undefined && v >= 50 && v <= 600) saveFtp(v);
             }}
           />
           {hasGarmin && !garmin.followFtp && (
@@ -513,7 +514,7 @@ function CyclingSetting() {
               style={{ marginTop: 8 }}
               onClick={() => {
                 setFollowFtp(true);
-                setFtpText(String(loadFtp()));
+                setFtpText(loadFtp().toString());
               }}
             >
               Take FTP from Garmin
@@ -540,7 +541,7 @@ function CyclingSetting() {
               : " Set by hand: Garmin's FTP is not used."}
           {" "}Zone 2 is
           {fromGarmin || ftpValid
-            ? ` ${targetWatts({ label: "Zone 2", ftp: [56, 75], seconds: 1 }, fromGarmin ? (garmin.ftp?.watts ?? ftp) : ftp).join("–")} W.`
+            ? ` ${targetWatts({ label: "Zone 2", ftp: [56, 75], seconds: 1 }, (fromGarmin ? garmin.ftp?.watts : ftp) ?? loadFtp()).join("–")} W.`
             : " 56–75 %."}
         </div>
         <Field label="Bike">
@@ -622,28 +623,28 @@ function HeartRateSetting() {
 function HrZonesCard() {
   const saved = loadHrZones();
   const [text, setText] = useState<string[]>(() =>
-    saved ? [...saved.floors, saved.max].map(String) : ["", "", "", "", "", ""],
+    saved ? [...saved.floors, saved.max].map((n) => n.toString()) : ["", "", "", "", "", ""],
   );
-  const zones: HrZones = {
-    floors: [Number(text[0]), Number(text[1]), Number(text[2]), Number(text[3]), Number(text[4])],
-    max: Number(text[5]),
-  };
+  // An empty field reads as 0, which hrZonesProblem refuses with a reason.
+  const bpm = (t: string | undefined) => parseWhole(t ?? "") ?? 0;
+  const zonesOf = (t: string[]): HrZones => ({
+    floors: [bpm(t[0]), bpm(t[1]), bpm(t[2]), bpm(t[3]), bpm(t[4])],
+    max: bpm(t[5]),
+  });
+  const zones = zonesOf(text);
   const empty = text.every((t) => t.trim() === "");
   const problem = empty ? null : hrZonesProblem(zones);
   const set = (i: number, v: string) => {
     const next = text.map((t, k) => (k === i ? v.replace(/[^0-9]/g, "") : t));
     setText(next);
-    const z: HrZones = {
-      floors: [Number(next[0]), Number(next[1]), Number(next[2]), Number(next[3]), Number(next[4])],
-      max: Number(next[5]),
-    };
+    const z = zonesOf(next);
     if (hrZonesProblem(z) === null) saveHrZones(z);
   };
   const fromMax = () => {
-    const max = Number(text[5]);
-    if (!Number.isInteger(max) || max < 100 || max > 230) return;
+    const max = bpm(text[5]);
+    if (max < 100 || max > 230) return;
     const z = zonesFromMax(max);
-    setText([...z.floors, z.max].map(String));
+    setText([...z.floors, z.max].map((n) => n.toString()));
     saveHrZones(z);
   };
 
@@ -665,7 +666,7 @@ function HrZonesCard() {
       </div>
       {problem && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>{problem}</div>}
       {empty && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 8 }}>No zones · HR rides won't start</div>}
-      <button className="btn sm ghost" style={{ width: "auto", marginTop: 8 }} disabled={!(Number(text[5]) >= 100 && Number(text[5]) <= 230)} onClick={fromMax}>
+      <button className="btn sm ghost" style={{ width: "auto", marginTop: 8 }} disabled={!(bpm(text[5]) >= 100 && bpm(text[5]) <= 230)} onClick={fromMax}>
         Fill from max HR
       </button>
     </div>
@@ -704,7 +705,7 @@ function GpsSetting() {
         }
       })
       .catch((e: unknown) => {
-        setProblem(e instanceof Error ? e.message : String(e));
+        setProblem(errorText(e));
       })
       .finally(() => { setBusy(false); });
   };

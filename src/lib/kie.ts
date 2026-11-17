@@ -9,6 +9,7 @@
  * kie's own message.
  */
 import { errorText, httpFetch } from "./http";
+import { at, numberOr, parseJson, stringOr } from "./decode";
 
 export const KIE_BASE = "https://api.kie.ai";
 
@@ -26,42 +27,34 @@ export class KieError extends Error {
   }
 }
 
-interface Envelope<T> {
-  code?: number;
-  msg?: string;
-  data?: T | null;
-}
-
 function describe(code: number, msg: string | undefined): string {
   const detail = msg?.trim() ? msg : "no detail";
-  if (code === 401 || code === 403) return `kie.ai rejected the API key (${String(code)}): ${detail}`;
+  if (code === 401 || code === 403) return `kie.ai rejected the API key (${code}): ${detail}`;
   if (code === 402) return `kie.ai: not enough credits (402): ${detail}`;
   if (code === 429) return `kie.ai: rate limited (429): ${detail}`;
-  return `kie.ai refused the request (${String(code)}): ${detail}`;
+  return `kie.ai refused the request (${code}): ${detail}`;
 }
 
-async function call<T>(apiKey: string, path: string, init: RequestInit = {}): Promise<T> {
+/** kie's envelope opened: `data`, still unknown, for the caller to read field by field. */
+async function call(apiKey: string, path: string, init: RequestInit = {}): Promise<unknown> {
   const res = await httpFetch(`${KIE_BASE}${path}`, {
     ...init,
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
   });
   const raw = await res.text().catch(() => "");
-  let body: Envelope<T> | null = null;
-  try {
-    body = JSON.parse(raw) as Envelope<T>;
-  } catch {
-    // not JSON — reported below
+  const parsed = parseJson(raw);
+  const body = parsed.ok ? parsed.value : undefined;
+  const code = numberOr(at(body, "code")) ?? res.status;
+  const data = at(body, "data");
+  if (!res.ok || code !== 200 || data === undefined || data === null) {
+    throw new KieError(describe(code, stringOr(at(body, "msg")) ?? raw.slice(0, 200)), code);
   }
-  const code = body?.code ?? res.status;
-  if (!res.ok || code !== 200 || body?.data == null) {
-    throw new KieError(describe(code, body?.msg ?? raw.slice(0, 200)), code);
-  }
-  return body.data;
+  return data;
 }
 
 /** Submit a job. Returns kie's taskId. */
 export async function createTask(apiKey: string, model: string, input: Record<string, unknown>): Promise<string> {
-  const data = await call<{ taskId?: string }>(apiKey, "/api/v1/jobs/createTask", {
+  const data = await call(apiKey, "/api/v1/jobs/createTask", {
     method: "POST",
     body: JSON.stringify({
       model,
@@ -70,11 +63,13 @@ export async function createTask(apiKey: string, model: string, input: Record<st
       input,
     }),
   });
-  if (!data.taskId) throw new KieError("kie.ai accepted the job but returned no taskId.", 500);
-  return data.taskId;
+  const taskId = stringOr(at(data, "taskId"));
+  if (taskId === undefined || taskId === "") throw new KieError("kie.ai accepted the job but returned no taskId.", 500);
+  return taskId;
 }
 
 export type TaskState = "waiting" | "queuing" | "generating" | "success" | "fail";
+const TASK_STATES: readonly TaskState[] = ["waiting", "queuing", "generating", "success", "fail"];
 
 export interface TaskInfo {
   state: TaskState;
@@ -84,22 +79,23 @@ export interface TaskInfo {
 }
 
 export async function getTask(apiKey: string, taskId: string): Promise<TaskInfo> {
-  const data = await call<{ state?: TaskState; failCode?: string | number | null; failMsg?: string | null; resultJson?: string | null; response?: unknown }>(
-    apiKey,
-    `/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`,
-  );
-  let result: unknown = data.response ?? null;
-  if (result == null && data.resultJson) {
-    try {
-      result = JSON.parse(data.resultJson);
-    } catch {
-      result = null;
-    }
+  const data = await call(apiKey, `/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`);
+  let result: unknown = at(data, "response") ?? null;
+  const resultJson = stringOr(at(data, "resultJson"));
+  if (result === null && resultJson !== undefined && resultJson !== "") {
+    const parsed = parseJson(resultJson);
+    result = parsed.ok ? parsed.value : null;
   }
   // "Internal Error" alone says nothing; kie's failCode tells a server fault
   // (500) from a refused input (422) or a failed generation (501).
-  const code = data.failCode != null && String(data.failCode).trim() ? ` [failCode ${String(data.failCode)}]` : "";
-  return { state: data.state ?? "waiting", failMsg: (data.failMsg ?? "") + code, result };
+  const failCode = at(data, "failCode");
+  const codeText = typeof failCode === "number" ? failCode.toString() : (stringOr(failCode)?.trim() ?? "");
+  const code = codeText === "" ? "" : ` [failCode ${codeText}]`;
+  const rawState = at(data, "state");
+  // A state kie adds later reads as still waiting: polling goes on, and the
+  // overall timeout still ends it, in red.
+  const state = TASK_STATES.find((s) => s === rawState) ?? "waiting";
+  return { state, failMsg: (stringOr(at(data, "failMsg")) ?? "") + code, result };
 }
 
 export interface AudioResult {
@@ -122,21 +118,17 @@ export function audioResults(result: unknown): AudioResult[] {
       for (const n of node) visit(n, depth + 1);
       return;
     }
-    const o = node as Record<string, unknown>;
-    const url = o["audio_url"] ?? o["audioUrl"];
-    if (typeof url === "string" && url) {
-      out.push({
-        url,
-        duration: typeof o["duration"] === "number" ? o["duration"] : undefined,
-        title: typeof o["title"] === "string" ? o["title"] : undefined,
-      });
+    const url = stringOr(at(node, "audio_url")) ?? stringOr(at(node, "audioUrl"));
+    if (url !== undefined && url !== "") {
+      out.push({ url, duration: numberOr(at(node, "duration")), title: stringOr(at(node, "title")) });
       return;
     }
-    const urls = o["resultUrls"];
+    const urls = at(node, "resultUrls");
     if (Array.isArray(urls)) {
-      for (const u of urls) if (typeof u === "string" && u) out.push({ url: u });
+      const list: readonly unknown[] = urls;
+      for (const u of list) if (typeof u === "string" && u !== "") out.push({ url: u });
     }
-    for (const key of ["data", "response", "sunoData", "resultObject"]) visit(o[key], depth + 1);
+    for (const key of ["data", "response", "sunoData", "resultObject"]) visit(at(node, key), depth + 1);
   };
   visit(result, 0);
   return out;
@@ -150,6 +142,6 @@ export async function download(url: string): Promise<Blob> {
   } catch (e) {
     throw new Error(`Download failed: ${errorText(e)}`);
   }
-  if (!res.ok) throw new Error(`Download rejected (HTTP ${String(res.status)}).`);
+  if (!res.ok) throw new Error(`Download rejected (HTTP ${res.status}).`);
   return res.blob();
 }

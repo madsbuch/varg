@@ -13,6 +13,7 @@ import type { Persistence } from "../db/persistence";
 import { createPersistence, persistDiff } from "../db/persistence";
 import { Mark } from "../components/icons";
 import { setLoadedPrograms } from "./programs";
+import { errorText as fullErrorText } from "./http";
 
 /**
  * Set while the athlete's most recent edits are NOT on disk.
@@ -46,15 +47,11 @@ const RETRY_MAX_MS = 30000;
 const SLOW_START_MS = 2000;
 
 /**
- * A short line to put in front of the athlete. Drizzle wraps driver
- * errors as "Failed query: <the entire statement>" and hangs the real
- * message off `cause`; the backend also rejects with a bare string.
+ * A short line to put in front of the athlete. The Rust store rejects
+ * with its own message as a plain string; anything longer is cut.
  */
 function errorText(err: unknown): string {
-  const cause = err instanceof Error ? (err as { cause?: unknown }).cause : undefined;
-  const real = cause ?? err;
-  const text =
-    real instanceof Error ? real.message : typeof real === "string" ? real : "unknown error";
+  const text = fullErrorText(err);
   return text.length > 160 ? `${text.slice(0, 160)}…` : text;
 }
 

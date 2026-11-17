@@ -30,6 +30,7 @@ import type { MusicBlock, MusicPlan } from "../lib/ride";
 import { songById, songKey } from "../lib/songs";
 import type { Intensity } from "../types";
 import { IconMusic } from "./icons";
+import { errorText } from "../lib/http";
 
 export interface AdaptiveTrack {
   musicButton: React.ReactNode;
@@ -100,16 +101,18 @@ export function useAdaptiveTrack(mix: Mix | undefined, seed: number, done: boole
     // switching songs with another app in front; the browser mixer is for
     // the web build. Songs are decoded and cut here either way.
     const native = bikeAvailable();
-    const ctx: BaseAudioContext | null = native ? new OfflineAudioContext(2, 1, 48000) : getAudioContext();
+    const live = native ? null : getAudioContext();
+    const ctx: BaseAudioContext | null = native ? new OfflineAudioContext(2, 1, 48000) : live;
     if (!ctx) {
       // Reported from a microtask: a synchronous setState in an effect
       // re-renders in a cascade.
       queueMicrotask(() => { if (alive()) setProblem("Music · no audio"); });
       return () => { life.alive = false; };
     }
-    const mixer = native
-      ? new NativeMusic((msg) => { if (alive()) setProblem(`Music · ${msg}`); })
-      : new AdaptiveMixer(ctx as AudioContext);
+    // Off native, ctx is the live context checked above.
+    const mixer = !native && live
+      ? new AdaptiveMixer(live)
+      : new NativeMusic((msg) => { if (alive()) setProblem(`Music · ${msg}`); });
     mixerRef.current = mixer;
     setCueDucker((hold) => { mixer.duck(hold, duckLevel); });
     void (async () => {
@@ -134,13 +137,13 @@ export function useAdaptiveTrack(mix: Mix | undefined, seed: number, done: boole
           // One at a time: a decoded track is large until its loop is cut.
           const prepared = await prepareSong(ctx, cached.blob, song, meta.loop);
           if (!alive()) return;
-          if (mixer instanceof NativeMusic) await mixer.add(prepared, `${cached.createdAt}|${String(LOOP_RULES)}`);
+          if (mixer instanceof NativeMusic) await mixer.add(prepared, `${cached.createdAt}|${LOOP_RULES}`);
           else mixer.add(prepared);
           if (!alive()) return;
           setReady(true);
           apply();
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
+          const msg = errorText(e);
           musicLog(`Mixer refused ${msg}${e instanceof LayerError && e.detail ? ` (${e.detail})` : ""}.`);
           refused.push(msg);
         }
@@ -149,9 +152,9 @@ export function useAdaptiveTrack(mix: Mix | undefined, seed: number, done: boole
       // Nothing composed and no key: no music, like any workout without a track.
       if (missing === order.length && !loadMusicSettings().apiKey) return;
       if (refused.length) {
-        setProblem(`Music · ${refused[0] ?? ""}${refused.length > 1 ? ` +${String(refused.length - 1)}` : ""}`);
+        setProblem(`Music · ${refused[0] ?? ""}${refused.length > 1 ? ` +${refused.length - 1}` : ""}`);
       } else if (missing) {
-        setProblem(`Music · ${String(order.length - missing)} of ${String(order.length)} songs`);
+        setProblem(`Music · ${order.length - missing} of ${order.length} songs`);
       }
     })();
     return () => {

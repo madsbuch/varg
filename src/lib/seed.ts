@@ -23,7 +23,7 @@
  *
  * See CLAUDE.md for the full authoring procedure.
  */
-import type { Exercise, Template } from "../types";
+import type { Exercise, RideSegment, Template } from "../types";
 
 // Stable IDs so built-in content can be referenced from templates.
 export const EX = {
@@ -560,9 +560,9 @@ export function seedTemplates(): Template[] {
       ride: {
         segments: [
           { label: "Warm-up", ftp: [50, 70], seconds: 600, cadence: [85, 95] },
-          ...[1, 2, 3, 4, 5].flatMap((n) => [
-            { label: `VO2 effort ${String(n)}`, ftp: [106, 120] as [number, number], seconds: 180, cadence: [95, 105] as [number, number] },
-            { label: "Easy spin", ftp: [40, 55] as [number, number], seconds: 180 },
+          ...[1, 2, 3, 4, 5].flatMap((n): RideSegment[] => [
+            { label: `VO2 effort ${n}`, ftp: [106, 120], seconds: 180, cadence: [95, 105] },
+            { label: "Easy spin", ftp: [40, 55], seconds: 180 },
           ]),
           { label: "Cool-down", ftp: [40, 55], seconds: 300 },
         ],
@@ -583,9 +583,9 @@ export function seedTemplates(): Template[] {
       ride: {
         segments: [
           { label: "Warm-up", ftp: [50, 65], seconds: 480, cadence: [85, 95] },
-          ...[1, 2, 3, 4, 5, 6, 7, 8].flatMap(() => [
-            { label: "Sprint", ftp: [150, 250] as [number, number], seconds: 20, cadence: [110, 130] as [number, number] },
-            { label: "Easy", ftp: [30, 50] as [number, number], seconds: 10 },
+          ...[1, 2, 3, 4, 5, 6, 7, 8].flatMap((): RideSegment[] => [
+            { label: "Sprint", ftp: [150, 250], seconds: 20, cadence: [110, 130] },
+            { label: "Easy", ftp: [30, 50], seconds: 10 },
           ]),
           { label: "Cool-down", ftp: [40, 55], seconds: 360 },
         ],
@@ -611,10 +611,10 @@ export function seedTemplates(): Template[] {
       // on a downbeat of both songs.
       ride: {
         segments: [
-          ...Array.from({ length: 10 }, () => [
-            { label: "Seated", ftp: [75, 85] as [number, number], seconds: 20, cadence: [85, 95] as [number, number], intensity: 1 as const },
-            { label: "Standing", ftp: [90, 105] as [number, number], seconds: 20, cadence: [60, 75] as [number, number], intensity: 2 as const },
-            { label: "Accelerate", ftp: [110, 130] as [number, number], seconds: 20, cadence: [105, 120] as [number, number], intensity: 3 as const },
+          ...Array.from({ length: 10 }, (): RideSegment[] => [
+            { label: "Seated", ftp: [75, 85], seconds: 20, cadence: [85, 95], intensity: 1 },
+            { label: "Standing", ftp: [90, 105], seconds: 20, cadence: [60, 75], intensity: 2 },
+            { label: "Accelerate", ftp: [110, 130], seconds: 20, cadence: [105, 120], intensity: 3 },
           ]).flat(),
           { label: "Cool-down", ftp: [40, 55], seconds: 300, intensity: 1 },
         ],
@@ -670,8 +670,8 @@ export function seedTemplates(): Template[] {
       exerciseIds: [EX.thruster, EX.pullUp],
       forTime: {
         stages: [21, 15, 9].flatMap((n) => [
-          { exerciseId: EX.thruster, label: `${String(n)} thrusters`, reps: n },
-          { exerciseId: EX.pullUp, label: `${String(n)} pull-ups`, reps: n },
+          { exerciseId: EX.thruster, label: `${n} thrusters`, reps: n },
+          { exerciseId: EX.pullUp, label: `${n} pull-ups`, reps: n },
         ]),
       },
       music: { bpm: 178, style: "aggressive industrial metal, pounding drums", theme: "Three minutes of pure redline, no pacing, just go" },
@@ -690,8 +690,8 @@ export function seedTemplates(): Template[] {
       exerciseIds: [EX.thruster, EX.ringRow],
       forTime: {
         stages: [21, 15, 9].flatMap((n) => [
-          { exerciseId: EX.thruster, label: `${String(n)} thrusters`, reps: n },
-          { exerciseId: EX.ringRow, label: `${String(n)} ring rows`, reps: n },
+          { exerciseId: EX.thruster, label: `${n} thrusters`, reps: n },
+          { exerciseId: EX.ringRow, label: `${n} ring rows`, reps: n },
         ]),
       },
       music: { bpm: 172, style: "driving electronic rock, heavy kick", theme: "Short and sharp, learn to suffer for a few minutes" },
@@ -708,9 +708,9 @@ export function seedTemplates(): Template[] {
       exerciseIds: [EX.run, EX.kettlebellSwing, EX.pullUp],
       forTime: {
         stages: [1, 2, 3].flatMap((r) => [
-          { exerciseId: EX.run, label: `Round ${String(r)} · 400 m run`, meters: 400 },
-          { exerciseId: EX.kettlebellSwing, label: `Round ${String(r)} · 21 kettlebell swings`, reps: 21 },
-          { exerciseId: EX.pullUp, label: `Round ${String(r)} · 12 pull-ups`, reps: 12 },
+          { exerciseId: EX.run, label: `Round ${r} · 400 m run`, meters: 400 },
+          { exerciseId: EX.kettlebellSwing, label: `Round ${r} · 21 kettlebell swings`, reps: 21 },
+          { exerciseId: EX.pullUp, label: `Round ${r} · 12 pull-ups`, reps: 12 },
         ]),
       },
       music: { bpm: 170, style: "hard rock, galloping drums, distorted bass", theme: "Run, swing, pull, three hard laps" },
@@ -727,9 +727,9 @@ export function seedTemplates(): Template[] {
       exerciseIds: [EX.run, EX.kettlebellSwing, EX.ringRow],
       forTime: {
         stages: [1, 2, 3].flatMap((r) => [
-          { exerciseId: EX.run, label: `Round ${String(r)} · 400 m run`, meters: 400 },
-          { exerciseId: EX.kettlebellSwing, label: `Round ${String(r)} · 21 kettlebell swings`, reps: 21 },
-          { exerciseId: EX.ringRow, label: `Round ${String(r)} · 12 ring rows`, reps: 12 },
+          { exerciseId: EX.run, label: `Round ${r} · 400 m run`, meters: 400 },
+          { exerciseId: EX.kettlebellSwing, label: `Round ${r} · 21 kettlebell swings`, reps: 21 },
+          { exerciseId: EX.ringRow, label: `Round ${r} · 12 ring rows`, reps: 12 },
         ]),
       },
       music: { bpm: 164, style: "punchy rock, steady drive", theme: "Three honest rounds, keep moving" },
@@ -799,9 +799,9 @@ export function seedTemplates(): Template[] {
       exerciseIds: [EX.run, EX.boxJump, EX.wallBall],
       forTime: {
         stages: [1, 2, 3, 4, 5].flatMap((r) => [
-          { exerciseId: EX.run, label: `Round ${String(r)} · 400 m run`, meters: 400 },
-          { exerciseId: EX.boxJump, label: `Round ${String(r)} · 30 box jumps`, reps: 30 },
-          { exerciseId: EX.wallBall, label: `Round ${String(r)} · 30 wall balls`, reps: 30 },
+          { exerciseId: EX.run, label: `Round ${r} · 400 m run`, meters: 400 },
+          { exerciseId: EX.boxJump, label: `Round ${r} · 30 box jumps`, reps: 30 },
+          { exerciseId: EX.wallBall, label: `Round ${r} · 30 wall balls`, reps: 30 },
         ]),
       },
       music: { bpm: 168, style: "hard electronic rock, big drums", theme: "Five rounds of lungs and legs, keep the engine running" },
@@ -817,8 +817,8 @@ export function seedTemplates(): Template[] {
       exerciseIds: [EX.doubleUnder, EX.sitUp],
       forTime: {
         stages: [50, 40, 30, 20, 10].flatMap((n) => [
-          { exerciseId: EX.doubleUnder, label: `${String(n)} double-unders`, reps: n },
-          { exerciseId: EX.sitUp, label: `${String(n)} sit-ups`, reps: n },
+          { exerciseId: EX.doubleUnder, label: `${n} double-unders`, reps: n },
+          { exerciseId: EX.sitUp, label: `${n} sit-ups`, reps: n },
         ]),
       },
       music: { bpm: 172, style: "fast drum and bass, crisp breaks", theme: "Quick feet, hard core, a ladder down to the finish" },
@@ -834,8 +834,8 @@ export function seedTemplates(): Template[] {
       exerciseIds: [EX.singleUnder, EX.sitUp],
       forTime: {
         stages: [50, 40, 30, 20, 10].flatMap((n) => [
-          { exerciseId: EX.singleUnder, label: `${String(n)} single-unders`, reps: n },
-          { exerciseId: EX.sitUp, label: `${String(n)} sit-ups`, reps: n },
+          { exerciseId: EX.singleUnder, label: `${n} single-unders`, reps: n },
+          { exerciseId: EX.sitUp, label: `${n} sit-ups`, reps: n },
         ]),
       },
       music: { bpm: 164, style: "upbeat drum and bass", theme: "Light on the feet, skip, crunch, repeat" },
@@ -1217,9 +1217,9 @@ export function seedTemplates(): Template[] {
       // each label so the athlete always knows where they are.
       forTime: {
         stages: [1, 2, 3, 4, 5].flatMap((r) => [
-          { exerciseId: EX.deadlift, label: `Round ${String(r)} · 12 deadlifts`, reps: 12 },
-          { exerciseId: EX.hangPowerClean, label: `Round ${String(r)} · 9 hang power cleans`, reps: 9 },
-          { exerciseId: EX.pushPress, label: `Round ${String(r)} · 6 push press`, reps: 6 },
+          { exerciseId: EX.deadlift, label: `Round ${r} · 12 deadlifts`, reps: 12 },
+          { exerciseId: EX.hangPowerClean, label: `Round ${r} · 9 hang power cleans`, reps: 9 },
+          { exerciseId: EX.pushPress, label: `Round ${r} · 6 push press`, reps: 6 },
         ]),
       },
       music: {

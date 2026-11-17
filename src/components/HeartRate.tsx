@@ -22,8 +22,9 @@ import {
 import type { FoundStrap, HrRead } from "../lib/hr";
 import { formatSeconds } from "../lib/units";
 import { Sheet } from "./ui";
+import { errorText } from "../lib/http";
 
-const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const errText = errorText;
 const NO_PERMISSION = "No Bluetooth permission";
 
 export interface HrLive {
@@ -233,7 +234,7 @@ export function HeartRateCard({ hr }: { hr: HeartRate }) {
         </span>
       </div>
       {values.length > 1 && (
-        <svg viewBox={`0 0 ${String(W)} ${String(H)}`} preserveAspectRatio="none" className="hr-trace" role="img" aria-label={`Heart rate from ${String(Math.min(...values))} to ${String(hr.max)} bpm`}>
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="hr-trace" role="img" aria-label={`Heart rate from ${Math.min(...values)} to ${hr.max} bpm`}>
           <line x1="0" x2={W} y1={y(hr.avg)} y2={y(hr.avg)} className="hr-avg" />
           <path d={d} />
         </svg>
@@ -288,19 +289,19 @@ export function StrapCard({ onLive }: { onLive?: (live: boolean) => void }) {
     return () => { alive = false; clearInterval(id); };
   }, [strap, attempt]);
 
-  const live = !!strap && read?.state === "connected" && bpm !== null;
+  const live = strap !== null && read?.state === "connected" && bpm !== null;
   useEffect(() => { onLive?.(live); }, [live, onLive]);
 
   const reset = () => { setProblem(null); setRead(null); setBpm(null); };
   const connected = read?.state === "connected";
   const status = problem ?? (read?.state === "reconnecting" ? "Lost · reconnecting" : null) ?? (connected
     ? bpm !== null
-      ? `${String(bpm)} bpm`
+      ? `${bpm} bpm`
       : noContact
         ? "No contact"
         : "Waiting"
     : "Connecting");
-  const bad = !!problem || read?.state === "reconnecting" || (connected && noContact);
+  const bad = problem !== null || read?.state === "reconnecting" || (connected && noContact);
 
   return strap ? (
     <div className="card">

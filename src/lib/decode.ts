@@ -52,6 +52,31 @@ export function parseJson(text: string): { ok: true; value: unknown } | { ok: fa
   }
 }
 
+/**
+ * A value inside nested objects, or undefined wherever the path stops being
+ * an object. For answers whose every field is optional (Garmin's): what is
+ * there is then checked with typeof, never assumed.
+ */
+export function at(v: unknown, ...path: string[]): unknown {
+  let cur = v;
+  for (const key of path) {
+    if (typeof cur !== "object" || cur === null || Array.isArray(cur)) return undefined;
+    const fields: [string, unknown][] = Object.entries(cur);
+    cur = new Map(fields).get(key);
+  }
+  return cur;
+}
+
+/** A finite number, or undefined. */
+export function numberOr(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
+
+/** A string, or undefined. */
+export function stringOr(v: unknown): string | undefined {
+  return typeof v === "string" ? v : undefined;
+}
+
 export class Reader {
   readonly problems: string[] = [];
 
@@ -154,6 +179,13 @@ export class Reader {
 
   strs(v: unknown, path: string): string[] {
     return this.arr(v, path).map((x, i) => this.str(x, `${path}[${i}]`));
+  }
+
+  /** An object used as a map: every value read by `read`. */
+  record<T>(v: unknown, path: string, read: (v: unknown, path: string) => T): Record<string, T> {
+    const out: Record<string, T> = {};
+    for (const [k, x] of this.obj(v, path)) out[k] = read(x, `${path}.${k}`);
+    return out;
   }
 
   pair(v: unknown, path: string): [number, number] {

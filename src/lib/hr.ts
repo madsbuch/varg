@@ -18,7 +18,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "../db/persistence";
 import type { HeartRate, Session } from "../types";
-import { kvGet, kvRemove, kvSet } from "./kv";
+import { kvRead, kvRemove, kvSet } from "./kv";
+import { Reader } from "./decode";
 
 /** One parsed measurement. */
 export interface HrSample {
@@ -167,23 +168,25 @@ export function hrZonesProblem(z: HrZones): string | null {
   const all = [...z.floors, z.max];
   if (!all.every((v) => Number.isInteger(v) && v >= 40 && v <= 230)) return "Whole bpm, 40–230";
   for (let i = 1; i < all.length; i++) {
-    if ((all[i] ?? 0) <= (all[i - 1] ?? 0)) return i < 5 ? `Z${String(i + 1)} must be above Z${String(i)}` : "Max must be above Z5";
+    if ((all[i] ?? 0) <= (all[i - 1] ?? 0)) return i < 5 ? `Z${i + 1} must be above Z${i}` : "Max must be above Z5";
   }
   return null;
 }
 
-export function loadHrZones(): HrZones | null {
-  try {
-    const raw = kvGet(ZONES_KEY);
-    if (!raw) return null;
-    // Parsed as unknown: a stored value from an older shape must not pass.
-    const z = JSON.parse(raw) as { floors?: unknown; max?: unknown };
-    if (!Array.isArray(z.floors) || z.floors.length !== 5 || typeof z.max !== "number") return null;
-    const zones = { floors: z.floors as HrZones["floors"], max: z.max };
-    return hrZonesProblem(zones) === null ? zones : null;
-  } catch {
-    return null;
+function readZones(r: Reader, v: unknown): HrZones {
+  const f = r.obj(v, "zones");
+  const fl = r.arr(f.get("floors"), "zones.floors").map((x, i) => r.int(x, `zones.floors[${i}]`));
+  const [a, b, c, d, e] = fl;
+  if (fl.length !== 5 || a === undefined || b === undefined || c === undefined || d === undefined || e === undefined) {
+    r.fail("zones.floors must be five numbers");
+    return { floors: [0, 0, 0, 0, 0], max: 0 };
   }
+  return { floors: [a, b, c, d, e], max: r.int(f.get("max"), "zones.max") };
+}
+
+export function loadHrZones(): HrZones | null {
+  const zones = kvRead(ZONES_KEY, readZones);
+  return zones && hrZonesProblem(zones) === null ? zones : null;
 }
 
 export function saveHrZones(z: HrZones | null): void {
@@ -248,13 +251,14 @@ export function hrAvailable(): boolean {
   return isTauri() && /Android/i.test(navigator.userAgent);
 }
 
+/** A paired Bluetooth device as stored. */
+function readDevice(r: Reader, v: unknown): { address: string; name: string } {
+  const f = r.obj(v, "device");
+  return { address: r.str(f.get("address"), "device.address"), name: r.text(f.get("name"), "device.name") };
+}
+
 export function loadStrap(): { address: string; name: string } | null {
-  try {
-    const raw = kvGet(DEVICE_KEY);
-    return raw ? (JSON.parse(raw) as { address: string; name: string }) : null;
-  } catch {
-    return null;
-  }
+  return kvRead(DEVICE_KEY, readDevice) ?? null;
 }
 
 export function saveStrap(s: { address: string; name: string } | null): void {

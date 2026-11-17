@@ -124,7 +124,7 @@ PROGRAMS. Use only exercise ids from the catalogue below; nothing else exists on
 - emom: every minute on the minute. emom {minute (usually 60), rounds, stations: [{exerciseId, reps: [one whole count per round] OR seconds: [one per round, under the minute], perSide?: "leg"|"arm" (reps then even), focus?: "what it trains"}], warmup?: [{exerciseId, seconds}] run back to back first, total warm-up a multiple of 20 s}. Reps only for reps/weight_reps exercises, seconds only for time exercises. Never a range. The scheme is written for you.
 - flow: yoga. flow {steps: [{exerciseId, seconds 10-300, side?: "left"|"right"}], transition: seconds 0-60 to move between poses}. A one-sided pose comes as a left step immediately followed by the same pose right, same hold. The scheme is written for you.
 - forTime: a fixed amount of work scored by time. forTime {stages: [{exerciseId, label, reps? | meters?}]}: reps for reps/weight_reps exercises, meters for distance_time; the label states that number ("21 kettlebell swings", "400 m run" or "1.6 km run"). Write a scheme like "3 rounds: 400 m run · 21 kettlebell swings @ 24/16 kg · for time". Needs estimateMinutes.
-- ride: indoor bike, exerciseIds ["ex-spin-bike"]. ride {segments: [{label, ftp: [low%, high%], seconds | kcal, cadence?: [lo, hi], hrZone?: 1-5}], race?: true when any segment is kcal}. hrZone segments are at least 180 s and the scheme must say "heart-rate zone N". Watts follow the owner's FTP (${String(loadFtp())} W now).
+- ride: indoor bike, exerciseIds ["ex-spin-bike"]. ride {segments: [{label, ftp: [low%, high%], seconds | kcal, cadence?: [lo, hi], hrZone?: 1-5}], race?: true when any segment is kcal}. hrZone segments are at least 180 s and the scheme must say "heart-rate zone N". Watts follow the owner's FTP (${loadFtp()} W now).
 - none: a logged session (strength work, sets written in by hand). exerciseIds are the exercises; describe sets × reps and loads in the scheme ("5 × 5 @ 80 % 1RM · 3 × 8"). Needs estimateMinutes.
 
 Every program: name (short, title case), description (one or two sentences: what and why), scheme, level (beginner | intermediate | advanced), estimateMinutes only for forTime and logged (and kcal rides). Optional gear {extra?: gear ids no exercise implies, detail?: {gearId: "24/16 kg"}} for gear the workout uses; gear ids: ${Object.keys(GEAR).join(", ")}. Optional music {energy?: 1 low | 2 mid | 3 peak (mobility 1, default 3), style?: genre tags for its own battle track, theme?: one line of mood}.
@@ -297,7 +297,7 @@ const PROGRAM_FIELDS: readonly string[] = [
 ];
 const KINDS: readonly ("interval" | "emom" | "flow" | "forTime" | "ride")[] = ["interval", "emom", "flow", "forTime", "ride"];
 
-const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+const fmt = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 const unique = (xs: readonly string[]) => [...new Set(xs)];
 
 /**

@@ -7,7 +7,7 @@ import type { Intensity, RideSegment, Session } from "../types";
 import { hrZoneRange } from "./hr";
 import type { HrZones } from "./hr";
 import { newSession, uid } from "./store";
-import { formatSeconds } from "./units";
+import { formatSeconds, parseWhole } from "./units";
 import { kvGet, kvSet } from "./kv";
 
 const FTP_KEY = "varg.ftp.v1";
@@ -16,8 +16,8 @@ export const DEFAULT_FTP = 283;
 
 export function loadFtp(): number {
   try {
-    const v = Number(kvGet(FTP_KEY));
-    return Number.isFinite(v) && v >= 50 && v <= 600 ? Math.round(v) : DEFAULT_FTP;
+    const v = parseWhole(kvGet(FTP_KEY) ?? "");
+    return v !== undefined && v >= 50 && v <= 600 ? v : DEFAULT_FTP;
   } catch {
     return DEFAULT_FTP;
   }
@@ -25,7 +25,7 @@ export function loadFtp(): number {
 
 export function saveFtp(ftp: number): void {
   try {
-    kvSet(FTP_KEY, String(Math.round(ftp)));
+    kvSet(FTP_KEY, Math.round(ftp).toString());
   } catch {
     // remembered for this session only
   }
@@ -71,17 +71,17 @@ export function fit(watts: number, target: [number, number]): Fit {
 
 /** "40 minutes", "3 minutes 30 seconds", "20 seconds", "200 kilocalories". */
 export function spokenAmount(seg: RideSegment): string {
-  if (seg.kcal !== undefined) return `${String(seg.kcal)} kilocalories`;
+  if (seg.kcal !== undefined) return `${seg.kcal} kilocalories`;
   const s = seg.seconds ?? 0;
   const m = Math.floor(s / 60), r = s % 60;
-  const part = (n: number, unit: string) => `${String(n)} ${unit}${n === 1 ? "" : "s"}`;
+  const part = (n: number, unit: string) => `${n} ${unit}${n === 1 ? "" : "s"}`;
   if (m && r) return `${part(m, "minute")} ${part(r, "second")}`;
   return m ? part(m, "minute") : part(r, "second");
 }
 
 /** The amount on screen: "40:00" or "200 kcal". */
 export function shownAmount(seg: RideSegment): string {
-  return seg.kcal !== undefined ? `${String(seg.kcal)} kcal` : formatSeconds(seg.seconds ?? 0);
+  return seg.kcal !== undefined ? `${seg.kcal} kcal` : formatSeconds(seg.seconds ?? 0);
 }
 
 /** What the voice says for a segment, as the lead-in or ahead of it. */
@@ -187,17 +187,17 @@ export function recordedRide(
   const parts = cfg.free
     ? [
       `Free ride · ${formatSeconds(seconds)}`,
-      `${String(Math.round(kcal))} kcal`,
-      `avg ${String(Math.round(seconds > 0 ? work / seconds : 0))} W`,
+      `${Math.round(kcal)} kcal`,
+      `avg ${Math.round(seconds > 0 ? work / seconds : 0)} W`,
     ]
     : [
       `${!finished ? "Ride · stopped" : skipped || restarts ? COMPLETED : FINISHED} in ${formatSeconds(seconds)}`,
-      `${String(Math.round(kcal))} kcal`,
-      `avg ${String(Math.round(seconds > 0 ? work / seconds : 0))} W`,
-      `${String(Math.round(onTarget * 100))}% on target`,
-      `FTP ${String(ftp)}`,
+      `${Math.round(kcal)} kcal`,
+      `avg ${Math.round(seconds > 0 ? work / seconds : 0)} W`,
+      `${Math.round(onTarget * 100)}% on target`,
+      `FTP ${ftp}`,
     ];
-  const plural = (n: number, what: string) => `${String(n)} block${n === 1 ? "" : "s"} ${what}`;
+  const plural = (n: number, what: string) => `${n} block${n === 1 ? "" : "s"} ${what}`;
   if (skipped) parts.push(plural(skipped, "skipped"));
   if (restarts) parts.push(plural(restarts, "restarted"));
   session.note = parts.join(" · ");

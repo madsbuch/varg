@@ -4,17 +4,11 @@
  * write is guarded: storage can be unavailable or cleared, and a lost star
  * must never break the workout library.
  */
-import { kvGet, kvSet } from "./kv";
+import { kvRead, kvSet } from "./kv";
 const KEY = "varg.favorites.v1";
 
 export function loadFavorites(): Set<string> {
-  try {
-    const raw = kvGet(KEY);
-    const ids: unknown = raw ? JSON.parse(raw) : [];
-    return new Set(Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string") : []);
-  } catch {
-    return new Set();
-  }
+  return new Set(kvRead(KEY, (r, v) => r.strs(v, "favorites")) ?? []);
 }
 
 export function saveFavorites(ids: Set<string>): void {

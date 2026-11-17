@@ -14,7 +14,7 @@
  */
 import { useSyncExternalStore } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Reader } from "./decode";
+import { parseJson, Reader } from "./decode";
 import { errorText } from "./http";
 
 const cache = new Map<string, string>();
@@ -150,4 +150,55 @@ function subscribe(l: () => void): () => void {
 /** A settings write that has not reached the store yet, with why. */
 export function useKvFailure(): string | null {
   return useSyncExternalStore(subscribe, () => failure);
+}
+
+/* ---------------------------- Typed settings ------------------------------ */
+
+/** Stored settings that did not decode, by key: shown in red, never silently defaulted. */
+let unreadable: ReadonlyMap<string, string> = new Map();
+
+function setUnreadable(key: string, why: string | null): void {
+  const had = unreadable.get(key);
+  if (had === (why ?? undefined)) return;
+  const next = new Map(unreadable);
+  if (why === null) next.delete(key);
+  else next.set(key, why);
+  unreadable = next;
+  // Settings are read during render; tell subscribers after it, not inside it.
+  queueMicrotask(() => { for (const l of listeners) l(); });
+}
+
+/**
+ * A stored JSON setting, decoded strictly by `read`. Undefined when it is
+ * not set. When it is set but does not decode, also undefined (the caller
+ * uses its default), and the key and why are listed by
+ * `useUnreadableSettings` until a good value is written.
+ */
+export function kvRead<T>(key: string, read: (r: Reader, v: unknown) => T): T | undefined {
+  const raw = kvGet(key);
+  if (raw === null) return undefined;
+  const parsed = parseJson(raw);
+  if (!parsed.ok) {
+    setUnreadable(key, parsed.error);
+    return undefined;
+  }
+  const r = new Reader();
+  const value = read(r, parsed.value);
+  if (!r.ok()) {
+    setUnreadable(key, r.problems.join("; "));
+    return undefined;
+  }
+  setUnreadable(key, null);
+  return value;
+}
+
+/** Store a value as JSON. */
+export function kvWrite(key: string, value: unknown): void {
+  kvSet(key, JSON.stringify(value));
+  setUnreadable(key, null);
+}
+
+/** Stored settings that did not decode: "key: why". */
+export function useUnreadableSettings(): ReadonlyMap<string, string> {
+  return useSyncExternalStore(subscribe, () => unreadable);
 }

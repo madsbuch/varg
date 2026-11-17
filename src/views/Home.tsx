@@ -105,7 +105,7 @@ export default function Home({ goto }: { goto: (t: Tab, view?: SagaView) => void
           {hasGarmin && (garmin.readiness ?? garmin.error) && (
             <ReadinessCard
               readiness={garmin.readiness}
-              stale={!!garmin.readiness && garmin.readiness.date !== today}
+              stale={garmin.readiness !== undefined && garmin.readiness.date !== today}
               error={garmin.error}
             />
           )}

@@ -8,7 +8,7 @@ import { IconWatch } from "./icons";
 /** "47 min", "1:12" style lengths for the Den card. */
 function hoursMinutes(s: number): string {
   const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
-  return h > 0 ? `${String(h)}h ${String(m).padStart(2, "0")}m` : `${String(m)} min`;
+  return h > 0 ? `${h}h ${m.toString().padStart(2, "0")}m` : `${m} min`;
 }
 
 /** Time in heart-rate zones 1-5 as one bar, cool to hot. */
@@ -19,7 +19,7 @@ function ZoneBar({ zones }: { zones: number[] }) {
     <div style={{ marginTop: 10 }}>
       <div className="zone-bar" role="img" aria-label="Time in heart-rate zones">
         {zones.map((z, i) => (
-          z > 0 && <span key={i} className={`z${String(i + 1)}`} style={{ flexGrow: z }} />
+          z > 0 && <span key={i} className={`z${i + 1}`} style={{ flexGrow: z }} />
         ))}
       </div>
       <div className="zone-legend">
@@ -34,12 +34,12 @@ function ZoneBar({ zones }: { zones: number[] }) {
 /** What the watch measured: heart rate, power, energy, distance, zones. */
 export function WatchStats({ activity }: { activity: GarminActivity }) {
   const facts: [string, string][] = [];
-  if (activity.avgHr != null) facts.push(["Avg HR", `${String(Math.round(activity.avgHr))} bpm`]);
-  if (activity.maxHr != null) facts.push(["Max HR", `${String(Math.round(activity.maxHr))} bpm`]);
-  if (activity.avgPower != null) facts.push(["Avg power", `${String(Math.round(activity.avgPower))} W`]);
-  if (activity.normPower != null) facts.push(["NP", `${String(Math.round(activity.normPower))} W`]);
-  if (activity.kcal != null) facts.push(["Energy", `${String(Math.round(activity.kcal))} kcal`]);
-  if (activity.meters != null) facts.push(["Distance", `${String(kmFromMeters(activity.meters))} km`]);
+  if (activity.avgHr != null) facts.push(["Avg HR", `${Math.round(activity.avgHr)} bpm`]);
+  if (activity.maxHr != null) facts.push(["Max HR", `${Math.round(activity.maxHr)} bpm`]);
+  if (activity.avgPower != null) facts.push(["Avg power", `${Math.round(activity.avgPower)} W`]);
+  if (activity.normPower != null) facts.push(["NP", `${Math.round(activity.normPower)} W`]);
+  if (activity.kcal != null) facts.push(["Energy", `${Math.round(activity.kcal)} kcal`]);
+  if (activity.meters != null) facts.push(["Distance", `${kmFromMeters(activity.meters)} km`]);
   facts.push(["Watch time", formatSeconds(activity.seconds)]);
   return (
     <>
@@ -81,7 +81,7 @@ export function WatchRow({ activity, onOpen }: { activity: GarminActivity; onOpe
         <div className="title">{activity.name}</div>
         <div className="sub">
           {when} · {typeLabel(activity.type)}
-          {activity.avgHr != null && ` · ♥ ${String(Math.round(activity.avgHr))}`}
+          {activity.avgHr != null && ` · ♥ ${Math.round(activity.avgHr)}`}
         </div>
       </div>
       <span className="chip watch" style={{ flexShrink: 0 }}>
@@ -130,12 +130,12 @@ export function ReadinessCard({ readiness, stale, error }: {
 }) {
   const r = readiness;
   const tiles: [string, string, (string | undefined)?][] = [];
-  if (r?.sleepSeconds != null) tiles.push(["Sleep", hoursMinutes(r.sleepSeconds), r.sleepScore != null ? `score ${String(r.sleepScore)}` : undefined]);
-  if (r?.hrvLastNight != null) tiles.push(["HRV", `${String(Math.round(r.hrvLastNight))} ms`, r.hrvStatus ? (HRV_STATUS[r.hrvStatus] ?? r.hrvStatus.toLowerCase()) : undefined]);
+  if (r?.sleepSeconds != null) tiles.push(["Sleep", hoursMinutes(r.sleepSeconds), r.sleepScore != null ? `score ${r.sleepScore}` : undefined]);
+  if (r?.hrvLastNight != null) tiles.push(["HRV", `${Math.round(r.hrvLastNight)} ms`, r.hrvStatus ? (HRV_STATUS[r.hrvStatus] ?? r.hrvStatus.toLowerCase()) : undefined]);
   if (r?.bodyBatteryAtWake != null || r?.bodyBatteryNow != null) {
-    tiles.push(["Body Battery", String(r.bodyBatteryAtWake ?? r.bodyBatteryNow), r.bodyBatteryAtWake != null ? (r.bodyBatteryNow != null ? `at wake · now ${String(r.bodyBatteryNow)}` : "at wake") : "now"]);
+    tiles.push(["Body Battery", `${r.bodyBatteryAtWake ?? r.bodyBatteryNow}`, r.bodyBatteryAtWake != null ? (r.bodyBatteryNow != null ? `at wake · now ${r.bodyBatteryNow}` : "at wake") : "now"]);
   }
-  if (r?.restingHr != null) tiles.push(["Resting HR", `${String(r.restingHr)} bpm`]);
+  if (r?.restingHr != null) tiles.push(["Resting HR", `${r.restingHr} bpm`]);
 
   return (
     <>

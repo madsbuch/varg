@@ -16,6 +16,7 @@ import type { BikeRead, FoundBike } from "../lib/bike";
 import { Sheet } from "./ui";
 import { StrapCard } from "./HeartRate";
 import { loadStrap } from "../lib/hr";
+import { errorText } from "../lib/http";
 
 interface Paired { address: string; name: string }
 
@@ -38,7 +39,7 @@ export function BikePicker({ onPicked }: { onPicked: (b: Paired) => void }) {
         setFound(list);
         if (list.length === 0) setProblem("No bike found · pedal, close other apps");
       })
-      .catch((e: unknown) => { setProblem(e instanceof Error ? e.message : String(e)); })
+      .catch((e: unknown) => { setProblem(errorText(e)); })
       .finally(() => { setBusy(null); });
   };
 
@@ -105,7 +106,7 @@ export function RideConnectSheet({ title, needsHr, onStart, onCancel }: {
         if (!ok) throw new Error("Bluetooth permission was not granted. Allow Nearby devices for Varg in Android settings.");
         return connectBike(bike.address);
       })
-      .catch((e: unknown) => { if (alive) setProblem(e instanceof Error ? e.message : String(e)); });
+      .catch((e: unknown) => { if (alive) setProblem(errorText(e)); });
     const id = setInterval(() => {
       readBike()
         .then((r) => {
@@ -114,7 +115,7 @@ export function RideConnectSheet({ title, needsHr, onStart, onCancel }: {
           setRead(r);
           if (r.packets.length) setLive({ power: meter.power, cadence: meter.cadence, at: meter.lastAt });
         })
-        .catch((e: unknown) => { if (alive) setProblem(e instanceof Error ? e.message : String(e)); });
+        .catch((e: unknown) => { if (alive) setProblem(errorText(e)); });
     }, 500);
     return () => { alive = false; clearInterval(id); };
   }, [bike, attempt]);
@@ -124,10 +125,10 @@ export function RideConnectSheet({ title, needsHr, onStart, onCancel }: {
     ? null
     : problem ?? read?.error ?? (connected
       ? live
-        ? `Connected · ${String(Math.round(live.power))} W · ${String(Math.round(live.cadence))} rpm`
+        ? `Connected · ${Math.round(live.power)} W · ${Math.round(live.cadence)} rpm`
         : "Connected. Pedal to see your watts."
       : "Connecting…");
-  const bad = !!bike && (!!problem || !!read?.error);
+  const bad = bike !== null && (problem !== null || read?.error !== undefined);
 
   return (
     <Sheet title={title} onClose={onCancel}>

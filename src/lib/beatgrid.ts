@@ -148,7 +148,7 @@ export function loopFromBeats(
     return {
       loop: null,
       why:
-        `${String(beats.length)} beats, ${String(downbeats.length)} downbeats, ~${whole.toFixed(1)} BPM` +
+        `${beats.length} beats, ${downbeats.length} downbeats, ~${whole.toFixed(1)} BPM` +
         (Number.isFinite(steadiest) ? `, steadiest section ±${steadiest.toFixed(1)} ms` : ", no 8 steady bars in a row"),
     };
   }

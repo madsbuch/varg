@@ -94,7 +94,7 @@ const LEVELS: Level[] = ["beginner", "intermediate", "advanced"];
 function loadChoice<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
     const v = kvGet(key);
-    return allowed.includes(v as T) ? (v as T) : fallback;
+    return allowed.find((a) => a === v) ?? fallback;
   } catch {
     return fallback;
   }
@@ -220,12 +220,12 @@ function StartScreen({ openId }: { openId: string | null }) {
       const stages = tpl.forTime.stages;
       const exercises = stages
         .map((st) => exById.get(st.exerciseId))
-        .filter((e): e is Exercise => !!e);
+        .filter((e): e is Exercise => e !== undefined);
       // Same rule as a circuit: never run a workout with a stage missing.
       if (exercises.length !== stages.length) {
         setStartError(
-          `${tpl.name} has ${String(stages.length)} stages but only ` +
-            `${String(exercises.length)} of their exercises exist on this device. ` +
+          `${tpl.name} has ${stages.length} stages but only ` +
+            `${exercises.length} of their exercises exist on this device. ` +
             `Reinstalling or updating the app restores the built-in exercises.`,
         );
         return;
@@ -451,7 +451,7 @@ function TemplateCard({ t, favorite, best, onOpen, onStart, onToggleFavorite }: 
           {len && (
             <span className="chip accent">
               <IconClock style={{ width: 14, height: 14 }} />{" "}
-              {len.exact ? `${formatSeconds(len.seconds)} on the clock` : `≈ ${String(Math.round(len.seconds / 60))} min`}
+              {len.exact ? `${formatSeconds(len.seconds)} on the clock` : `≈ ${Math.round(len.seconds / 60)} min`}
             </span>
           )}
           {(t.forTime ?? t.ride?.race) && (
@@ -847,7 +847,7 @@ function EntryCard({
         <ConfirmSheet
           title="Remove exercise"
           message={
-            `Remove ${exercise.name}? Its ${String(logged)} logged ` +
+            `Remove ${exercise.name}? Its ${logged} logged ` +
             `${logged === 1 ? "set" : "sets"} will be deleted.`
           }
           confirmLabel="Remove"
@@ -886,7 +886,7 @@ const weightCol: Col = {
   key: "w",
   label: "kg",
   placeholder: "0",
-  get: (s) => (s.weight == null ? "" : String(roundW(s.weight))),
+  get: (s) => (s.weight == null ? "" : roundW(s.weight).toString()),
   set: (v) => ({ weight: v }),
 };
 
@@ -895,7 +895,7 @@ const repsCol: Col = {
   label: "reps",
   placeholder: "0",
   whole: true,
-  get: (s) => (s.reps == null ? "" : String(s.reps)),
+  get: (s) => (s.reps == null ? "" : s.reps.toString()),
   set: (v) => ({ reps: v }),
 };
 
@@ -903,7 +903,7 @@ const distCol: Col = {
   key: "d",
   label: "km",
   placeholder: "0",
-  get: (s) => (s.meters == null ? "" : String(kmFromMeters(s.meters))),
+  get: (s) => (s.meters == null ? "" : kmFromMeters(s.meters).toString()),
   set: (v) => ({ meters: v == null ? undefined : metersFromKm(v) }),
 };
 

@@ -14,6 +14,7 @@ import type { SongLoop } from "./mixer";
 import { scoreSong } from "./mixer";
 import { scoreVoices } from "./score";
 import type { Booking, ScoreSong, Voice } from "./score";
+import { errorText } from "./http";
 
 export class NativeMusic {
   private readonly songs = new Map<string, ScoreSong>();
@@ -41,7 +42,7 @@ export class NativeMusic {
     this.score = scoreVoices(this.score, bookings, this.songs, Date.now(), paused, firstAt);
     nativeMusicScore({ voices: this.score }).then(
       (err) => { if (err) this.onError(err); },
-      (e: unknown) => { this.onError(e instanceof Error ? e.message : String(e)); },
+      (e: unknown) => { this.onError(errorText(e)); },
     );
   }
 

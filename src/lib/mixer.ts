@@ -31,6 +31,7 @@ import { FPS, SAMPLE_RATE } from "./melspec";
 import type { Song } from "./songs";
 import { positionAt, scoreVoices, valueAt } from "./score";
 import type { Booking, Points, ScoreSong, Voice } from "./score";
+import { errorText } from "./http";
 
 /** A song ready to mix: its loop and how to play it. */
 export interface SongLoop {
@@ -132,7 +133,7 @@ export async function analyzeTrack(ctx: BaseAudioContext, blob: Blob, song: Song
       const shift = (t: number) => Math.round((t + a / SAMPLE_RATE) * 1e4) / 1e4;
       return { beats: found.beats.map(shift), downbeats: found.downbeats.map(shift) };
     } catch (e) {
-      throw new LayerError(`${song.name}: beat model failed`, e instanceof Error ? e.message : String(e));
+      throw new LayerError(`${song.name}: beat model failed`, errorText(e));
     }
   };
   // The network costs seconds per 30 s on a phone. A low or mid song's
@@ -164,7 +165,7 @@ export async function analyzeTrack(ctx: BaseAudioContext, blob: Blob, song: Song
  */
 export async function prepareSong(ctx: BaseAudioContext, blob: Blob, song: Song, loop: Loop): Promise<SongLoop> {
   if (Math.abs(loop.bpm / song.bpm - 1) > MAX_STRETCH) {
-    throw new LayerError(`${song.name}: tempo off`, `${loop.bpm.toFixed(2)} BPM against ${String(song.bpm)}`);
+    throw new LayerError(`${song.name}: tempo off`, `${loop.bpm.toFixed(2)} BPM against ${song.bpm}`);
   }
   const decoded = await decode(ctx, blob, song);
 
@@ -224,7 +225,7 @@ export const DUCK_LEVEL = 0.22;
 export const LIGHT_DUCK = 0.55;
 const DUCK_RAMP_S = 0.06;
 
-const voiceKey = (v: Voice) => `${v.songId}@${String(v.at)}`;
+const voiceKey = (v: Voice) => `${v.songId}@${v.at}`;
 
 /**
  * The browser's player of the ride's score (score.ts): each voice a buffer

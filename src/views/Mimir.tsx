@@ -208,8 +208,8 @@ function ProgramCard({ template: t, why, children }: { template: Template; why?:
       });
     }
     if (t.forTime) return t.forTime.stages.map((s) => s.label);
-    if (t.flow) return t.flow.steps.map((s) => `${byId.get(s.exerciseId) ?? s.exerciseId}${s.side ? ` (${s.side})` : ""} ${String(s.seconds)} s`);
-    if (t.ride) return t.ride.segments.map((s) => `${s.label} ${s.seconds ? formatSeconds(s.seconds) : `${String(s.kcal)} kcal`} · ${String(s.ftp[0])}–${String(s.ftp[1])} %`);
+    if (t.flow) return t.flow.steps.map((s) => `${byId.get(s.exerciseId) ?? s.exerciseId}${s.side ? ` (${s.side})` : ""} ${s.seconds} s`);
+    if (t.ride) return t.ride.segments.map((s) => `${s.label} ${s.seconds ? formatSeconds(s.seconds) : `${s.kcal} kcal`} · ${s.ftp[0]}–${s.ftp[1]} %`);
     return t.exerciseIds.map((id) => byId.get(id) ?? id);
   }, [t, data.exercises]);
   return (
@@ -222,7 +222,7 @@ function ProgramCard({ template: t, why, children }: { template: Template; why?:
       <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>{t.scheme}</div>
       <div className="workout-card-chips">
         <span className={`chip level-${t.level}`}>{LEVEL_LABEL[t.level]}</span>
-        {len && <span className="chip accent">{len.exact ? formatSeconds(len.seconds) : `≈ ${String(Math.round(len.seconds / 60))} min`}</span>}
+        {len && <span className="chip accent">{len.exact ? formatSeconds(len.seconds) : `≈ ${Math.round(len.seconds / 60)} min`}</span>}
       </div>
       {!why && (
         <ol className="mimir-stations">

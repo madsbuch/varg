@@ -24,7 +24,7 @@ export function formatSeconds(total: number): string {
   const h = Math.floor(t / 3600);
   const m = Math.floor((t % 3600) / 60);
   const s = t % 60;
-  const pad = (x: number) => String(x).padStart(2, "0");
+  const pad = (x: number) => x.toString().padStart(2, "0");
   if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
   return `${m}:${pad(s)}`;
 }
@@ -42,8 +42,10 @@ export function formatSeconds(total: number): string {
  */
 export function parseDecimal(input: string): number | undefined {
   const s = input.trim().replace(",", ".");
-  if (!s) return undefined;
-  const n = Number(s);
+  // A plain decimal, nothing else: Number() would also take "0x1f", "1e3"
+  // and " " and turn them into numbers no keypad meant.
+  if (!/^-?(\d+\.?\d*|\.\d+)$/.test(s)) return undefined;
+  const n = Number.parseFloat(s);
   return Number.isFinite(n) ? n : undefined;
 }
 
@@ -58,9 +60,13 @@ export function parseTime(input: string): number | undefined {
   const s = input.trim();
   if (!s) return undefined;
   if (!s.includes(":")) return parseDecimal(s);
-  const parts = s.split(":").map((p) => parseDecimal(p));
-  if (parts.some((p) => p === undefined)) return undefined;
-  return (parts as number[]).reduce((acc, p) => acc * 60 + p, 0);
+  let total = 0;
+  for (const part of s.split(":")) {
+    const p = parseDecimal(part);
+    if (p === undefined) return undefined;
+    total = total * 60 + p;
+  }
+  return total;
 }
 
 export function formatDate(iso: string): string {

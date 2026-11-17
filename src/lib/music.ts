@@ -18,7 +18,8 @@ import type { Song } from "./songs";
 import { formatSeconds } from "./units";
 import { errorText, httpFetch } from "./http";
 import { KieError, audioResults, createTask, download, getTask } from "./kie";
-import { kvGet, kvRemove, kvSet } from "./kv";
+import { kvRead, kvRemove, kvSet } from "./kv";
+import { readMusic } from "./decode";
 import { blobDelete, blobGet, blobHas, blobPut } from "./blobs";
 
 export { errorText, httpFetch };
@@ -40,23 +41,17 @@ export interface MusicSettings {
 }
 
 export function loadMusicSettings(): MusicSettings {
-  try {
-    const raw = kvGet(SETTINGS_KEY);
-    if (raw) {
-      const p = JSON.parse(raw) as Partial<MusicSettings>;
-      return {
-        apiKey: p.apiKey ?? "",
-        // A model saved before V6 is deprecated and can't be given a
-        // duration, so it moves to the default rather than lingering as an
-        // option the picker no longer lists.
-        model:
-          p.model && SUNO_MODELS.includes(p.model) ? p.model : DEFAULT_MODEL,
-      };
-    }
-  } catch {
-    // fall through to defaults
-  }
-  return { apiKey: "", model: DEFAULT_MODEL };
+  const p = kvRead(SETTINGS_KEY, (r, v) => {
+    const f = r.obj(v, "music settings");
+    return { apiKey: r.text(f.get("apiKey"), "apiKey"), model: r.text(f.get("model"), "model") };
+  });
+  return {
+    apiKey: p?.apiKey ?? "",
+    // A model saved before V6 is deprecated and can't be given a
+    // duration, so it moves to the default rather than lingering as an
+    // option the picker no longer lists.
+    model: p && SUNO_MODELS.includes(p.model) ? p.model : DEFAULT_MODEL,
+  };
 }
 
 export function saveMusicSettings(s: MusicSettings): void {
@@ -76,13 +71,7 @@ export const FREESTYLE_PROFILE: MusicProfile = {
 // tracks: template id, or "freestyle".
 
 function loadProfileOverrides(): Record<string, MusicProfile> {
-  try {
-    const raw = kvGet(PROFILES_KEY);
-    if (raw) return JSON.parse(raw) as Record<string, MusicProfile>;
-  } catch {
-    // fall through
-  }
-  return {};
+  return kvRead(PROFILES_KEY, (r, v) => r.record(v, "profiles", (x, path) => readMusic(r, r.obj(x, path), path))) ?? {};
 }
 
 export function saveProfileOverride(key: string, profile: MusicProfile): void {
@@ -191,13 +180,16 @@ interface PendingTask {
 }
 
 function loadPendingTasks(): PendingTask[] {
-  try {
-    const raw = kvGet(PENDING_KEY);
-    if (raw) return JSON.parse(raw) as PendingTask[];
-  } catch {
-    // fall through
-  }
-  return [];
+  return kvRead(PENDING_KEY, (r, v) =>
+    r.arr(v, "pending").map((x, i) => {
+      const f = r.obj(x, `pending[${i}]`);
+      return {
+        key: r.str(f.get("key"), `pending[${i}].key`),
+        workoutName: r.text(f.get("workoutName"), `pending[${i}].workoutName`),
+        taskId: r.str(f.get("taskId"), `pending[${i}].taskId`),
+        requestedAt: r.text(f.get("requestedAt"), `pending[${i}].requestedAt`),
+      };
+    })) ?? [];
 }
 
 function savePendingTasks(tasks: PendingTask[]): void {
@@ -232,13 +224,11 @@ export interface MusicLogEntry {
 const logListeners = new Set<() => void>();
 
 export function readMusicLog(): MusicLogEntry[] {
-  try {
-    const raw = kvGet(LOG_KEY);
-    if (raw) return JSON.parse(raw) as MusicLogEntry[];
-  } catch {
-    // fall through
-  }
-  return [];
+  return kvRead(LOG_KEY, (r, v) =>
+    r.arr(v, "log").map((x, i) => {
+      const f = r.obj(x, `log[${i}]`);
+      return { at: r.text(f.get("at"), `log[${i}].at`), msg: r.text(f.get("msg"), `log[${i}].msg`) };
+    })) ?? [];
 }
 
 export function musicLog(msg: string): void {
@@ -294,13 +284,15 @@ export interface TrackFailure {
 }
 
 export function loadTrackFailures(): Record<string, TrackFailure> {
-  try {
-    const raw = kvGet(FAILED_KEY);
-    if (raw) return JSON.parse(raw) as Record<string, TrackFailure>;
-  } catch {
-    // fall through
-  }
-  return {};
+  return kvRead(FAILED_KEY, (r, v) =>
+    r.record(v, "failures", (x, path) => {
+      const f = r.obj(x, path);
+      return {
+        attempts: r.int(f.get("attempts"), `${path}.attempts`),
+        lastAt: r.text(f.get("lastAt"), `${path}.lastAt`),
+        reason: r.text(f.get("reason"), `${path}.reason`),
+      };
+    })) ?? {};
 }
 
 function saveTrackFailures(all: Record<string, TrackFailure>): void {
@@ -429,7 +421,7 @@ export async function ensureAllTracks(): Promise<void> {
     // would push a line into the ring buffer and bury the real diagnostics.
     if (blocked > 0) {
       musicLog(
-        `${blocked} workout${blocked === 1 ? "" : "s"} skipped: generation has failed ${String(MAX_FAILED_ATTEMPTS)}+ times; retry from Settings.`,
+        `${blocked} workout${blocked === 1 ? "" : "s"} skipped: generation has failed ${MAX_FAILED_ATTEMPTS}+ times; retry from Settings.`,
       );
     }
 
@@ -688,7 +680,7 @@ const SONG_ENERGY: Record<Intensity, string> = {
 export function buildSongStyle(song: Song): string {
   const voice = song.lyrics ? "Sung vocals as written" : "Instrumental, no vocals";
   const head =
-    `${voice}. Electronic workout track, constant ${String(song.bpm)} BPM, strict 4/4, ` +
+    `${voice}. Electronic workout track, constant ${song.bpm} BPM, strict 4/4, ` +
     `four-on-the-floor kick on every beat, ${LIBRARY_KEY}. Starts on the first beat ` +
     `with no intro; no breakdowns, no tempo changes, no fade-out. ${SONG_ENERGY[song.intensity]}`;
   const full = `${head} Style: ${song.style}.`;

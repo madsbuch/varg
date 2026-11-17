@@ -28,7 +28,7 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
   const emomSub = (i: number): string => {
     if (!emom) return "";
     const w = emom.warmup?.[i];
-    if (w) return `${String(w.seconds)} s · `;
+    if (w) return `${w.seconds} s · `;
     const st = emom.stations[i - warmupCount];
     return st ? `${emomRoundsTarget(st)}${st.focus ? ` · ${st.focus}` : ""} · ` : "";
   };
@@ -63,15 +63,15 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
         <h3 style={{ fontSize: 15 }}>The workout</h3>
         <p style={{ margin: "8px 0 0" }}>{template.scheme}</p>
         {plan && <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
-          Follow the stations below {plan.rounds === 1 ? "once" : `for ${String(plan.rounds)} rounds`}.
+          Follow the stations below {plan.rounds === 1 ? "once" : `for ${plan.rounds} rounds`}.
           {plan.rest > 0
-            ? ` Rest ${String(plan.rest)} seconds between stations, including between rounds. No rest after the final station.`
+            ? ` Rest ${plan.rest} seconds between stations, including between rounds. No rest after the final station.`
             : " Move straight to the next station, with no rest."}
         </p>}
         {emom && <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
           {formatSeconds(emomSeconds(emom))} in all.
-          {warmupCount > 0 ? ` Warm up first, ${String(warmupCount)} movements back to back.` : ""}
-          {` Then a new station at the top of every minute, ${String(emom.stations.length)} stations, ${emom.rounds === 1 ? "once" : `${String(emom.rounds)} rounds`}.`}
+          {warmupCount > 0 ? ` Warm up first, ${warmupCount} movements back to back.` : ""}
+          {` Then a new station at the top of every minute, ${emom.stations.length} stations, ${emom.rounds === 1 ? "once" : `${emom.rounds} rounds`}.`}
           {" Do the reps for that round, then rest until the minute ends. Timed stations show their rest by themselves."}
         </p>}
         {flow && <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
@@ -82,7 +82,7 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
         {forTime && <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
           For time: the clock runs from the start until the last stage is done.
           {forTime.stages.length > 1
-            ? ` Tap Done as you finish each of the ${String(forTime.stages.length)} stages (split the reps however you like) and your time for each one is saved.`
+            ? ` Tap Done as you finish each of the ${forTime.stages.length} stages (split the reps however you like) and your time for each one is saved.`
             : " Split the reps however you like, and tap Finish when the last one is done."}
           {" "}Your best completed time is the one to beat.
         </p>}
@@ -95,7 +95,7 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
         {stations.map((ex, i) => {
           const guide = ex ? libraryFor(ex) : null;
           return (
-            <li key={`${String(i)}-${ids[i] ?? "missing"}`}>
+            <li key={`${i}-${ids[i] ?? "missing"}`}>
               <span className="workout-station-number">{emom ? (i < warmupCount ? "W" : i - warmupCount + 1) : i + 1}</span>
               {ex && guide ? <details className="workout-station">
                 <summary>
@@ -103,9 +103,9 @@ export function WorkoutDetails({ template, exercises, onStart, onClose }: {
                   <span>
                     <strong>{ex.name}{template.flow?.steps[i]?.side ? ` · ${template.flow.steps[i].side}` : ""}</strong>
                     <span className="sub">
-                      {plan ? `${String(plan.work)} s work · ` : ""}
+                      {plan ? `${plan.work} s work · ` : ""}
                       {emomSub(i)}
-                      {template.flow?.steps[i] ? `${String(template.flow.steps[i].seconds)} s · ` : ""}
+                      {template.flow?.steps[i] ? `${template.flow.steps[i].seconds} s · ` : ""}
                       View form cues
                     </span>
                   </span>

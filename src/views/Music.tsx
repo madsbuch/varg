@@ -50,6 +50,7 @@ import { choiceLabel } from "../components/MusicPicker";
 import { useSongStates } from "../components/song-status";
 import { ConfirmSheet, Field } from "../components/ui";
 import { IconMusic } from "../components/icons";
+import { errorText } from "../lib/http";
 
 export type MusicRoute =
   | { page: "music" }
@@ -132,7 +133,7 @@ function MusicHome({ push, pop }: { push: (r: MusicRoute) => void; pop: () => vo
   const songs = useSongs();
   const states = useSongStates(songs.map((s) => s.id));
   const { status, workouts, cached } = useTrackCache();
-  const hasKey = !!loadMusicSettings().apiKey;
+  const hasKey = loadMusicSettings().apiKey !== "";
 
   return (
     <div className="screen settings-screen">
@@ -254,7 +255,7 @@ function NewSongScreen({ set: initialSet, pop }: { set: SetId; pop: () => void }
   const draft = { name, set, intensity, style, lyrics };
   const problem = newSongProblem(draft);
   const bpm = setById(set)?.bpm[intensity] ?? 144;
-  const hasKey = !!loadMusicSettings().apiKey;
+  const hasKey = loadMusicSettings().apiKey !== "";
 
   const create = () => {
     setError("");
@@ -264,7 +265,7 @@ function NewSongScreen({ set: initialSet, pop }: { set: SetId; pop: () => void }
       void ensureAllTracks();
       pop();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     }
   };
 
@@ -496,7 +497,7 @@ function ComposerLog() {
             >
               {[...entries].reverse().map((e, i) => (
                 <div
-                  key={`${e.at}-${String(i)}`}
+                  key={`${e.at}-${i}`}
                   style={{
                     fontFamily: "ui-monospace, monospace",
                     fontSize: 11,
@@ -581,7 +582,7 @@ function ErrorText({ text }: { text: string }) {
 
 /** One workout's own battle track: play it, tune its profile, compose it again. */
 function TrackScreen({ workout, onClose }: { workout: WorkoutMusic; onClose: () => void }) {
-  const [bpm, setBpm] = useState(String(workout.profile.bpm));
+  const [bpm, setBpm] = useState(workout.profile.bpm.toString());
   const [style, setStyle] = useState(workout.profile.style);
   const [theme, setTheme] = useState(workout.profile.theme);
   const [track, setTrack] = useState<CachedTrack | null>(null);

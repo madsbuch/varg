@@ -23,7 +23,8 @@ import type { Side } from "../types";
 import { buildSteps, configForTemplate } from "./wod";
 import { rideLine } from "./ride";
 import type { Step, VoiceRole } from "./wod";
-import { kvGet, kvSet } from "./kv";
+import { kvRead, kvSet } from "./kv";
+import { Reader } from "./decode";
 import { blobGet, blobHas, blobList, blobPut } from "./blobs";
 
 const GEMINI_38 = "google/gemini-3-8-flash-tts";
@@ -216,23 +217,24 @@ export function voiceIdFor(s: VoiceSettings, role: VoiceRole): string {
 }
 
 export function loadVoiceSettings(): VoiceSettings {
-  try {
-    const current = kvGet(SETTINGS_KEY);
-    const raw = current ?? kvGet(LEGACY_SETTINGS_KEY);
-    if (raw) {
-      const p = JSON.parse(raw) as Partial<VoiceSettings>;
-      if (current == null) delete p.model;
-      const model = p.model && VOICE_MODELS.some((m) => m.id === p.model) ? p.model : DEFAULT_VOICE_MODEL;
-      const pick = (id: string | undefined, role: VoiceRole) => {
-        const { voices, fallback } = voicesFor(model, role);
-        return id && voices.some((v) => v.voiceId === id) ? id : fallback;
-      };
-      return { model, voiceId: pick(p.voiceId, "yoga"), workoutVoiceId: pick(p.workoutVoiceId, "workout") };
-    }
-  } catch {
-    // fall through to defaults
-  }
-  return { model: DEFAULT_VOICE_MODEL, voiceId: DEFAULTS.yoga.gemini, workoutVoiceId: DEFAULTS.workout.gemini };
+  const read = (r: Reader, v: unknown) => {
+    const f = r.obj(v, "voice settings");
+    return {
+      model: r.optStr(f.get("model"), "model"),
+      voiceId: r.optStr(f.get("voiceId"), "voiceId"),
+      workoutVoiceId: r.optStr(f.get("workoutVoiceId"), "workoutVoiceId"),
+    };
+  };
+  const current = kvRead(SETTINGS_KEY, read);
+  // The v1 settings named an ElevenLabs model that is gone: keep its voices only.
+  const p = current ?? kvRead(LEGACY_SETTINGS_KEY, (r, v) => ({ ...read(r, v), model: undefined }));
+  if (!p) return { model: DEFAULT_VOICE_MODEL, voiceId: DEFAULTS.yoga.gemini, workoutVoiceId: DEFAULTS.workout.gemini };
+  const model = p.model !== undefined && VOICE_MODELS.some((m) => m.id === p.model) ? p.model : DEFAULT_VOICE_MODEL;
+  const pick = (id: string | undefined, role: VoiceRole) => {
+    const { voices, fallback } = voicesFor(model, role);
+    return id !== undefined && voices.some((v) => v.voiceId === id) ? id : fallback;
+  };
+  return { model, voiceId: pick(p.voiceId, "yoga"), workoutVoiceId: pick(p.workoutVoiceId, "workout") };
 }
 
 export function saveVoiceSettings(s: VoiceSettings): void {

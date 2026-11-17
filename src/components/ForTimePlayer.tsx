@@ -35,6 +35,7 @@ import { Slot, TopTitle } from "./TopBar";
 import type { GpsStatus } from "../lib/gps";
 import { formatPace, gpsAvailable, loadGpsEnabled, runStatus, startRun, stopRun } from "../lib/gps";
 import "./WodPlayer.css";
+import { errorText } from "../lib/http";
 
 /** GPS for one stage: the tracker's latest status, or why it is not running. */
 interface StageGps {
@@ -148,7 +149,7 @@ export default function ForTimePlayer({
     const poll = () => {
       runStatus()
         .then(apply)
-        .catch((e: unknown) => { if (alive) setGps({ stageIdx: idx, error: String(e instanceof Error ? e.message : e) }); });
+        .catch((e: unknown) => { if (alive) setGps({ stageIdx: idx, error: errorText(e) }); });
     };
     let timer: ReturnType<typeof setInterval> | undefined;
     startRun(target, gpsResumeFrom)
@@ -158,7 +159,7 @@ export default function ForTimePlayer({
         timer = setInterval(poll, 1000);
       })
       .catch((e: unknown) => {
-        if (alive) setGps({ stageIdx: idx, error: String(e instanceof Error ? e.message : e) });
+        if (alive) setGps({ stageIdx: idx, error: errorText(e) });
       });
     // Coming back from a locked screen: read at once, so a crossing that
     // happened in the pocket is applied before the athlete looks.
@@ -354,7 +355,7 @@ export default function ForTimePlayer({
           <div className="muted" style={{ textAlign: "center" }}>
             {finished
               ? comparison(total, previousBest)
-              : `${String(marks.length)} of ${String(stages.length)} stages done · partial runs never count as a best`}
+              : `${marks.length} of ${stages.length} stages done · partial runs never count as a best`}
           </div>
           {marks.length > 0 && (
             <ol className="fortime-splits">
@@ -408,7 +409,7 @@ export default function ForTimePlayer({
   return (
     <div className={`wod wod-player ${ready ? "resting" : ""}`}>
       <div className="wod-top">
-        <TopTitle hr={hr} title={`${config.title} · Stage ${String(stageIdx + 1)}/${String(stages.length)}`} />
+        <TopTitle hr={hr} title={`${config.title} · Stage ${stageIdx + 1}/${stages.length}`} />
         <Slot>{null}</Slot>
         <Slot>{track.musicButton}</Slot>
         <button className="check" onClick={openConfirmStop} aria-label="Stop">
@@ -417,7 +418,7 @@ export default function ForTimePlayer({
       </div>
 
       <div className="wod-progress" aria-hidden>
-        <div style={{ width: `${String((marks.length / stages.length) * 100)}%` }} />
+        <div style={{ width: `${(marks.length / stages.length) * 100}%` }} />
       </div>
 
       <div className="wod-center">
@@ -454,7 +455,7 @@ export default function ForTimePlayer({
           upNext.map((s, i) => {
             const ex = config.exercises[stageIdx + 1 + i];
             return (
-              <div key={`${String(stageIdx)}-${String(i)}`} className={`wod-queue-row ${i > 0 ? "dim" : ""}`}>
+              <div key={`${stageIdx}-${i}`} className={`wod-queue-row ${i > 0 ? "dim" : ""}`}>
                 <div className="wod-queue-anim">
                   <ExerciseAnim anim={ex ? libraryFor(ex).anim : "rest"} size={38} />
                 </div>
@@ -497,7 +498,7 @@ export default function ForTimePlayer({
             <p className="muted" style={{ fontSize: 14 }}>
               {marks.length === 0
                 ? "No stages done yet, so nothing would be saved."
-                : `Saves the ${String(marks.length)} completed stage${marks.length === 1 ? "" : "s"} and their splits. A stopped run never counts as a best time.`}
+                : `Saves the ${marks.length} completed stage${marks.length === 1 ? "" : "s"} and their splits. A stopped run never counts as a best time.`}
             </p>
             <button className="btn primary" style={{ marginTop: 12 }} onClick={stopAndSave}>
               Stop &amp; save

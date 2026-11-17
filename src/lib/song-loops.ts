@@ -16,7 +16,9 @@ import type { Loop } from "./beatgrid";
 import { analyzeTrack, LayerError } from "./mixer";
 import { getCachedTrack, musicLog, onTrackCached } from "./music";
 import { allSongs, songById, songForKey, songKey } from "./songs";
-import { kvGet, kvSet } from "./kv";
+import { kvRead, kvSet } from "./kv";
+import { Reader } from "./decode";
+import { errorText } from "./http";
 
 const KEY = "varg.songs.meta.v1";
 export const BEAT_MODEL = "Beat This! small0";
@@ -45,12 +47,46 @@ export interface SongMeta {
   detail?: string | undefined;
 }
 
+function readLoop(r: Reader, v: unknown, path: string): Loop {
+  const f = r.obj(v, path);
+  const n = (k: string) => r.num(f.get(k), `${path}.${k}`);
+  return {
+    start: n("start"), bars: r.int(f.get("bars"), `${path}.bars`), bpm: n("bpm"), jitterMs: n("jitterMs"),
+    onOne: n("onOne"), levelDb: n("levelDb"), dropDb: n("dropDb"),
+  };
+}
+
+function readMeta(r: Reader, v: unknown, path: string): SongMeta {
+  const f = r.obj(v, path);
+  const nums = (k: string) => r.arr(f.get(k), `${path}.${k}`).map((x, i) => r.num(x, `${path}.${k}[${i}]`));
+  const loop = f.get("loop");
+  return {
+    createdAt: r.text(f.get("createdAt"), `${path}.createdAt`),
+    rules: r.optInt(f.get("rules"), `${path}.rules`),
+    analysedAt: r.text(f.get("analysedAt"), `${path}.analysedAt`),
+    model: r.text(f.get("model"), `${path}.model`),
+    took: r.num(f.get("took"), `${path}.took`),
+    duration: r.num(f.get("duration"), `${path}.duration`),
+    analysed: r.pair(f.get("analysed"), `${path}.analysed`),
+    beats: nums("beats"),
+    downbeats: nums("downbeats"),
+    loop: loop === null ? null : readLoop(r, loop, `${path}.loop`),
+    refused: r.optStr(f.get("refused"), `${path}.refused`),
+    detail: r.optStr(f.get("detail"), `${path}.detail`),
+  };
+}
+
+/** Every song's analysis. One that does not decode is analysed again. */
 function all(): Record<string, SongMeta | undefined> {
-  try {
-    return JSON.parse(kvGet(KEY) ?? "{}") as Record<string, SongMeta | undefined>;
-  } catch {
-    return {};
-  }
+  return kvRead(KEY, (r, v) => {
+    const out: Record<string, SongMeta | undefined> = {};
+    for (const [id, m] of r.obj(v, "songs")) {
+      const one = new Reader();
+      const meta = readMeta(one, m, id);
+      if (one.ok()) out[id] = meta;
+    }
+    return out;
+  }) ?? {};
 }
 
 const listeners = new Set<() => void>();
@@ -119,13 +155,13 @@ async function run(songId: string, blob: Blob, createdAt: string): Promise<SongM
     };
     musicLog(
       r.loop
-        ? `Beat model: ${song.name} at ${r.loop.bpm.toFixed(2)} BPM, ${String(r.loop.bars)}-bar loop from ` +
+        ? `Beat model: ${song.name} at ${r.loop.bpm.toFixed(2)} BPM, ${r.loop.bars}-bar loop from ` +
           `${r.loop.start.toFixed(2)} s, ±${r.loop.jitterMs.toFixed(1)} ms, ` +
           `${(r.loop.onOne * 100).toFixed(0)} % of downbeats on the one (${took.toFixed(1)} s).`
         : `Beat model refused ${song.name}: no steady beat (${r.why}; ${took.toFixed(1)} s).`,
     );
   } catch (e) {
-    const refused = e instanceof Error ? e.message : String(e);
+    const refused = errorText(e);
     const detail = e instanceof LayerError ? e.detail : "";
     meta = { ...base, took: (Date.now() - t0) / 1000, duration: 0, analysed: [0, 0], beats: [], downbeats: [], loop: null, refused, detail };
     musicLog(`Beat model refused ${refused}${detail ? ` (${detail})` : ""}.`);

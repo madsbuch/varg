@@ -40,6 +40,11 @@ export const GEAR = {
 
 export type GearId = keyof typeof GEAR;
 
+/** A runtime check, so the narrowing it gives is earned. */
+export function isGearId(k: string): k is GearId {
+  return Object.prototype.hasOwnProperty.call(GEAR, k);
+}
+
 export interface GearItem {
   id: GearId;
   label: string;
@@ -68,7 +73,8 @@ export function templateGear(t: Template, gearOf: (exerciseId: string) => readon
   for (const id of t.gear?.extra ?? []) ids.add(id);
   // A ride steered by heart rate will not start without the strap.
   if (t.ride?.segments.some((s) => s.hrZone !== undefined)) ids.add("chestStrap");
-  return (Object.keys(GEAR) as GearId[])
+  return Object.keys(GEAR)
+    .filter(isGearId)
     .filter((id) => ids.has(id))
     .map((id) => ({ id, label: GEAR[id], detail: t.gear?.detail?.[id] }));
 }

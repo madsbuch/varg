@@ -41,7 +41,7 @@ export function BattleTrack({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [confirmRegen, setConfirmRegen] = useState(false);
-  const hasKey = !!loadMusicSettings().apiKey;
+  const hasKey = loadMusicSettings().apiKey !== "";
   const audio = useRef<HTMLAudioElement>(null);
 
   useEffect(() => onEnsureStatus(setEnsure), []);

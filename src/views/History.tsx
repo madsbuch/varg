@@ -28,8 +28,8 @@ export function SessionRow({ session, watch, onOpen }: {
           {when} · {n} exercise{n === 1 ? "" : "s"}
           {/* Garmin is the record; the strap's own reading only fills in without it. */}
           {watch?.avgHr != null
-            ? ` · ♥ ${String(Math.round(watch.avgHr))}`
-            : session.heartRate && ` · ♥ ${String(session.heartRate.avg)}`}
+            ? ` · ♥ ${Math.round(watch.avgHr)}`
+            : session.heartRate && ` · ♥ ${session.heartRate.avg}`}
         </div>
       </div>
       {seconds != null && (
@@ -145,7 +145,7 @@ export default function History({ view, setView }: {
                     onOpen={() => { setOpenId(e.session.id); }}
                   />
                 ) : (
-                  <WatchRow key={`w${String(e.activity.id)}`} activity={e.activity} onOpen={() => { setOpenWatch(e.activity); }} />
+                  <WatchRow key={`w${e.activity.id}`} activity={e.activity} onOpen={() => { setOpenWatch(e.activity); }} />
                 ),
               )}
             </div>

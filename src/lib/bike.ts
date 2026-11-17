@@ -17,7 +17,8 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "../db/persistence";
-import { kvGet, kvRemove, kvSet } from "./kv";
+import { kvRead, kvRemove, kvSet } from "./kv";
+import { Reader as Decoder } from "./decode";
 
 /** One parsed measurement. Fields a packet does not carry are undefined. */
 export interface BikeSample {
@@ -185,13 +186,14 @@ export function bikeAvailable(): boolean {
   return isTauri() && /Android/i.test(navigator.userAgent);
 }
 
+/** A paired Bluetooth device as stored. */
+function readDevice(r: Decoder, v: unknown): { address: string; name: string } {
+  const f = r.obj(v, "device");
+  return { address: r.str(f.get("address"), "device.address"), name: r.text(f.get("name"), "device.name") };
+}
+
 export function loadBike(): { address: string; name: string } | null {
-  try {
-    const raw = kvGet(DEVICE_KEY);
-    return raw ? (JSON.parse(raw) as { address: string; name: string }) : null;
-  } catch {
-    return null;
-  }
+  return kvRead(DEVICE_KEY, readDevice) ?? null;
 }
 
 export function saveBike(b: { address: string; name: string } | null): void {

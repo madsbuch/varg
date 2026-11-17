@@ -44,6 +44,7 @@ import { useHeartRate } from "./HeartRate";
 import { Slot, TopTitle } from "./TopBar";
 import { formatSeconds } from "../lib/units";
 import "./WodPlayer.css";
+import { errorText } from "../lib/http";
 
 /**
  * In a circuit, rest is rest: a still figure, never the next exercise
@@ -214,7 +215,7 @@ export default function WodPlayer({
       () => { setVoiceError(null); },
       (e: unknown) => {
         // Say why there is no voice, and still give the step a sound.
-        setVoiceError(e instanceof Error ? e.message : String(e));
+        setVoiceError(errorText(e));
         beep();
       },
     );
@@ -260,7 +261,7 @@ export default function WodPlayer({
     // holds end quietly: the next line names what comes after.
     if (flow && steps[stepIdx]?.kind === "work") return;
     if (paused || done || remain > 3 || remain < 1) return;
-    const key = `${String(stepIdx)}:${String(remain)}`;
+    const key = `${stepIdx}:${remain}`;
     if (cuedTick.current === key) return;
     cuedTick.current = key;
     cueTick();
@@ -465,12 +466,12 @@ export default function WodPlayer({
   const em = step.emom;
   // EMOM labels: where in the workout, and what this moment is.
   const where = em?.block === "warmup"
-    ? `${String(em.position)}/${String(em.of)}`
+    ? `${em.position}/${em.of}`
     : em
-    ? `Round ${String(step.round)}/${String(config.rounds)} · ${String(em.position)}/${String(em.of)}`
+    ? `Round ${step.round}/${config.rounds} · ${em.position}/${em.of}`
     : config.sequence
-    ? `Pose ${String(step.round)}/${String(config.sequence.length)}`
-    : `Round ${String(step.round)}/${String(config.rounds)}`;
+    ? `Pose ${step.round}/${config.sequence.length}`
+    : `Round ${step.round}/${config.rounds}`;
   const phaseLabel = em?.block === "warmup"
     ? "Warm-up"
     : em
@@ -515,7 +516,7 @@ export default function WodPlayer({
       </div>
 
       <div className="wod-progress" aria-hidden>
-        <div style={{ width: `${String((workElapsed / workTotal) * 100)}%` }} />
+        <div style={{ width: `${(workElapsed / workTotal) * 100}%` }} />
       </div>
 
       <div className="wod-center">
@@ -546,13 +547,13 @@ export default function WodPlayer({
         {voiced && voiceOn && step.kind === "ready" && clips && clips.missing.length > 0 && (
           <div className="wod-voice-note">
             {voiceConfigured()
-              ? `Phone voice for ${String(clips.missing.length)} line${clips.missing.length === 1 ? "" : "s"}. Generate them in Settings → Voice.`
+              ? `Phone voice for ${clips.missing.length} line${clips.missing.length === 1 ? "" : "s"}. Generate them in Settings → Voice.`
               : "Phone voice. Add your kie.ai key in Skipan for a natural one."}
           </div>
         )}
 
         <div className="wod-stepbar" aria-hidden>
-          <div style={{ width: `${String(stepFrac * 100)}%` }} />
+          <div style={{ width: `${stepFrac * 100}%` }} />
         </div>
       </div>
 
@@ -565,7 +566,7 @@ export default function WodPlayer({
         ) : (
           upNext.map((s, i) => (
             <div
-              key={`${String(stepIdx)}-${String(i)}`}
+              key={`${stepIdx}-${i}`}
               className={`wod-queue-row ${s.kind === "work" ? "" : "is-rest"} ${i > 0 ? "dim" : ""}`}
             >
               <div className="wod-queue-anim">

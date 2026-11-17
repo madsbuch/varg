@@ -397,7 +397,13 @@ joints and makes limbs shrink in the intermediate frames.
   coercion; the app sends exactly their fields (`exerciseWire`…) and decodes
   everything that comes back with `Reader` ([`src/lib/decode.ts`](src/lib/decode.ts)):
   no `as`, no `Number(x)` on unknown data. A row that does not decode is
-  named in the red banner and the rest loads. The two sides share a fixture
+  named in the red banner and the rest loads. The same holds for all of
+  `src`, and ESLint enforces it: no type assertions, no `!`, no coercion
+  (`Number()`, `String()`, `!!`), no raw `JSON.parse` outside `decode.ts`.
+  Stored settings go through `kvRead` with a decoder (an unreadable one is
+  named in red and the default used); typed numbers through `parseDecimal`
+  or `parseWhole`; network answers whose every field is optional (Garmin,
+  kie.ai) through `at()` plus a typeof check. The two sides share a fixture
   (`src-tauri/store/tests/fixtures/wire.json`) that `scripts/store.test.ts`
   writes and the Rust tests decode; after a deliberate change to a stored
   shape, regenerate it with `UPDATE_FIXTURES=1 bun test scripts/store.test.ts`.

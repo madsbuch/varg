@@ -215,7 +215,7 @@ export function recomputePRs(
       return a.exerciseId.localeCompare(b.exerciseId);
     if (a.kind !== b.kind) return a.kind.localeCompare(b.kind);
     if (a.value !== b.value) return isBetterPR(a.kind, a.value, b.value) ? -1 : 1;
-    return Number(a.manual) - Number(b.manual);
+    return (a.manual ? 1 : 0) - (b.manual ? 1 : 0);
   });
 
   // Every set edit runs this; handing back the same reference when nothing
