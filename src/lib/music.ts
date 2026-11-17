@@ -20,7 +20,7 @@ import { errorText, httpFetch } from "./http";
 import { KieError, audioResults, createTask, download, getTask } from "./kie";
 import { kvRead, kvRemove, kvSet } from "./kv";
 import { readMusic } from "./decode";
-import { blobDelete, blobGet, blobHas, blobPut } from "./blobs";
+import { audioImported, blobDelete, blobGet, blobHas, blobPut } from "./blobs";
 
 export { errorText, httpFetch };
 
@@ -377,6 +377,9 @@ export function onEnsureStatus(fn: (s: EnsureStatus) => void): () => void {
  * silently. */
 export async function ensureAllTracks(): Promise<void> {
   if (ensureRunning) return;
+  // Tracks already paid for may still be on their way into the store; a
+  // track that looks missing now would be composed and paid for again.
+  if (!audioImported()) return;
   const settings = loadMusicSettings();
   if (!settings.apiKey) return;
 

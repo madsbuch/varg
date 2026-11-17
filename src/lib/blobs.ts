@@ -1,14 +1,17 @@
 /**
  * Generated audio the app paid for, kept for good: battle tracks and songs
  * ("tracks") and spoken cue lines ("clips"). In the app they live in the
- * Rust store's `blobs` table (src-tauri/store) and cross the bridge as raw
- * bytes; in a plain browser (vite dev) in IndexedDB.
+ * Rust store's `blobs` table (src-tauri/store) and cross the bridge as
+ * base64 (Android's IPC has no raw byte bodies); in a plain browser (vite
+ * dev) in IndexedDB.
  *
  * Before this release they lived in the WebView's IndexedDB. Each was paid
  * for, so `importWebViewAudio` copies them into the store once, at boot,
  * before anything checks the cache and composes what it thinks is missing.
  */
+import { useSyncExternalStore } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { errorText } from "./http";
 import { Reader } from "./decode";
 import { inTauri, kvGet, kvSet } from "./kv";
 
@@ -51,18 +54,43 @@ async function rustInfo(store: BlobStore, key: string): Promise<BlobMeta | undef
   return checked(r, readMeta(r, raw, "blob_info"));
 }
 
+/** A blob as standard base64, encoded natively (FileReader), not byte by byte. */
+function toBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = reader.result;
+      const comma = typeof url === "string" ? url.indexOf(",") : -1;
+      if (typeof url !== "string" || comma < 0) {
+        reject(new Error("Audio could not be encoded"));
+        return;
+      }
+      resolve(url.slice(comma + 1));
+    };
+    reader.onerror = () => { reject(reader.error ?? new Error("Audio could not be read")); };
+    reader.readAsDataURL(blob);
+  });
+}
+
+function fromBase64(text: string): Uint8Array<ArrayBuffer> {
+  const binary = atob(text);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
 async function rustGet(store: BlobStore, key: string): Promise<StoredBlob | undefined> {
   const meta = await rustInfo(store, key);
   if (!meta) return undefined;
-  const bytes: unknown = await invoke("blob_bytes", { storeName: store, key });
-  if (!(bytes instanceof ArrayBuffer)) throw new Error(`Audio store sent no bytes for ${store}/${key}`);
-  return { ...meta, blob: new Blob([bytes], { type: meta.mime }) };
+  const text: unknown = await invoke("blob_bytes", { storeName: store, key });
+  if (typeof text !== "string") throw new Error(`Audio store sent no bytes for ${store}/${key}`);
+  return { ...meta, blob: new Blob([fromBase64(text)], { type: meta.mime }) };
 }
 
 async function rustPut(store: BlobStore, b: StoredBlob): Promise<void> {
-  const header = encodeURIComponent(JSON.stringify({ store, key: b.key, title: b.title, mime: b.mime, createdAt: b.createdAt }));
-  const bytes = new Uint8Array(await b.blob.arrayBuffer());
-  await invoke("blob_put", bytes, { headers: { "x-blob": header } });
+  await invoke("blob_put", {
+    file: { store, key: b.key, title: b.title, mime: b.mime, createdAt: b.createdAt, base64: await toBase64(b.blob) },
+  });
 }
 
 async function rustList(store: BlobStore): Promise<BlobMeta[]> {
@@ -168,13 +196,47 @@ const OLD: readonly { db: string; store: string; into: BlobStore }[] = [
   { db: "varg-voice", store: "clips", into: "clips" },
 ];
 
-/**
- * Copy the audio cached in the WebView's IndexedDB into the Rust store.
- * Runs at boot until it has finished once; throws with the reason (the
- * boot screen shows it with Retry) rather than let a track that was paid
- * for be composed again.
+/*
+ * Until the import has finished, a cached track looks missing to the
+ * composer, which would pay for it again. So composing waits for it
+ * (`audioImported`), and a failure is shown in red with Retry
+ * (`useAudioImportProblem`) while the rest of the app works. It used to
+ * stop the app at boot instead: one bad audio file locked out the
+ * training log.
  */
+let importState: { done: boolean; problem: string | null } = { done: !inTauri(), problem: null };
+const importListeners = new Set<() => void>();
+
+function setImport(next: { done: boolean; problem: string | null }): void {
+  importState = next;
+  for (const l of importListeners) l();
+}
+
+/** True once the WebView's cached audio is in the store (or there was none). */
+export function audioImported(): boolean {
+  return importState.done;
+}
+
+/** Why the cached audio is not moved yet, or null. */
+export function useAudioImportProblem(): string | null {
+  return useSyncExternalStore(
+    (l) => { importListeners.add(l); return () => { importListeners.delete(l); }; },
+    () => importState.problem,
+  );
+}
+
+/** Copy the WebView's cached audio into the store. Never throws: see above. */
 export async function importWebViewAudio(): Promise<void> {
+  try {
+    await copyWebViewAudio();
+    setImport({ done: true, problem: null });
+  } catch (e) {
+    setImport({ done: false, problem: errorText(e) });
+  }
+}
+
+/** Copy the audio cached in the WebView's IndexedDB into the Rust store, once. */
+async function copyWebViewAudio(): Promise<void> {
   if (!inTauri() || kvGet(IMPORTED) !== null || typeof indexedDB === "undefined") return;
   const names = new Set((await indexedDB.databases()).map((d) => d.name));
   for (const old of OLD) {

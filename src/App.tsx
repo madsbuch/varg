@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "./lib/app-context";
 import { useKvFailure, useUnreadableSettings } from "./lib/kv";
+import { importWebViewAudio, useAudioImportProblem } from "./lib/blobs";
 import { installBackButton, useBackHandler } from "./lib/back";
 import { ensureAllTracks } from "./lib/music";
 import { ensureSongLoops } from "./lib/song-loops";
@@ -70,6 +71,7 @@ function SaveFailureBanner() {
   const { saveFailure, loadProblems } = useApp();
   const kvFailure = useKvFailure();
   const unreadable = useUnreadableSettings();
+  const audioProblem = useAudioImportProblem();
   const [dismissed, setDismissed] = useState(false);
   return (
     <>
@@ -95,6 +97,20 @@ function SaveFailureBanner() {
           <div className="persist-error" role="status">
             <IconFlag />
             <div style={{ flex: 1, minWidth: 0, wordBreak: "break-word" }}>{kvFailure} · retrying</div>
+          </div>
+        </div>
+      )}
+      {audioProblem !== null && (
+        <div className="save-failure">
+          <div className="persist-error" role="status">
+            <IconFlag />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              Cached audio not moved · composing paused
+              <div style={{ fontWeight: 400, wordBreak: "break-word" }}>{audioProblem}</div>
+            </div>
+            <button className="btn ghost sm" onClick={() => { void importWebViewAudio(); }}>
+              Retry
+            </button>
           </div>
         </div>
       )}

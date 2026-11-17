@@ -25,7 +25,7 @@ import { rideLine } from "./ride";
 import type { Step, VoiceRole } from "./wod";
 import { kvRead, kvSet } from "./kv";
 import { Reader } from "./decode";
-import { blobGet, blobHas, blobList, blobPut } from "./blobs";
+import { audioImported, blobGet, blobHas, blobList, blobPut } from "./blobs";
 
 const GEMINI_38 = "google/gemini-3-8-flash-tts";
 const GEMINI_31 = "google/gemini-3-1-flash-tts";
@@ -473,6 +473,8 @@ export function ensureVoiceClips(onProgress?: (ready: number, total: number) => 
     // Loud, not a quiet no-op: a Generate button that does nothing is
     // indistinguishable from one that is broken. App start catches this.
     if (!voiceConfigured()) throw new Error("No kie.ai API key saved. Enter it in Settings and save.");
+    // Lines already paid for may still be on their way into the store.
+    if (!audioImported()) throw new Error("Cached audio not moved yet · see the red banner");
     const s = loadVoiceSettings();
     const lines = allVoiceLines();
     let ready = 0;

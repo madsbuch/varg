@@ -41,7 +41,6 @@ const root = ReactDOM.createRoot(rootEl);
 async function boot(): Promise<void> {
   try {
     await initKv();
-    await importWebViewAudio();
   } catch (e) {
     root.render(<BootFailure reason={errorText(e)} />);
     return;
@@ -52,6 +51,8 @@ async function boot(): Promise<void> {
     import("./App"),
   ]);
   initTheme();
+  // Never throws: a failure is a red banner and composing waits (blobs.ts).
+  await importWebViewAudio();
   root.render(
     <React.StrictMode>
       <AppProvider>

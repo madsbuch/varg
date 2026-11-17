@@ -11,7 +11,8 @@
 use std::sync::{Arc, Mutex};
 
 use serde::Deserialize;
-use tauri::ipc::{InvokeBody, Request, Response};
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
 use tauri::{Manager, Runtime, State};
 use varg_store::model::{BlobInfo, ChatRow, Exercise, PersonalRecord, SavedProgram, Session, Snapshot};
 use varg_store::Store;
@@ -154,55 +155,31 @@ pub fn kv_remove(state: State<'_, Storage>, key: String) -> Res<()> {
 }
 
 /* -------------------------------- Audio ----------------------------------- */
-// Audio goes over the bridge as raw bytes, never as a JSON number array: a
-// battle track is megabytes.
+// Audio crosses the bridge as base64 in plain JSON. Raw IPC bodies would be
+// smaller, but Android does not support them (tauri::ipc::InvokeBody: "On
+// Android, InvokeBody::Raw is not supported"): the first build that sent raw
+// bytes stopped every phone at boot. base64 is what Tauri recommends there,
+// and it is a third larger, not a JSON number array's four times.
 
-/// What travels in the `x-blob` header of a put, percent-encoded JSON.
+/// One file to store: what it is, and its bytes as standard base64.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct PutHeader {
+pub struct BlobPut {
     store: String,
     key: String,
     title: String,
     mime: String,
     created_at: String,
-}
-
-/// `%XX` escapes as encodeURIComponent writes them, back to UTF-8.
-fn percent_decode(s: &str) -> Res<String> {
-    let bytes = s.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut i = 0;
-    while i < bytes.len() {
-        match bytes[i] {
-            b'%' => {
-                let hex = s.get(i + 1..i + 3).ok_or("x-blob: truncated escape")?;
-                out.push(u8::from_str_radix(hex, 16).map_err(|_| format!("x-blob: bad escape %{hex}"))?);
-                i += 3;
-            }
-            b => {
-                out.push(b);
-                i += 1;
-            }
-        }
-    }
-    String::from_utf8(out).map_err(|_| "x-blob: not UTF-8".to_owned())
+    base64: String,
 }
 
 #[tauri::command]
-pub fn blob_put(state: State<'_, Storage>, request: Request<'_>) -> Res<()> {
-    let header = request
-        .headers()
-        .get("x-blob")
-        .ok_or("blob_put: no x-blob header")?
-        .to_str()
-        .map_err(|_| "x-blob: not ASCII".to_owned())?;
-    let meta: PutHeader = serde_json::from_str(&percent_decode(header)?).map_err(|e| format!("x-blob: {e}"))?;
-    let InvokeBody::Raw(bytes) = request.body() else {
-        return Err("blob_put: the body must be raw bytes".to_owned());
-    };
-    let info = BlobInfo { key: meta.key, title: meta.title, mime: meta.mime, created_at: meta.created_at };
-    store(&state)?.blob_put(&meta.store, &info, bytes.clone()).map_err(err)
+pub fn blob_put(state: State<'_, Storage>, file: BlobPut) -> Res<()> {
+    let bytes = STANDARD
+        .decode(file.base64.as_bytes())
+        .map_err(|e| format!("blob_put {}/{}: not base64 ({e})", file.store, file.key))?;
+    let info = BlobInfo { key: file.key, title: file.title, mime: file.mime, created_at: file.created_at };
+    store(&state)?.blob_put(&file.store, &info, bytes).map_err(err)
 }
 
 #[tauri::command]
@@ -210,11 +187,11 @@ pub fn blob_info(state: State<'_, Storage>, store_name: String, key: String) -> 
     Ok(store(&state)?.blob_get(&store_name, &key).map_err(err)?.map(|(info, _)| info))
 }
 
-/// The bytes of one file; an error when it is not there.
+/// The bytes of one file, as standard base64; an error when it is not there.
 #[tauri::command]
-pub fn blob_bytes(state: State<'_, Storage>, store_name: String, key: String) -> Res<Response> {
+pub fn blob_bytes(state: State<'_, Storage>, store_name: String, key: String) -> Res<String> {
     match store(&state)?.blob_get(&store_name, &key).map_err(err)? {
-        Some((_, bytes)) => Ok(Response::new(bytes)),
+        Some((_, bytes)) => Ok(STANDARD.encode(bytes)),
         None => Err(format!("no {store_name} file \"{key}\"")),
     }
 }
@@ -233,17 +210,10 @@ pub fn blob_delete(state: State<'_, Storage>, store_name: String, key: String) -
 mod tests {
     use super::*;
     use serde_json::{json, Value};
-    use tauri::ipc::{CallbackFn, InvokeResponseBody};
+    use tauri::ipc::{CallbackFn, InvokeBody, InvokeResponseBody};
     use tauri::test::{get_ipc_response, mock_builder, mock_context, noop_assets, MockRuntime, INVOKE_KEY};
     use tauri::webview::InvokeRequest;
     use tauri::WebviewWindow;
-
-    #[test]
-    fn decodes_what_encode_uri_component_writes() {
-        assert_eq!(percent_decode("%7B%22title%22%3A%22M%C3%ADmir%22%7D").as_deref(), Ok("{\"title\":\"Mímir\"}"));
-        assert!(percent_decode("%7").is_err());
-        assert!(percent_decode("%zz").is_err());
-    }
 
     fn app() -> (tauri::App<MockRuntime>, WebviewWindow<MockRuntime>) {
         let storage = Storage::default();
@@ -301,23 +271,29 @@ mod tests {
         assert_eq!(json_call(&w, "kv_all", json!({})).expect("all"), json!([["varg.ftp.v1", "250"]]));
     }
 
+    /// Every call here is JSON, as on Android, where raw bodies do not exist.
     #[test]
-    fn audio_crosses_as_raw_bytes() {
+    fn audio_crosses_as_base64_json() {
         let (_app, w) = app();
-        let meta = r#"{"store":"tracks","key":"tpl-murph","title":"Murph · Mímir","mime":"audio/mpeg","createdAt":"2026-11-17"}"#;
-        let header: String = meta
-            .bytes()
-            .map(|b| if b.is_ascii_alphanumeric() || b"-_.!~*'()".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") })
-            .collect();
-        call(&w, "blob_put", InvokeBody::Raw(vec![0, 1, 2, 255]), &[("x-blob", header)]).expect("put");
+        let file = json!({
+            "store": "tracks", "key": "tpl-murph", "title": "Murph · Mímir",
+            "mime": "audio/mpeg", "createdAt": "2026-11-17", "base64": STANDARD.encode([0u8, 1, 2, 255]),
+        });
+        json_call(&w, "blob_put", json!({ "file": file })).expect("put");
         let info = json_call(&w, "blob_info", json!({ "storeName": "tracks", "key": "tpl-murph" })).expect("info");
         assert_eq!(info["title"], "Murph · Mímir");
         assert_eq!(info["mime"], "audio/mpeg");
-        match call(&w, "blob_bytes", InvokeBody::Json(json!({ "storeName": "tracks", "key": "tpl-murph" })), &[]).expect("bytes") {
-            InvokeResponseBody::Raw(bytes) => assert_eq!(bytes, vec![0, 1, 2, 255]),
-            InvokeResponseBody::Json(j) => panic!("bytes came back as JSON: {j}"),
-        }
+        let back = json_call(&w, "blob_bytes", json!({ "storeName": "tracks", "key": "tpl-murph" })).expect("bytes");
+        assert_eq!(back, json!(STANDARD.encode([0u8, 1, 2, 255])));
         assert_eq!(json_call(&w, "blob_info", json!({ "storeName": "clips", "key": "tpl-murph" })).expect("none"), Value::Null);
-        assert!(call(&w, "blob_put", InvokeBody::Raw(vec![1]), &[]).is_err(), "no header, no write");
+
+        // Not base64, an unknown field, a missing field: refused, nothing written.
+        let mut bad = file.clone();
+        bad["base64"] = json!("not base64!");
+        assert!(json_call(&w, "blob_put", json!({ "file": bad })).is_err());
+        let mut extra = file.clone();
+        extra["bytes"] = json!([1, 2]);
+        assert!(json_call(&w, "blob_put", json!({ "file": extra })).is_err());
+        assert!(json_call(&w, "blob_put", json!({ "file": { "store": "tracks", "key": "x" } })).is_err());
     }
 }
