@@ -172,7 +172,8 @@ class ScoreFixtureTest {
     }
 
     @Test fun theAppsScoreLandsBarOneOnTheChange() {
-        val json = javaClass.classLoader!!.getResource("score-fixture.json")!!.readText()
+        val loader = checkNotNull(javaClass.classLoader) { "no class loader" }
+        val json = checkNotNull(loader.getResource("score-fixture.json")) { "score-fixture.json missing from test resources" }.readText()
         val m = MusicMixer(sr)
         m.songs = mapOf("L" to clickSong(0.3), "M" to clickSong(0.3), "P" to clickSong(0.3))
         m.score = MusicEngine.parse(json)

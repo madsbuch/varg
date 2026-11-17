@@ -2,7 +2,6 @@ package com.varg.gps
 
 import android.Manifest
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.location.LocationManager
 import androidx.core.content.ContextCompat
@@ -39,7 +38,7 @@ class StartArgs {
 class GpsPlugin(private val activity: Activity) : Plugin(activity) {
 
     private fun locationEnabled(): Boolean {
-        val lm = activity.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val lm = activity.getSystemService(LocationManager::class.java) ?: return false
         return lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
     }
 

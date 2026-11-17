@@ -5,7 +5,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
@@ -119,8 +118,8 @@ class RideService : Service() {
         val json = try { JSONObject(schedule) } catch (_: Exception) { JSONObject() }
         paused = json.optBoolean("paused", false)
         val segs = json.optJSONArray("segments")
-        segments = (0 until (segs?.length() ?: 0)).map {
-            val o = segs!!.getJSONObject(it)
+        segments = if (segs == null) emptyList() else (0 until segs.length()).map {
+            val o = segs.getJSONObject(it)
             o.optString("label") to o.optLong("endAt", 0L)
         }
         val cues = json.optJSONArray("cues") ?: return
@@ -190,8 +189,7 @@ class RideService : Service() {
         override fun run() {
             if (!running) return
             try {
-                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                nm.notify(NOTIFICATION_ID, notification(statusLine()))
+                getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, notification(statusLine()))
             } catch (_: SecurityException) {
                 // notifications denied: the ride carries on regardless
             }

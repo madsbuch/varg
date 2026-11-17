@@ -5,7 +5,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
@@ -106,8 +105,7 @@ class HrService : Service() {
                 return
             }
             try {
-                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                nm.notify(NOTIFICATION_ID, notification(statusLine()))
+                getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, notification(statusLine()))
             } catch (_: SecurityException) {
                 // notifications denied: the recording carries on regardless
             }

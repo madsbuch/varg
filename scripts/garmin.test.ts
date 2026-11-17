@@ -9,7 +9,7 @@ function session(id: string, startMin: number, endMin: number): Session {
   return { id, name: id, date: new Date(T0 + min(startMin)).toISOString(), finishedAt: new Date(T0 + min(endMin)).toISOString(), entries: [] };
 }
 function watch(id: number, startMin: number, lengthMin: number): GarminActivity {
-  return { id, name: `w${String(id)}`, type: "strength_training", start: T0 + min(startMin), seconds: lengthMin * 60 };
+  return { id, name: `w${id}`, type: "strength_training", start: T0 + min(startMin), seconds: lengthMin * 60 };
 }
 
 describe("parseActivity", () => {

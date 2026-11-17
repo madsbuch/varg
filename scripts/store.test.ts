@@ -14,12 +14,17 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { seedExercises, seedTemplates } from "../src/lib/seed";
-import { Reader, readChatItem, readChatMessage, readTemplate } from "../src/lib/decode";
+import { parseJson, Reader, readChatItem, readChatMessage, readTemplate } from "../src/lib/decode";
 import { chatWire, exerciseWire, programWire, prWire, sessionWire } from "../src/db/rust";
 import { readSnapshot } from "../src/db/read";
 import type { ChatItem, ChatMessage, Session } from "../src/types";
 
-const json = (v: unknown): unknown => JSON.parse(JSON.stringify(v));
+/** A value as it comes back from JSON: undefined fields gone. */
+const json = (v: unknown): unknown => {
+  const parsed = parseJson(JSON.stringify(v));
+  if (!parsed.ok) throw new Error(parsed.error);
+  return parsed.value;
+};
 
 describe("templates as stored", () => {
   test("every built-in round-trips through the strict decoder", () => {

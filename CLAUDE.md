@@ -403,7 +403,12 @@ joints and makes limbs shrink in the intermediate frames.
   Stored settings go through `kvRead` with a decoder (an unreadable one is
   named in red and the default used); typed numbers through `parseDecimal`
   or `parseWhole`; network answers whose every field is optional (Garmin,
-  kie.ai) through `at()` plus a typeof check. The two sides share a fixture
+  kie.ai) through `at()` plus a typeof check. `scripts/` is held to the same
+  rules (type-checked with `tsconfig.scripts.json`, linted with `src`): a test
+  uses `must(x)` (`scripts/must.ts`) where it would have written `x!`. In the
+  Kotlin plugins: no `!!`, and system services by class
+  (`getSystemService(LocationManager::class.java)`, nullable), never
+  `getSystemService(NAME) as T`. The two sides share a fixture
   (`src-tauri/store/tests/fixtures/wire.json`) that `scripts/store.test.ts`
   writes and the Rust tests decode; after a deliberate change to a stored
   shape, regenerate it with `UPDATE_FIXTURES=1 bun test scripts/store.test.ts`.
@@ -424,7 +429,7 @@ joints and makes limbs shrink in the intermediate frames.
 ```bash
 # Kotlin (plugins' JVM tests): after `tauri android init`, in src-tauri/gen/android
 #   ./gradlew :tauri-plugin-varg-bike:testReleaseUnitTest
-bun run build          # tsc --noEmit && eslint src && vite build
+bun run build          # tsc (app, then scripts) && eslint src scripts && vite build
 bun run check:content  # built-in content guards (template-check.ts and more)
 bun run test           # recording semantics, animations, the store contract
 bun run test:store     # Rust: migrations, the Drizzle upgrade, every read and write

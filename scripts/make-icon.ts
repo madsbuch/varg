@@ -55,7 +55,7 @@ const DIAMOND = "M0 -2.2 L1.6 0 L0 2.2 L-1.6 0 Z";
  */
 const shield = (c: number, r: number) => {
   const f = (n: number) => n.toFixed(2);
-  const pt = (rad: number, deg: number) => {
+  const pt = (rad: number, deg: number): [number, number] => {
     const a = ((deg - 90) * Math.PI) / 180;
     return [c + rad * Math.cos(a), c + rad * Math.sin(a)];
   };
@@ -98,7 +98,7 @@ const shield = (c: number, r: number) => {
 
 const SIZE = 1024;
 const icon = `
-<svg xmlns="http://www.w3.org/2000/svg" width="${String(SIZE)}" height="${String(SIZE)}" viewBox="0 0 1024 1024">
+<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 1024 1024">
   <rect width="1024" height="1024" rx="200" fill="${IRON}"/>
   ${shield(512, 448)}
 </svg>`;
@@ -108,7 +108,7 @@ const icon = `
  * The shield fills that circle; iron is the background around it.
  */
 const foreground = (px: number) => `
-<svg xmlns="http://www.w3.org/2000/svg" width="${String(px)}" height="${String(px)}" viewBox="0 0 ${String(px)} ${String(px)}">
+<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 ${px} ${px}">
   ${shield(px / 2, (33 * px) / 108)}
 </svg>`;
 
@@ -120,7 +120,7 @@ if (process.argv.includes("--adaptive")) {
     const out = `src-tauri/icons/android/mipmap-${d}/ic_launcher_foreground.png`;
     mkdirSync(dirname(out), { recursive: true });
     await sharp(Buffer.from(foreground(px))).png().toFile(out);
-    console.log(`Wrote ${out} (${String(px)}x${String(px)})`);
+    console.log(`Wrote ${out} (${px}x${px})`);
   }
   const bg = "src-tauri/icons/android/values/ic_launcher_background.xml";
   mkdirSync(dirname(bg), { recursive: true });
@@ -134,5 +134,5 @@ if (process.argv.includes("--adaptive")) {
   const out = "assets/icon.png";
   mkdirSync(dirname(out), { recursive: true });
   await sharp(Buffer.from(icon)).png().toFile(out);
-  console.log(`Wrote ${out} (${String(SIZE)}x${String(SIZE)})`);
+  console.log(`Wrote ${out} (${SIZE}x${SIZE})`);
 }

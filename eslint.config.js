@@ -7,10 +7,12 @@ export default tseslint.config(
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
   {
-    files: ["src/**/*.{ts,tsx}"],
+    files: ["src/**/*.{ts,tsx}", "scripts/**/*.ts"],
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        // The scripts (tests, the content check) are type-checked with bun's
+        // types: tsconfig.scripts.json.
+        project: ["./tsconfig.json", "./tsconfig.scripts.json"],
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -38,6 +40,10 @@ export default tseslint.config(
           message: "No coercion. Parse text with parseDecimal/parseWhole, format with toString() or a template, test explicitly.",
         },
         {
+          selector: "CallExpression > Identifier.arguments[name=/^(Number|String|Boolean)$/]",
+          message: "No coercion: `xs.map(Number)` is Number() on every element. Parse or format each one explicitly.",
+        },
+        {
           selector: "CallExpression[callee.object.name='JSON'][callee.property.name='parse']",
           message: "Use parseJson (lib/decode.ts) and read the value with Reader: JSON.parse returns `any`.",
         },
@@ -50,6 +56,6 @@ export default tseslint.config(
     rules: { "no-restricted-syntax": "off" },
   },
   {
-    ignores: ["dist/", "src-tauri/", "node_modules/", "*.config.js", "*.config.ts", "scripts/"],
+    ignores: ["dist/", "src-tauri/", "node_modules/", "*.config.js", "*.config.ts"],
   },
 );

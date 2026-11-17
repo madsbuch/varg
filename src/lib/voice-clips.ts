@@ -290,7 +290,7 @@ export function restLine(steps: Step[], index: number): string {
 /** Every line a step list can speak, in order, each once. */
 export function stepLines(steps: Step[]): string[] {
   const lines = steps.flatMap((s, i) => [cueLine(s), restLine(steps, i)]);
-  return [...new Set(lines.filter(Boolean))];
+  return [...new Set(lines.filter((l) => l !== ""))];
 }
 
 export interface VoiceLine {

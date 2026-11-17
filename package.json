@@ -6,7 +6,7 @@
   "description": "Varg — a rugged, offline-first military-style workout tracker",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && eslint src && vite build",
+    "build": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json && eslint src scripts && vite build",
     "check:content": "bun run scripts/content-check.ts",
     "test:store": "cd src-tauri/store && cargo test",
     "preview": "vite preview",
@@ -16,7 +16,7 @@
     "android:dev": "tauri android dev",
     "android:build": "tauri android build --apk",
     "test": "bun test scripts/score.test.ts scripts/music-choice.test.ts scripts/beatgrid.test.ts scripts/melspec.test.ts scripts/wod.test.ts scripts/fortime.test.ts scripts/bike.test.ts scripts/hr.test.ts scripts/animations.test.ts scripts/garmin.test.ts scripts/gear.test.ts scripts/mimir.test.ts scripts/store.test.ts",
-    "lint": "eslint src",
+    "lint": "eslint src scripts",
     "voice:probe": "bun run scripts/kie-voice-probe.ts"
   },
   "dependencies": {
@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.1.0",
+    "@types/bun": "^1.4.4",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",

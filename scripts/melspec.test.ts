@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "fs";
 import { aggregate, chunkStarts, postprocess } from "../src/lib/beat-model";
 import { logMelSpect, N_MELS } from "../src/lib/melspec";
+import { parseJson, Reader } from "../src/lib/decode";
 
 /**
  * The beat model's input and output handling against the Python package it
@@ -9,14 +10,24 @@ import { logMelSpect, N_MELS } from "../src/lib/melspec";
  * here is the network reading the wrong picture, so it is checked value by
  * value.
  */
-const ref = JSON.parse(readFileSync(new URL("./fixtures/beat-this-ref.json", import.meta.url), "utf8")) as {
-  clip_int16_b64: string;
-  clip_spect: number[][];
-  beat_logits: number[];
-  downbeat_logits: number[];
-  beats: number[];
-  downbeats: number[];
-};
+/** The Python package's own numbers, read strictly. */
+const ref = (() => {
+  const parsed = parseJson(readFileSync(new URL("./fixtures/beat-this-ref.json", import.meta.url), "utf8"));
+  if (!parsed.ok) throw new Error(`beat-this-ref.json: ${parsed.error}`);
+  const r = new Reader();
+  const f = r.obj(parsed.value, "ref");
+  const nums = (v: unknown, path: string) => r.arr(v, path).map((x, i) => r.num(x, `${path}[${i}]`));
+  const value = {
+    clip_int16_b64: r.str(f.get("clip_int16_b64"), "clip_int16_b64", Infinity),
+    clip_spect: r.arr(f.get("clip_spect"), "clip_spect").map((row, t) => nums(row, `clip_spect[${t}]`)),
+    beat_logits: nums(f.get("beat_logits"), "beat_logits"),
+    downbeat_logits: nums(f.get("downbeat_logits"), "downbeat_logits"),
+    beats: nums(f.get("beats"), "beats"),
+    downbeats: nums(f.get("downbeats"), "downbeats"),
+  };
+  if (!r.ok()) throw new Error(`beat-this-ref.json: ${r.problems.slice(0, 3).join("; ")}`);
+  return value;
+})();
 
 describe("beat model input: log-mel spectrogram", () => {
   test("matches torchaudio frame by frame", () => {

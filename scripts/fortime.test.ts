@@ -8,16 +8,17 @@ import {
 import type { ForTimeConfig } from "../src/lib/fortime";
 import { recomputePRs } from "../src/lib/prs";
 import { seedExercises, seedTemplates } from "../src/lib/seed";
+import { must } from "./must";
 
 const exercises = seedExercises();
-const murph = seedTemplates().find((t) => t.id === "tpl-murph")!;
-const stages = murph.forTime!.stages;
+const murph = must(seedTemplates().find((t) => t.id === "tpl-murph"));
+const stages = must(murph.forTime).stages;
 const byId = new Map(exercises.map((e) => [e.id, e]));
 const config: ForTimeConfig = {
   title: murph.name,
   templateId: murph.id,
   stages,
-  exercises: stages.map((s) => byId.get(s.exerciseId)!),
+  exercises: stages.map((s) => must(byId.get(s.exerciseId))),
 };
 const start = "2026-11-07T08:00:00.000Z";
 // Cumulative clock readings at each Done: 8:00, 20:00, 32:00, 42:00, 50:00.
@@ -34,9 +35,9 @@ describe("for-time recording", () => {
     expect(s.templateId).toBe("tpl-murph");
     expect(s.date).toBe(start);
     // Run appears twice in Murph: one entry, two sets, in stage order.
-    const run = s.entries.find((e) => e.exerciseId === stages[0]!.exerciseId)!;
+    const run = must(s.entries.find((e) => e.exerciseId === must(stages[0]).exerciseId));
     expect(run.sets.map((x) => [x.meters, x.seconds])).toEqual([[1600, 480], [1600, 480]]);
-    const pull = s.entries.find((e) => e.exerciseId === stages[1]!.exerciseId)!;
+    const pull = must(s.entries.find((e) => e.exerciseId === must(stages[1]).exerciseId));
     expect(pull.sets.map((x) => [x.reps, x.seconds])).toEqual([[100, 720]]);
     expect(s.entries.flatMap((e) => e.sets).every((x) => !x.done)).toBe(true);
     expect(s.note).toContain("50:00");
@@ -69,7 +70,7 @@ describe("for-time recording", () => {
 
   test("GPS-measured distance replaces the prescribed one, only where GPS ran", () => {
     const s = recordedForTimeSession(config, marks, start, undefined, { 0: 1623.4 });
-    const run = s.entries.find((e) => e.exerciseId === stages[0]!.exerciseId)!;
+    const run = must(s.entries.find((e) => e.exerciseId === must(stages[0]).exerciseId));
     expect(run.sets.map((x) => x.meters)).toEqual([1623, 1600]);
     expect(s.note).toContain("GPS 1.62 km");
     expect(recomputePRs([s], exercises, [])).toEqual([]);

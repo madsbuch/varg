@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { must } from "./must";
 
 // The library and the choices live in localStorage: an in-memory one here.
 const store = new Map<string, string>();
-(globalThis as { localStorage?: unknown }).localStorage = {
+Object.defineProperty(globalThis, "localStorage", { configurable: true, value: {
   getItem: (k: string) => store.get(k) ?? null,
   setItem: (k: string, v: string) => { store.set(k, v); },
   removeItem: (k: string) => { store.delete(k); },
-};
+} });
 
 const { addUserSong, allSongs, BUILT_IN_SONGS, deleteUserSong, newSongProblem, normaliseLyrics, SETS, songsIn } = await import("../src/lib/songs");
 const { loadMixChoice, missingIntensities, resolveMix, saveMixChoice, setMix } = await import("../src/lib/music-choice");
@@ -120,12 +121,12 @@ describe("the default and per-workout music", () => {
 
 describe("music that follows the workout's shape", () => {
   const exById = new Map(seedExercises().map((e) => [e.id, e]));
-  const tpl = (id: string) => seedTemplates().find((t) => t.id === id)!;
+  const tpl = (id: string) => must(seedTemplates().find((t) => t.id === id));
   const guided = (id: string) => {
     const cfg = configForTemplate(tpl(id), exById);
     if (typeof cfg === "string") throw new Error(cfg);
     const steps = buildSteps(cfg);
-    const total = steps.reduce((a, s) => a + s.secs, 0) - steps[0]!.secs;
+    const total = steps.reduce((a, s) => a + s.secs, 0) - must(steps[0]).secs;
     return wodSections(cfg, mainEnergy(tpl(id)), total);
   };
   const origin = 1_000_000;

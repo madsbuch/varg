@@ -5,15 +5,24 @@ import {
 } from "../src/lib/wod";
 import type { Clock, WodConfig } from "../src/lib/wod";
 import { templateLength } from "../src/lib/catalog";
-import type { Template } from "../src/types";
+import type { Exercise, Template } from "../src/types";
 import { recomputePRs } from "../src/lib/prs";
 import { seedExercises, seedTemplates } from "../src/lib/seed";
 import { allVoiceLines, cueLine, restLine } from "../src/lib/voice-clips";
+import { must } from "./must";
+
+/** The guided config, or a failed test carrying configForTemplate's reason. */
+function guided(t: Template, byId: Map<string, Exercise>): WodConfig {
+  const cfg = configForTemplate(t, byId);
+  if (typeof cfg === "string") throw new Error(cfg);
+  return cfg;
+}
+
 
 const exercises = seedExercises();
 const EX_DEAD_BUG = "ex-dead-bug";
-const hold = exercises.find((ex) => ex.metric === "time")!;
-const reps = exercises.find((ex) => ex.metric === "reps")!;
+const hold = must(exercises.find((ex) => ex.metric === "time"));
+const reps = must(exercises.find((ex) => ex.metric === "reps"));
 const config: WodConfig = {
   exercises: [hold, reps, hold], work: 20, rest: 10, rounds: 2,
   title: "Test circuit", trackKey: "test-circuit",
@@ -39,8 +48,8 @@ describe("guided workout recording", () => {
     const session = recordedSession(config, steps, progress, start, true);
     expect(progress.duration).toBe(7.5);
     expect(session.entries).toHaveLength(1);
-    expect(session.entries[0]!.sets).toHaveLength(1);
-    expect(session.entries[0]!.sets[0]).toMatchObject({ seconds: 7.5, done: false });
+    expect(must(session.entries[0]).sets).toHaveLength(1);
+    expect(must(session.entries[0]).sets[0]).toMatchObject({ seconds: 7.5, done: false });
     expect(session.date).toBe(start);
     expect(session.templateId).toBe("test-circuit");
     expect(session.note).toContain("Stopped early");
@@ -51,14 +60,14 @@ describe("guided workout recording", () => {
   test("stopping during rest logs no future station", () => {
     const progress = at(29);
     expect(progress.duration).toBe(24);
-    expect(recordedEntries(steps, progress)[0]!.sets[0]!.seconds).toBe(20);
+    expect(must(must(recordedEntries(steps, progress)[0]).sets[0]).seconds).toBe(20);
     expect(recordedEntries(steps, progress)).toHaveLength(1);
   });
 
   test("rep stations preserve timer duration without inventing reps", () => {
     const session = recordedSession(config, steps, at(42), start, true);
-    expect(session.entries[1]!.sets[0]).toMatchObject({ seconds: 7, done: false });
-    expect(session.entries[1]!.sets[0]!.reps).toBeUndefined();
+    expect(must(session.entries[1]).sets[0]).toMatchObject({ seconds: 7, done: false });
+    expect(must(must(session.entries[1]).sets[0]).reps).toBeUndefined();
   });
 
   test("pauses and repeated clock samples do not add time", () => {
@@ -67,7 +76,7 @@ describe("guided workout recording", () => {
     advanceProgress(progress, steps, 12);
     advanceProgress(progress, steps, 15);
     expect(progress.duration).toBe(10);
-    expect(recordedEntries(steps, progress)[0]!.sets[0]!.seconds).toBe(10);
+    expect(must(must(recordedEntries(steps, progress)[0]).sets[0]).seconds).toBe(10);
   });
 
   test("skip excludes unperformed work and back preserves actual time", () => {
@@ -78,8 +87,8 @@ describe("guided workout recording", () => {
     advanceProgress(progress, steps, 38);
     const entries = recordedEntries(steps, progress);
     expect(progress.duration).toBe(14);
-    expect(entries[0]!.sets[0]!.seconds).toBe(7);
-    expect(entries[1]!.sets[0]!.seconds).toBe(7);
+    expect(must(must(entries[0]).sets[0]).seconds).toBe(7);
+    expect(must(must(entries[1]).sets[0]).seconds).toBe(7);
     expect(entries).toHaveLength(2);
   });
 
@@ -100,13 +109,13 @@ describe("guided workout recording", () => {
     advanceProgress(progress, continuous, 25);
     expect(recordedEntries(continuous, progress)).toHaveLength(1);
     advanceProgress(progress, continuous, 29);
-    expect(recordedEntries(continuous, progress)[1]!.sets[0]!.seconds).toBe(4);
+    expect(must(must(recordedEntries(continuous, progress)[1]).sets[0]).seconds).toBe(4);
   });
 });
 
 describe("flow (yoga) sequences", () => {
   const all = seedExercises();
-  const pose = (name: string) => all.find((e) => e.name === name)!;
+  const pose = (name: string) => must(all.find((e) => e.name === name));
   const flow: WodConfig = {
     exercises: [], work: 0, rest: 0, rounds: 1, title: "Flow", trackKey: "flow",
     sequence: [
@@ -150,7 +159,7 @@ describe("spoken cue lines", () => {
         for (const line of [cueLine(step), restLine(all, i)]) {
           if (!line) continue;
           spoken++;
-          expect(lines.has(`${cfg.voice!}|${line}`)).toBe(true);
+          expect(lines.has(`${must(cfg.voice)}|${line}`)).toBe(true);
         }
       }
     }
@@ -158,52 +167,52 @@ describe("spoken cue lines", () => {
   });
 
   test("lines come before what they name: lead-in and rests, never during work", () => {
-    const varg18 = seedTemplates().find((t) => t.id === "tpl-varg-18")!;
-    const cfg = configForTemplate(varg18, new Map(seedExercises().map((e) => [e.id, e]))) as WodConfig;
+    const varg18 = must(seedTemplates().find((t) => t.id === "tpl-varg-18"));
+    const cfg = guided(varg18, new Map(seedExercises().map((e) => [e.id, e])));
     const steps = buildSteps(cfg);
     expect(cfg.voice).toBe("workout");
-    expect(cueLine(steps[0]!)).toBe("First: Sit-up");
-    expect(cueLine(steps[1]!)).toBe("");
-    expect(cueLine(steps[2]!)).toBe("Next: Run on the Spot");
-    expect(steps[2]!.kind).toBe("rest");
+    expect(cueLine(must(steps[0]))).toBe("First: Sit-up");
+    expect(cueLine(must(steps[1]))).toBe("");
+    expect(cueLine(must(steps[2]))).toBe("Next: Run on the Spot");
+    expect(must(steps[2]).kind).toBe("rest");
   });
 
   test("yoga flows move for 10 s between poses, voiced as the next pose", () => {
-    const yoga = seedTemplates().find((t) => t.id === "tpl-varg-yoga-10")!;
-    const cfg = configForTemplate(yoga, new Map(seedExercises().map((e) => [e.id, e]))) as WodConfig;
+    const yoga = must(seedTemplates().find((t) => t.id === "tpl-varg-yoga-10"));
+    const cfg = guided(yoga, new Map(seedExercises().map((e) => [e.id, e])));
     const steps = buildSteps(cfg);
     expect(cfg.voice).toBe("yoga");
-    expect(steps[0]!.secs).toBe(10);
+    expect(must(steps[0]).secs).toBe(10);
     const moves = steps.filter((s) => s.kind === "rest");
     expect(moves).toHaveLength(16);
     expect(moves.every((s) => s.secs === 10)).toBe(true);
     // The work total (lead-in excluded) is what the scheme says: 12:40.
-    expect(steps.reduce((a, s) => a + s.secs, 0) - steps[0]!.secs).toBe(760);
+    expect(steps.reduce((a, s) => a + s.secs, 0) - must(steps[0]).secs).toBe(760);
     const warrior = steps.findIndex((s) => s.kind === "rest" && s.side === "left" && s.exercise?.name === "Warrior II");
-    expect(cueLine(steps[warrior]!)).toBe("Next: Warrior two, left side");
-    expect(steps[warrior + 1]!.kind).toBe("work");
+    expect(cueLine(must(steps[warrior]))).toBe("Next: Warrior two, left side");
+    expect(must(steps[warrior + 1]).kind).toBe("work");
   });
 });
 
 describe("Full Body EMOM - 20 Minutes", () => {
   const exById = new Map(seedExercises().map((e) => [e.id, e]));
-  const tpl = seedTemplates().find((t) => t.id === "tpl-full-body-emom-20")!;
-  const cfgOf = (t: Template) => configForTemplate(t, exById) as WodConfig;
+  const tpl = must(seedTemplates().find((t) => t.id === "tpl-full-body-emom-20"));
+  const cfgOf = (t: Template) => guided(t, exById);
   const cfg = cfgOf(tpl);
   const steps = buildSteps(cfg);
-  const lead = steps[0]!.secs;
-  const name = (i: number) => steps[i]!.exercise!.name;
+  const lead = must(steps[0]).secs;
+  const name = (i: number) => must(must(steps[i]).exercise).name;
   /** The step the player shows at `s` seconds of workout time (lead-in excluded). */
-  const at = (s: number) => steps[stepIndexAt(steps, lead + s)]!;
+  const at = (s: number) => must(steps[stepIndexAt(steps, lead + s)]);
 
   test("runs exactly 20:00 after the lead-in: 2:00 warm-up, then 18 one-minute stations", () => {
     expect(typeof cfg).toBe("object");
-    expect(steps[0]!.kind).toBe("ready");
+    expect(must(steps[0]).kind).toBe("ready");
     const total = steps.reduce((a, st) => a + st.secs, 0) - lead;
     expect(total).toBe(1200);
     expect(templateLength(tpl)).toEqual({ seconds: 1200, exact: true });
     const warm = steps.filter((st) => st.emom?.block === "warmup");
-    expect(warm.map((st) => [st.exercise!.name, st.secs])).toEqual([
+    expect(warm.map((st) => [must(st.exercise).name, st.secs])).toEqual([
       ["Run on the Spot", 40], ["Arm Circles", 40], ["Air Squat", 40],
     ]);
     expect(warm.reduce((a, st) => a + st.secs, 0)).toBe(120);
@@ -219,36 +228,36 @@ describe("Full Body EMOM - 20 Minutes", () => {
     const stations = steps.filter((st) => st.emom?.block === "station");
     for (let r = 0; r < 3; r++) {
       const round = stations.slice(r * 6, r * 6 + 6);
-      expect(round.map((st) => st.exercise!.name)).toEqual(order);
+      expect(round.map((st) => must(st.exercise).name)).toEqual(order);
       expect(round.every((st) => st.round === r + 1)).toBe(true);
-      expect(round.map((st) => st.emom!.position)).toEqual([1, 2, 3, 4, 5, 6]);
+      expect(round.map((st) => must(st.emom).position)).toEqual([1, 2, 3, 4, 5, 6]);
       expect(round.map((st) => st.at - lead)).toEqual([0, 1, 2, 3, 4, 5].map((m) => 120 + (r * 6 + m) * 60));
     }
     // One fixed count per round, never a range: burpees 8, then 10, then 12.
-    const byRound = (n: number) => stations.slice((n - 1) * 6, n * 6).map((st) => st.emom!.target);
+    const byRound = (n: number) => stations.slice((n - 1) * 6, n * 6).map((st) => must(st.emom).target);
     expect(byRound(1)).toEqual(["8 reps", "16 reps · 8 per leg", "10 reps", "50 reps", "12 reps", "10 reps"]);
     expect(byRound(2)).toEqual(["10 reps", "16 reps · 8 per leg", "12 reps", "60 reps", "14 reps", "13 reps"]);
     expect(byRound(3)).toEqual(["12 reps", "16 reps · 8 per leg", "15 reps", "70 reps", "15 reps", "16 reps"]);
-    expect(stations.filter((st) => st.exercise!.name === "Burpee").map((st) => st.emom!.reps)).toEqual([8, 10, 12]);
+    expect(stations.filter((st) => must(st.exercise).name === "Burpee").map((st) => must(st.emom).reps)).toEqual([8, 10, 12]);
     // Skipping is a count to finish like every other minute, not a timed block.
-    expect(stations.filter((st) => st.exercise!.name === "Single-Under").map((st) => [st.emom!.reps, st.emom!.workSecs])).toEqual([[50, undefined], [60, undefined], [70, undefined]]);
-    expect(stations.every((st) => !/[–-]\s*\d/.test(st.emom!.target))).toBe(true);
-    expect(tpl.emom!.stations.map(emomRoundsTarget)).toEqual([
+    expect(stations.filter((st) => must(st.exercise).name === "Single-Under").map((st) => [must(st.emom).reps, must(st.emom).workSecs])).toEqual([[50, undefined], [60, undefined], [70, undefined]]);
+    expect(stations.every((st) => !/[–-]\s*\d/.test(must(st.emom).target))).toBe(true);
+    expect(must(tpl.emom).stations.map(emomRoundsTarget)).toEqual([
       "8 · 10 · 12 reps", "16 reps · 8 per leg", "10 · 12 · 15 reps", "50 · 60 · 70 reps", "12 · 14 · 15 reps", "10 · 13 · 16 reps",
     ]);
   });
 
   test("transitions happen on the minute, by the clock alone", () => {
-    expect(at(0).exercise!.name).toBe("Run on the Spot");
-    expect(at(39.9).exercise!.name).toBe("Run on the Spot");
-    expect(at(40).exercise!.name).toBe("Arm Circles");
-    expect(at(119.9).exercise!.name).toBe("Air Squat");
-    expect(at(120).exercise!.name).toBe("Burpee");
-    expect(at(179.9).exercise!.name).toBe("Burpee");
-    expect(at(180).exercise!.name).toBe("Reverse Lunge");
+    expect(must(at(0).exercise).name).toBe("Run on the Spot");
+    expect(must(at(39.9).exercise).name).toBe("Run on the Spot");
+    expect(must(at(40).exercise).name).toBe("Arm Circles");
+    expect(must(at(119.9).exercise).name).toBe("Air Squat");
+    expect(must(at(120).exercise).name).toBe("Burpee");
+    expect(must(at(179.9).exercise).name).toBe("Burpee");
+    expect(must(at(180).exercise).name).toBe("Reverse Lunge");
     // Minute 7 is round 2's burpees, minute 13 round 3's.
-    expect([at(120 + 6 * 60), at(120 + 12 * 60)].map((st) => [st.exercise!.name, st.round])).toEqual([["Burpee", 2], ["Burpee", 3]]);
-    expect(at(1199.9).exercise!.name).toBe("Dead Bug");
+    expect([at(120 + 6 * 60), at(120 + 12 * 60)].map((st) => [must(st.exercise).name, st.round])).toEqual([["Burpee", 2], ["Burpee", 3]]);
+    expect(must(at(1199.9).exercise).name).toBe("Dead Bug");
     expect(stepIndexAt(steps, lead + 1200)).toBe(steps.length - 1); // the player calls elapsed >= total done
     expect(name(steps.length - 1)).toBe("Dead Bug");
   });
@@ -258,20 +267,20 @@ describe("Full Body EMOM - 20 Minutes", () => {
     expect(emomPhase(warm, 39)).toBe("work");
     expect(emomPhase(burpees, 0)).toBe("work");
     expect(emomPhase(burpees, 59.9)).toBe("work"); // no Done: the target stays up all minute
-    expect(skips.exercise!.name).toBe("Single-Under");
+    expect(must(skips.exercise).name).toBe("Single-Under");
     expect(emomPhase(skips, 59.9)).toBe("work");
-    expect(emomPhase(steps[0]!, 1)).toBe("rest"); // lead-in is not work
+    expect(emomPhase(must(steps[0]), 1)).toBe("rest"); // lead-in is not work
     // The next exercise is named 10 s before a rep minute ends.
     expect(emomAnnounceAt(burpees)).toBe(50);
     expect(emomAnnounceAt(warm)).toBeUndefined();
     // A timed station (none ships today, the model still allows one) rests
     // by itself once its round's seconds have run, and is announced then.
-    const plan = tpl.emom!;
+    const plan = must(tpl.emom);
     const timed: Template = { ...tpl, emom: { ...plan, stations: plan.stations.map((st, i) => (i === 3 ? { exerciseId: "ex-high-knees", seconds: [35, 38, 40] } : st)) } };
     const ts = buildSteps(cfgOf(timed)).filter((st) => st.exercise?.name === "High Knees" && st.emom?.block === "station");
-    expect(ts.map((st) => st.emom!.target)).toEqual(["35 s", "38 s", "40 s"]);
-    expect([emomPhase(ts[0]!, 34.9), emomPhase(ts[0]!, 35), emomPhase(ts[2]!, 39.9), emomPhase(ts[2]!, 40)]).toEqual(["work", "rest", "work", "rest"]);
-    expect(emomAnnounceAt(ts[0]!)).toBe(35);
+    expect(ts.map((st) => must(st.emom).target)).toEqual(["35 s", "38 s", "40 s"]);
+    expect([emomPhase(must(ts[0]), 34.9), emomPhase(must(ts[0]), 35), emomPhase(must(ts[2]), 39.9), emomPhase(must(ts[2]), 40)]).toEqual(["work", "rest", "work", "rest"]);
+    expect(emomAnnounceAt(must(ts[0]))).toBe(35);
   });
 
   test("pause freezes the minute and resume continues it; standby lands on the right minute", () => {
@@ -284,9 +293,9 @@ describe("Full Body EMOM - 20 Minutes", () => {
     clock = togglePauseClock(clock, t0 + 755_000);
     expect(s(755_000)).toBe(155);
     expect(s(755_000 + 30_000)).toBe(185); // the minute ends 30 s after resuming
-    expect(steps[stepIndexAt(steps, s(755_000 + 30_000))]!.exercise!.name).toBe("Reverse Lunge");
+    expect(must(must(steps[stepIndexAt(steps, s(755_000 + 30_000))]).exercise).name).toBe("Reverse Lunge");
     // Frozen WebView: the next read, minutes later, is simply later.
-    expect(steps[stepIndexAt(steps, s(755_000 + 30_000 + 9 * 60_000))]!.round).toBe(2);
+    expect(must(steps[stepIndexAt(steps, s(755_000 + 30_000 + 9 * 60_000))]).round).toBe(2);
     // Restart a minute (back) while paused: stays paused, at its top.
     clock = togglePauseClock(clock, t0 + 800_000);
     clock = seekClock(clock, t0 + 900_000, 180 + lead);
@@ -299,7 +308,7 @@ describe("Full Body EMOM - 20 Minutes", () => {
     advanceProgress(progress, steps, lead + 1200);
     const session = recordedSession(cfg, steps, progress, start, false);
     expect(progress.duration).toBe(1200);
-    const by = new Map(session.entries.map((e) => [exById.get(e.exerciseId)!.name, e.sets.map((x) => [x.seconds, x.reps ?? null])]));
+    const by = new Map(session.entries.map((e) => [must(exById.get(e.exerciseId)).name, e.sets.map((x) => [x.seconds, x.reps ?? null])]));
     expect(by.get("Run on the Spot")).toEqual([[40, null]]);
     // A finished minute logs its prescribed reps; a timed one its seconds of work.
     expect(by.get("Burpee")).toEqual([[60, 8], [60, 10], [60, 12]]);
@@ -317,14 +326,14 @@ describe("Full Body EMOM - 20 Minutes", () => {
     const progress = newWodProgress();
     advanceProgress(progress, steps, lead + 120 + 15);
     const session = recordedSession(cfg, steps, progress, start, true);
-    expect(session.entries.map((e) => exById.get(e.exerciseId)!.name)).toEqual(["Run on the Spot", "Arm Circles", "Air Squat", "Burpee"]);
-    expect(session.entries[3]!.sets[0]!.seconds).toBe(15);
-    expect(session.entries[3]!.sets[0]!.reps).toBeUndefined(); // a minute cut short claims no reps
+    expect(session.entries.map((e) => must(exById.get(e.exerciseId)).name)).toEqual(["Run on the Spot", "Arm Circles", "Air Squat", "Burpee"]);
+    expect(must(must(session.entries[3]).sets[0]).seconds).toBe(15);
+    expect(must(must(session.entries[3]).sets[0]).reps).toBeUndefined(); // a minute cut short claims no reps
     expect(session.note).toContain("Stopped early");
   });
 
   test("the plan is the configuration: rounds, warm-up, reps and durations follow it", () => {
-    const plan = tpl.emom!;
+    const plan = must(tpl.emom);
     const variant: Template = {
       ...tpl,
       emom: {
@@ -336,17 +345,17 @@ describe("Full Body EMOM - 20 Minutes", () => {
     };
     const v = cfgOf(variant);
     const vs = buildSteps(v);
-    expect(vs.reduce((a, st) => a + st.secs, 0) - vs[0]!.secs).toBe(720);
+    expect(vs.reduce((a, st) => a + st.secs, 0) - must(vs[0]).secs).toBe(720);
     expect(templateLength(variant)).toEqual({ seconds: 720, exact: true });
-    expect(vs[1]!.exercise!.name).toBe("Burpee"); // no warm-up: the first minute follows the lead-in
+    expect(must(must(vs[1]).exercise).name).toBe("Burpee"); // no warm-up: the first minute follows the lead-in
     expect(vs.filter((st) => st.emom?.block === "warmup")).toHaveLength(0);
     expect(vs.filter((st) => st.emom?.block === "station")).toHaveLength(12);
-    expect(vs.filter((st) => st.exercise?.name === "High Knees").map((st) => st.emom!.workSecs)).toEqual([20, 30]);
-    expect(vs.filter((st) => st.emom?.block === "station" && st.exercise?.name === "Burpee").map((st) => st.emom!.target)).toEqual(["6 reps", "8 reps"]);
+    expect(vs.filter((st) => st.exercise?.name === "High Knees").map((st) => must(st.emom).workSecs)).toEqual([20, 30]);
+    expect(vs.filter((st) => st.emom?.block === "station" && st.exercise?.name === "Burpee").map((st) => must(st.emom).target)).toEqual(["6 reps", "8 reps"]);
   });
 
   test("a station without a count for every round refuses to start", () => {
-    const plan = tpl.emom!;
+    const plan = must(tpl.emom);
     const short: Template = { ...tpl, emom: { ...plan, stations: plan.stations.map((st, i) => (i === 0 ? { ...st, reps: [8, 10] } : st)) } };
     expect(configForTemplate(short, exById)).toContain("Burpee has no count for every one of its 3 rounds");
   });
@@ -359,7 +368,7 @@ describe("Full Body EMOM - 20 Minutes", () => {
 
   test("the voice names the next minute's exercise as each rest begins", () => {
     const burpeeIdx = steps.findIndex((st) => st.exercise?.name === "Burpee");
-    expect(cueLine(steps[0]!)).toBe("First: Run on the Spot");
+    expect(cueLine(must(steps[0]))).toBe("First: Run on the Spot");
     expect(restLine(steps, burpeeIdx)).toBe("Next: Reverse Lunge");
     expect(restLine(steps, 1)).toBe(""); // warm-up has no rest
     expect(restLine(steps, steps.length - 1)).toBe(""); // nothing after the last minute
@@ -370,16 +379,16 @@ describe("Full Body EMOM - 20 Minutes", () => {
 
 describe("Kettlebell EMOM - 20 Minutes", () => {
   const exById = new Map(seedExercises().map((e) => [e.id, e]));
-  const tpl = seedTemplates().find((t) => t.id === "tpl-kettlebell-emom-20")!;
-  const cfg = configForTemplate(tpl, exById) as WodConfig;
+  const tpl = must(seedTemplates().find((t) => t.id === "tpl-kettlebell-emom-20"));
+  const cfg = guided(tpl, exById);
   const steps = buildSteps(cfg);
 
   test("20:00 after the lead-in: the same warm-up, then three rounds of six bell minutes", () => {
-    expect(steps.reduce((a, st) => a + st.secs, 0) - steps[0]!.secs).toBe(1200);
+    expect(steps.reduce((a, st) => a + st.secs, 0) - must(steps[0]).secs).toBe(1200);
     expect(templateLength(tpl)).toEqual({ seconds: 1200, exact: true });
     const stations = steps.filter((st) => st.emom?.block === "station");
     expect(stations).toHaveLength(18);
-    expect(tpl.emom!.stations.map((st) => [exById.get(st.exerciseId)!.name, emomRoundsTarget(st)])).toEqual([
+    expect(must(tpl.emom).stations.map((st) => [must(exById.get(st.exerciseId)).name, emomRoundsTarget(st)])).toEqual([
       ["Kettlebell Swing", "15 · 18 · 20 reps"],
       ["Goblet Squat", "10 · 11 · 12 reps"],
       ["Kettlebell Clean & Press", "10 reps · 5 per arm"],
@@ -387,7 +396,7 @@ describe("Kettlebell EMOM - 20 Minutes", () => {
       ["Single-Arm Kettlebell Row", "16 reps · 8 per arm"],
       ["Dead Bug", "10 · 13 · 16 reps"],
     ]);
-    expect(stations[0]!.emom!.target).toBe("15 reps");
-    expect(stations.map((st) => st.at - steps[0]!.secs)).toEqual(stations.map((_, i) => 120 + i * 60));
+    expect(must(must(stations[0]).emom).target).toBe("15 reps");
+    expect(stations.map((st) => st.at - must(steps[0]).secs)).toEqual(stations.map((_, i) => 120 + i * 60));
   });
 });

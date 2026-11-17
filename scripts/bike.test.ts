@@ -6,6 +6,8 @@ import type { RideConfig } from "../src/lib/ride";
 import { seedTemplates } from "../src/lib/seed";
 import { songFor } from "../src/components/adaptive-track";
 import { allVoiceLines } from "../src/lib/voice-clips";
+import { must } from "./must";
+import type { RideSegment } from "../src/types";
 
 // FTMS Indoor Bike Data: flags 0x0144 (speed present since bit 0 is clear,
 // cadence, power, energy), 26.00 km/h, 90 rpm, 250 W, 123 kcal total.
@@ -79,11 +81,11 @@ describe("rides", () => {
     ], 283);
     expect(run.tick(59, meter(160, 5, 9, 59_000), true, 59_000)).toBe(0);
     expect(run.tick(61, meter(160, 6, 10, 61_000), true, 61_000)).toBe(1);
-    expect(run.results[0]!.seconds).toBe(60); // ended on its time, not at the tick
+    expect(must(run.results[0]).seconds).toBe(60); // ended on its time, not at the tick
     expect(run.segment?.label).toBe("All out");
     expect(run.tick(100, meter(300, 25, 22, 100_000), true, 100_000)).toBe(0); // 19 kcal in
     expect(run.tick(101, meter(300, 26.5, 23, 101_000), true, 101_000)).toBe(1);
-    expect(run.results[1]!.kcal).toBeCloseTo(20.5, 5);
+    expect(must(run.results[1]).kcal).toBeCloseTo(20.5, 5);
     run.tick(140, meter(150, 30, 30, 140_000), true, 140_000);
     expect(run.done).toBe(true);
   });
@@ -94,11 +96,11 @@ describe("rides", () => {
     run.tick(50, meter(180, 0, 0, 50_000), true, 50_000); // in 160–210
     run.tick(75, meter(250, 0, 0, 75_000), true, 75_000); // above
     run.tick(100, meter(180, 0, 0, 100_000), true, 100_000);
-    expect(run.results[0]!.inTarget).toBeCloseTo(75 / 100, 5);
+    expect(must(run.results[0]).inTarget).toBeCloseTo(75 / 100, 5);
   });
 
   test("a race logs its total time, and the best one comes back", () => {
-    const cfg: RideConfig = { title: "First to 200 kcal", templateId: "tpl-ride-200-kcal", segments: [{ label: "All out", ftp: [95, 120], kcal: 200 }], race: true };
+    const cfg: RideConfig = { title: "First to 200 kcal", templateId: "tpl-ride-200-kcal", segments: [{ label: "All out", ftp: [95, 120], kcal: 200 }], race: true, withBike: true, withHr: false };
     const a = recordedRide(cfg, [{ seconds: 700, kcal: 200, avgPower: 290, inTarget: 0.8 }], "2026-11-08T08:00:00.000Z", "ex-spin-bike", 283, true);
     const b = recordedRide(cfg, [{ seconds: 650, kcal: 200, avgPower: 310, inTarget: 0.6 }], "2026-11-09T08:00:00.000Z", "ex-spin-bike", 283, true);
     expect(a.note).toContain("200 kcal");
@@ -119,12 +121,12 @@ describe("rides", () => {
     expect(run.results[0]).toMatchObject({ skipped: true });
     run.tick(60, meter(300, 21, 18, 60_000), true, 60_000);
     expect(run.done).toBe(true);
-    expect(run.results[1]!.seconds).toBeCloseTo(59.6, 5); // timed from the skip
-    const cfg: RideConfig = { title: "Rung", templateId: "tpl-x", segments: segs, race: true, withBike: true };
+    expect(must(run.results[1]).seconds).toBeCloseTo(59.6, 5); // timed from the skip
+    const cfg: RideConfig = { title: "Rung", templateId: "tpl-x", segments: segs, race: true, withBike: true, withHr: false };
     const s = recordedRide(cfg, run.results, "2026-11-10T08:00:00.000Z", "ex-spin-bike", 283, true, run.restarts);
     expect(s.note).toStartWith("Ride · completed");
     expect(s.note).toContain("1 block skipped");
-    expect(s.entries[0]!.sets).toHaveLength(1); // the 0.4 s warm-up logs no set
+    expect(must(s.entries[0]).sets).toHaveLength(1); // the 0.4 s warm-up logs no set
     expect(bestRide([s], cfg.templateId, 1)).toBeUndefined();
     expect(bestRide([s], cfg.templateId, 2)).toBeUndefined();
   });
@@ -144,7 +146,7 @@ describe("rides", () => {
     expect(run.segmentStart).toBe(80);
     expect(run.restarts).toBe(2);
     run.tick(140, meter(150, 9, 15, 140_000), true, 140_000);
-    expect(run.results[0]!.seconds).toBe(60);
+    expect(must(run.results[0]).seconds).toBe(60);
   });
 
   test("time left counts the rest of the ride; kcal blocks stay kcal", () => {
@@ -164,7 +166,7 @@ describe("rides", () => {
     run.tick(3600, meter(200, 600, 720, 3_600_000), true, 3_600_000);
     expect(run.done).toBe(false);
     run.complete(3600, meter(200, 600, 720, 3_600_000));
-    const cfg: RideConfig = { title: "Free ride", templateId: "tpl-ride-free", segments: [FREE_RIDE], race: false, withBike: true, free: true };
+    const cfg: RideConfig = { title: "Free ride", templateId: "tpl-ride-free", segments: [FREE_RIDE], race: false, withBike: true, withHr: false, free: true };
     const s = recordedRide(cfg, run.results, "2026-11-10T08:00:00.000Z", "ex-spin-bike", 283, false);
     expect(s.note).toBe("Free ride · 1:00:00 · 600 kcal · avg 200 W");
     expect(rideSchedule([FREE_RIDE], 0, 0, false).cues).toEqual([]);
@@ -180,11 +182,11 @@ describe("rides", () => {
   });
 
   test("the background schedule: block ends, the next block named just before 3-2-1, beeps", () => {
-    const segs = [
-      { label: "Warm-up", ftp: [50, 65] as [number, number], seconds: 600 },
-      { label: "Sweet spot", ftp: [88, 94] as [number, number], seconds: 600 },
-      { label: "Rung", ftp: [95, 110] as [number, number], kcal: 50 },
-      { label: "Easy", ftp: [45, 55] as [number, number], seconds: 180 },
+    const segs: RideSegment[] = [
+      { label: "Warm-up", ftp: [50, 65], seconds: 600 },
+      { label: "Sweet spot", ftp: [88, 94], seconds: 600 },
+      { label: "Rung", ftp: [95, 110], kcal: 50 },
+      { label: "Easy", ftp: [45, 55], seconds: 180 },
     ];
     const s = rideSchedule(segs, 0, 1_000_000, false, () => 2); // every line 2 s long
     expect(s.segments).toEqual([
@@ -228,8 +230,8 @@ describe("rides", () => {
     }
     expect(run.done).toBe(true);
     expect(run.results.map((r) => r.seconds)).toEqual([300, 600]);
-    expect(run.results[1]!.avgPower).toBeCloseTo(180, 0);
-    expect(run.results[1]!.inTarget).toBeCloseTo(1, 2); // 180 W is inside 160–210
+    expect(must(run.results[1]).avgPower).toBeCloseTo(180, 0);
+    expect(must(run.results[1]).inTarget).toBeCloseTo(1, 2); // 180 W is inside 160–210
   });
 });
 

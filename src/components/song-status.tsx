@@ -24,7 +24,7 @@ export function useSongStates(ids: string[]): Record<string, SongState> {
     let alive = true;
     const check = () => {
       void Promise.all(
-        key.split(",").filter(Boolean).map(async (id): Promise<[string, SongState]> => {
+        key.split(",").filter((id) => id !== "").map(async (id): Promise<[string, SongState]> => {
           const track = await getCachedTrack(songKey(id)).catch(() => undefined);
           if (!track) return [id, "missing"];
           if (isAnalysing(id)) return [id, "analysing"];

@@ -67,7 +67,7 @@ export function SessionDetails({ session, onClose }: { session: Session; onClose
   );
 
   const seconds = sessionSeconds(session);
-  const noteParts = session.note ? session.note.split(" · ").filter(Boolean) : [];
+  const noteParts = session.note ? session.note.split(" · ").filter((p) => p !== "") : [];
 
   return (
     <>

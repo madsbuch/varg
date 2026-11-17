@@ -18,7 +18,7 @@ import { templateProblems } from "../src/lib/template-check";
 import { PROGRAM_PREFIX } from "../src/lib/programs";
 import * as prsModule from "../src/lib/prs";
 import { estimate1RM } from "../src/lib/units";
-import * as typesModule from "../src/types";
+import { PR_DIRECTION } from "../src/types";
 import type {
   Exercise,
   Metric,
@@ -78,20 +78,10 @@ assert(tplIds.every((id) => !id.startsWith(PROGRAM_PREFIX)), `built-in template 
 // took Math.max, so an agent adding a for-time run stored the WORST time as
 // the record — green build, green smoke test, silently wrong record.
 //
-// The declaration lives in types.ts next to PRKind (an exhaustive Record, so a
-// new kind cannot be added without a direction); prs.ts is accepted too in case
-// it ever moves next to the comparisons that consume it.
-const declared = {
-  ...(typesModule as { PR_DIRECTION?: Record<PRKind, PRDirection> }).PR_DIRECTION,
-  ...(prsModule as { PR_DIRECTION?: Record<PRKind, PRDirection> }).PR_DIRECTION,
-};
-const prDirection = (prsModule as { prDirection?: (kind: PRKind) => PRDirection }).prDirection;
-const directionOf = prDirection ?? ((kind: PRKind) => declared[kind]);
-assert(
-  prDirection ?? Object.keys(declared).length > 0,
-  'a direction must be declared per PR kind — export `PR_DIRECTION: Record<PRKind, "higher" | "lower">` ' +
-    "from types.ts (or `prDirection(kind)` from prs.ts) and reconcile it with the doc comment on PRKind",
-);
+// The declaration lives in types.ts next to PRKind: an exhaustive Record, so a
+// new kind cannot be added without a direction. The type checker holds that;
+// this holds the declaration to what recomputePRs actually does.
+const directionOf = (kind: PRKind): PRDirection => PR_DIRECTION[kind];
 
 // Two sessions per metric, the later one carrying the numerically larger
 // value: whichever survives tells us the direction recomputePRs implements.
@@ -150,10 +140,6 @@ for (const probe of METRIC_PROBES) {
     const pair = probe.values[kind];
     assert(pair, `no probe value for ${probe.metric}/${kind} — add one alongside the metric`);
     const dir = directionOf(kind);
-    assert(
-      dir === "higher" || dir === "lower",
-      `PR kind "${kind}" (metric ${probe.metric}) has no declared direction`,
-    );
     const rows = got.filter((p) => p.kind === kind);
     assert(rows.length === 1, `recomputePRs kept ${rows.length} PRs for ${probe.metric}/${kind}`);
     const [row] = rows;
@@ -184,7 +170,7 @@ for (const probe of METRIC_PROBES) {
     assert(!song.id.startsWith("user-"), `song "${song.id}": built-in ids must not look like the owner's (user-…)`);
     const set = setById(song.set);
     assert(set !== undefined, `song "${song.id}": no set "${song.set}"`);
-    assert(song.bpm === set?.bpm[song.intensity], `song "${song.id}": bpm ${song.bpm} is not its set's ${String(set?.bpm[song.intensity])}`);
+    assert(song.bpm === set.bpm[song.intensity], `song "${song.id}": bpm ${song.bpm} is not its set's ${set.bpm[song.intensity]}`);
     const style = buildSongStyle(song);
     assert(!style.endsWith("…") && style.length <= STYLE_LIMIT, `song "${song.id}": style is truncated to ${STYLE_LIMIT} chars`);
     if (song.lyrics !== undefined) {

@@ -6,7 +6,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.location.Location
@@ -85,7 +84,13 @@ class GpsService : Service() {
             return START_NOT_STICKY
         }
 
-        val lm = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val lm = getSystemService(LocationManager::class.java)
+        if (lm == null) {
+            // Shown on the stage in red, like every GPS failure.
+            RunTracker.error = "No location service on this phone"
+            stopSelf()
+            return START_NOT_STICKY
+        }
         locationManager = lm
         lm.removeUpdates(listener)
         try {
@@ -142,8 +147,7 @@ class GpsService : Service() {
         if (!force && now - lastNotified < NOTIFY_EVERY_MS) return
         lastNotified = now
         try {
-            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            nm.notify(NOTIFICATION_ID, buildNotification())
+            getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, buildNotification())
         } catch (_: SecurityException) {
             // Notifications denied on Android 13+: tracking carries on regardless.
         }
@@ -152,8 +156,10 @@ class GpsService : Service() {
     /** Distance reached: a buzz and a beep, audible with the phone in a pocket. */
     private fun signalCrossed() {
         try {
-            val v = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val v = getSystemService(Vibrator::class.java)
+            if (v == null) {
+                // no vibrator: the tone below still sounds
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 v.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 300, 150, 300, 150, 600), -1))
             } else {
                 @Suppress("DEPRECATION")

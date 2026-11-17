@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { CUT_S, HP_HOLD, HP_OPEN, mergeRepeats, positionAt, scoreVoices, valueAt, XF_S } from "../src/lib/score";
 import type { Booking, ScoreSong, Voice } from "../src/lib/score";
+import { must } from "./must";
+import { parseJson } from "../src/lib/decode";
 
 const song = (id: string, bpm = 144): ScoreSong => ({ id, bpm, rate: 1.01, trim: 0.5, pre: 4, duration: 4 + 26.7 });
 const songs = new Map([["L", song("L")], ["M", song("M")], ["P", song("P", 156)]]);
@@ -42,7 +44,7 @@ describe("the music score", () => {
     expect(valueAt(byId(s, "L")?.gain ?? [], T - 5_000)).toBe(1);
     // A block with nothing booked before it (its song not loaded) waits
     // for its own 3-2-1: songs never stack.
-    const gap = scoreVoices([], [ride[0] as Booking, ride[2] as Booking], songs, T - 10_000, false, T);
+    const gap = scoreVoices([], [must(ride[0]), must(ride[2])], songs, T - 10_000, false, T);
     expect(byId(gap, "P")?.start).toBe(T + 40_000 - XF_S * 1000);
   });
 
@@ -63,7 +65,7 @@ describe("the music score", () => {
     expect(m1?.stop).toBe(skipAt + 20);
     expect(valueAt(m1?.gain ?? [], skipAt)).toBeCloseTo(0, 9);
     // The old P booking (at 40 s) is cut; the new one starts at the skip.
-    expect(b.filter((v) => v.songId === "P" && !v.cut)[0]?.at).toBe(skipAt);
+    expect(b.find((v) => v.songId === "P" && !v.cut)?.at).toBe(skipAt);
   });
 
   test("pause cuts everything within CUT_S; cut voices fall away after", () => {
@@ -110,7 +112,7 @@ describe("the same song twice in a row", () => {
   test("one voice, full level across the old block boundaries, no second entry", () => {
     const s = scoreVoices([], mergeRepeats(blocks), songs, T - 5_000, false, T).filter((v) => v.songId === "P");
     expect(s).toHaveLength(1);
-    const p = s[0]!;
+    const p = must(s[0]);
     for (const at of [T + 117_000, T + 119_000, T + 120_000, T + 240_000]) expect(valueAt(p.gain, at)).toBeCloseTo(1, 9);
     expect(valueAt(p.hp, T + 119_000)).toBe(HP_OPEN);
   });
@@ -120,6 +122,11 @@ describe("the native renderer's fixture", () => {
   test("is the score the app computes today", async () => {
     const { readFileSync } = await import("fs");
     const { FIXTURE, fixtureScore } = await import("./score-fixture");
-    expect(JSON.parse(readFileSync(FIXTURE, "utf8"))).toEqual(JSON.parse(JSON.stringify(fixtureScore())));
+    const json = (text: string): unknown => {
+      const parsed = parseJson(text);
+      if (!parsed.ok) throw new Error(parsed.error);
+      return parsed.value;
+    };
+    expect(json(readFileSync(FIXTURE, "utf8"))).toEqual(json(JSON.stringify(fixtureScore())));
   });
 });

@@ -10,10 +10,11 @@
  * short lines per run.
  */
 import { audioResults, createTask, download, getTask } from "../src/lib/kie";
+import { errorText } from "../src/lib/http";
 import { VOICE_MODELS, speechInput, voicesFor } from "../src/lib/voice-clips";
 
 // httpFetch picks the Tauri plugin when it sees a window; give it a plain one.
-(globalThis as { window?: unknown }).window ??= globalThis;
+if (!("window" in globalThis)) Object.defineProperty(globalThis, "window", { value: globalThis });
 
 const apiKey = process.env["KIE_API_KEY"]?.trim();
 if (!apiKey) {
@@ -39,13 +40,13 @@ for (const m of VOICE_MODELS.filter((x) => x.id.includes(filter))) {
       const url = audioResults(info.result)[0]?.url;
       if (!url) throw new Error(`success but no audio URL: ${JSON.stringify(info.result)}`);
       const blob = await download(url);
-      console.log(`OK — ${String(blob.size)} bytes, ${blob.type || "no type"} (${url})`);
+      console.log(`OK — ${blob.size} bytes, ${blob.type || "no type"} (${url})`);
       done = true;
     }
     if (!done) throw new Error(`still running after two minutes (task ${taskId})`);
   } catch (e) {
     failed++;
-    console.log(`FAILED — ${e instanceof Error ? e.message : String(e)}`);
+    console.log(`FAILED — ${errorText(e)}`);
     console.log(`  input: ${JSON.stringify(input)}`);
   }
 }

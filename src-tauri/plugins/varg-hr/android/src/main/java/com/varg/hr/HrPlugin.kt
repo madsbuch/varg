@@ -9,7 +9,6 @@ import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -68,7 +67,7 @@ class HrPlugin(private val activity: Activity) : Plugin(activity) {
     private val found = LinkedHashMap<String, JSObject>()
 
     private fun adapter(): BluetoothAdapter? =
-        (activity.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager?)?.adapter
+        activity.getSystemService(BluetoothManager::class.java)?.adapter
 
     /** The runtime permission this Android version needs for BLE. */
     private fun neededAlias() = if (Build.VERSION.SDK_INT >= 31) "bluetooth" else "location"
@@ -148,9 +147,14 @@ class HrPlugin(private val activity: Activity) : Plugin(activity) {
     fun connect(invoke: Invoke) {
         if (refuse(invoke)) return
         val args = invoke.parseArgs(ConnectArgs::class.java)
+        val bluetooth = adapter()
+        if (bluetooth == null) {
+            invoke.reject("Bluetooth unavailable")
+            return
+        }
         val device = try {
-            adapter()!!.getRemoteDevice(args.address)
-        } catch (e: Exception) {
+            bluetooth.getRemoteDevice(args.address)
+        } catch (e: IllegalArgumentException) {
             invoke.reject("Unknown device ${args.address}")
             return
         }
