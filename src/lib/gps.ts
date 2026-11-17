@@ -10,6 +10,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "../db/persistence";
 import { formatSeconds } from "./units";
+import { kvGet, kvSet } from "./kv";
 
 const SETTING_KEY = "varg.gps.v1";
 
@@ -34,7 +35,7 @@ export function gpsAvailable(): boolean {
 
 export function loadGpsEnabled(): boolean {
   try {
-    return localStorage.getItem(SETTING_KEY) === "1";
+    return kvGet(SETTING_KEY) === "1";
   } catch {
     return false;
   }
@@ -42,7 +43,7 @@ export function loadGpsEnabled(): boolean {
 
 export function saveGpsEnabled(on: boolean): void {
   try {
-    localStorage.setItem(SETTING_KEY, on ? "1" : "0");
+    kvSet(SETTING_KEY, on ? "1" : "0");
   } catch {
     // not persisted; the switch reverts next launch
   }

@@ -8,6 +8,9 @@ import type {
 } from "../types";
 import { EX, seedExercises } from "./seed";
 import { recomputePRs } from "./prs";
+import { parseJson } from "./decode";
+import { readDataBlob } from "../db/read";
+import type { Loaded } from "../db/persistence";
 
 export const STORAGE_KEY = "varg.data.v1";
 const DATA_VERSION = 1;
@@ -18,13 +21,29 @@ export function uid(prefix = "id"): string {
   return `${prefix}-${time}-${rand}`;
 }
 
-function freshData(): AppData {
+function emptyData(): AppData {
   return {
     version: DATA_VERSION,
     exercises: seedExercises(),
     sessions: [],
     prs: [],
+    programs: [],
+    mimir: { items: [], messages: [] },
   };
+}
+
+/**
+ * A new database's first contents: the built-ins, plus everything in a
+ * legacy JSON blob when the phone has one. A blob that does not read
+ * throws with every problem in it, rather than start the owner empty.
+ */
+export function freshData(legacy: string | null): AppData {
+  if (legacy === null) return emptyData();
+  const parsed = parseJson(legacy);
+  if (!parsed.ok) throw new Error(`Old training data is not JSON: ${parsed.error}`);
+  const { data, problems } = readDataBlob(parsed.value);
+  if (problems.length > 0) throw new Error(`Old training data unreadable: ${problems.join("; ")}`);
+  return mergeBuiltIns({ ...data, exercises: data.exercises.length > 0 ? data.exercises : seedExercises() });
 }
 
 /**
@@ -64,22 +83,18 @@ const SUPERSEDED: Record<string, string> = {
   [EX.farmerCarry]: EX.farmerCarryDistance,
 };
 
-export function loadData(): AppData {
-  if (typeof localStorage === "undefined") return freshData();
+/**
+ * The browser backend's data (vite dev): the JSON blob in localStorage.
+ * Unreadable rows come back as problems, shown in red.
+ */
+export function loadData(): Loaded {
+  if (typeof localStorage === "undefined") return { data: emptyData(), problems: [] };
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return freshData();
-  try {
-    const parsed = JSON.parse(raw) as Partial<AppData>;
-    const data: AppData = {
-      version: DATA_VERSION,
-      exercises: parsed.exercises ?? seedExercises(),
-      sessions: parsed.sessions ?? [],
-      prs: parsed.prs ?? [],
-    };
-    return mergeBuiltIns(data);
-  } catch {
-    return freshData();
-  }
+  if (raw === null) return { data: emptyData(), problems: [] };
+  const parsed = parseJson(raw);
+  if (!parsed.ok) return { data: emptyData(), problems: [`${STORAGE_KEY}: ${parsed.error}`] };
+  const loaded = readDataBlob(parsed.value);
+  return { data: mergeBuiltIns(loaded.data), problems: loaded.problems };
 }
 
 export function saveData(data: AppData): void {

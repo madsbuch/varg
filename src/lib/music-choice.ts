@@ -17,6 +17,7 @@
 import type { Intensity } from "../types";
 import { allSongs, SETS, setById } from "./songs";
 import type { SetId } from "./songs";
+import { kvGet, kvSet } from "./kv";
 
 export type MixChoice =
   | { mode: "track" }
@@ -34,7 +35,7 @@ const DEFAULT_KEY = "varg.music.default.v1";
 
 function all(): Record<string, MixChoice | undefined> {
   try {
-    return JSON.parse(localStorage.getItem(KEY) ?? "{}") as Record<string, MixChoice | undefined>;
+    return JSON.parse(kvGet(KEY) ?? "{}") as Record<string, MixChoice | undefined>;
   } catch {
     return {};
   }
@@ -56,7 +57,7 @@ function valid(c: MixChoice | undefined): MixChoice | undefined {
  */
 export function loadDefaultChoice(): MixChoice {
   try {
-    const c = valid(JSON.parse(localStorage.getItem(DEFAULT_KEY) ?? "null") as MixChoice | undefined);
+    const c = valid(JSON.parse(kvGet(DEFAULT_KEY) ?? "null") as MixChoice | undefined);
     if (c && c.mode !== "custom") return c;
   } catch {
     // fall through
@@ -65,7 +66,7 @@ export function loadDefaultChoice(): MixChoice {
 }
 
 export function saveDefaultChoice(choice: MixChoice): void {
-  localStorage.setItem(DEFAULT_KEY, JSON.stringify(choice));
+  kvSet(DEFAULT_KEY, JSON.stringify(choice));
 }
 
 /** This workout's own choice, if the owner made one (else it follows the default). */
@@ -85,13 +86,13 @@ export function loadMixChoice(templateId: string, rideSet?: SetId): MixChoice {
 }
 
 export function saveMixChoice(templateId: string, choice: MixChoice): void {
-  localStorage.setItem(KEY, JSON.stringify({ ...all(), [templateId]: choice }));
+  kvSet(KEY, JSON.stringify({ ...all(), [templateId]: choice }));
 }
 
 /** Back to following the default. */
 export function clearMixChoice(templateId: string): void {
   const rest = Object.fromEntries(Object.entries(all()).filter(([k]) => k !== templateId));
-  localStorage.setItem(KEY, JSON.stringify(rest));
+  kvSet(KEY, JSON.stringify(rest));
 }
 
 /** Every song of a set, by intensity, built-in first. */

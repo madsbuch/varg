@@ -23,6 +23,8 @@ import type { Side } from "../types";
 import { buildSteps, configForTemplate } from "./wod";
 import { rideLine } from "./ride";
 import type { Step, VoiceRole } from "./wod";
+import { kvGet, kvSet } from "./kv";
+import { blobGet, blobHas, blobList, blobPut } from "./blobs";
 
 const GEMINI_38 = "google/gemini-3-8-flash-tts";
 const GEMINI_31 = "google/gemini-3-1-flash-tts";
@@ -215,8 +217,8 @@ export function voiceIdFor(s: VoiceSettings, role: VoiceRole): string {
 
 export function loadVoiceSettings(): VoiceSettings {
   try {
-    const current = localStorage.getItem(SETTINGS_KEY);
-    const raw = current ?? localStorage.getItem(LEGACY_SETTINGS_KEY);
+    const current = kvGet(SETTINGS_KEY);
+    const raw = current ?? kvGet(LEGACY_SETTINGS_KEY);
     if (raw) {
       const p = JSON.parse(raw) as Partial<VoiceSettings>;
       if (current == null) delete p.model;
@@ -234,7 +236,7 @@ export function loadVoiceSettings(): VoiceSettings {
 }
 
 export function saveVoiceSettings(s: VoiceSettings): void {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  kvSet(SETTINGS_KEY, JSON.stringify(s));
 }
 
 /** The voice needs only the shared kie.ai key; the voice itself has a default. */
@@ -328,9 +330,6 @@ export function allVoiceLines(): VoiceLine[] {
 
 /* ------------------------------ The cache -------------------------------- */
 
-const DB_NAME = "varg-voice";
-const STORE = "clips";
-
 interface Clip {
   key: string;
   blob: Blob;
@@ -338,35 +337,17 @@ interface Clip {
 
 const clipKey = (s: VoiceSettings, role: VoiceRole, text: string) => `${voiceIdFor(s, role)}|${s.model}|${text}`;
 
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: "key" });
-    req.onsuccess = () => { resolve(req.result); };
-    req.onerror = () => { reject(req.error ?? new Error("IndexedDB open failed")); };
-  });
-}
-
-function withStore<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
-  return openDb().then(
-    (db) =>
-      new Promise<T>((resolve, reject) => {
-        const req = fn(db.transaction(STORE, mode).objectStore(STORE));
-        req.onsuccess = () => { resolve(req.result); };
-        req.onerror = () => { reject(req.error ?? new Error("IndexedDB request failed")); };
-      }),
-  );
-}
-
+/** One spoken line from the audio store ("clips", lib/blobs.ts). */
 async function getClip(key: string): Promise<Clip | undefined> {
-  return withStore("readonly", (s) => s.get(key) as IDBRequest<Clip | undefined>);
+  return blobGet("clips", key);
 }
 
 /** How many of the given lines are generated for the current voices. */
 export async function countReady(lines: VoiceLine[] = allVoiceLines()): Promise<number> {
   const s = loadVoiceSettings();
+  const have = new Set((await blobList("clips")).map((c) => c.key));
   let n = 0;
-  for (const line of lines) if (await getClip(clipKey(s, line.role, line.text))) n++;
+  for (const line of lines) if (have.has(clipKey(s, line.role, line.text))) n++;
   return n;
 }
 
@@ -495,14 +476,14 @@ export function ensureVoiceClips(onProgress?: (ready: number, total: number) => 
     let ready = 0;
     for (const line of lines) {
       const key = clipKey(s, line.role, line.text);
-      if (!(await getClip(key))) {
+      if (!(await blobHas("clips", key))) {
         let blob: Blob;
         try {
           blob = await synthesize(s, line.role, line.text);
         } catch (e) {
           throw new Error(`Stopped at "${line.text}": ${errorText(e)}`);
         }
-        await withStore("readwrite", (st) => st.put({ key, blob } satisfies Clip));
+        await blobPut("clips", { key, title: line.text, mime: blob.type, createdAt: new Date().toISOString(), blob });
       }
       ready++;
       onProgress?.(ready, lines.length);

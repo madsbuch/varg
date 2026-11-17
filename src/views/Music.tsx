@@ -23,6 +23,7 @@ import {
   ensureAllTracks,
   generateTrack,
   getCachedTrack,
+  hasCachedTrack,
   loadMusicSettings,
   loadTrackFailures,
   onEnsureStatus,
@@ -103,7 +104,7 @@ function useTrackCache() {
       const list = workoutMusicList().filter((w) => !w.key.startsWith("song:"));
       const have = new Set<string>();
       for (const w of list) {
-        if (await getCachedTrack(w.key)) have.add(w.key);
+        if (await hasCachedTrack(w.key)) have.add(w.key);
       }
       setWorkouts(list);
       setCached(have);

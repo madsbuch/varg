@@ -47,6 +47,12 @@ export function parseDecimal(input: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/** A whole number of things (reps): digits only, so "5.5" is a mistake, not 5. */
+export function parseWhole(input: string): number | undefined {
+  const s = input.trim();
+  return /^\d{1,6}$/.test(s) ? Number.parseInt(s, 10) : undefined;
+}
+
 /** Parse "mm:ss" or "h:mm:ss" or plain seconds into seconds. */
 export function parseTime(input: string): number | undefined {
   const s = input.trim();

@@ -11,7 +11,7 @@
  *
  * Everything fetched is cached on the device, so the Den and the Saga
  * render offline. It is derived data and can always be fetched again,
- * which is why it lives in localStorage and not in the training database.
+ * which is why it lives in the settings store (kv.ts), not the training data.
  *
  * Failures are kept and shown (Skipan in red, the Den card), never
  * swallowed: a sync that quietly stopped looks exactly like a quiet week.
@@ -22,6 +22,7 @@ import { useSyncExternalStore } from "react";
 import { errorText, httpFetch } from "./http";
 import { loadFtp, saveFtp } from "./ride";
 import type { Session } from "../types";
+import { kvGet, kvRemove, kvSet } from "./kv";
 
 const BASE = "https://personal.connectapi.garmin.com";
 const TOKEN_PATH = "/personalapitoken-service/personal-api/personal-api-key/token";
@@ -104,7 +105,7 @@ const EMPTY: GarminState = { activities: [], followFtp: true, syncing: false };
 
 function readState(): GarminState {
   try {
-    const raw = localStorage.getItem(STATE_KEY);
+    const raw = kvGet(STATE_KEY);
     if (!raw) return EMPTY;
     const parsed = JSON.parse(raw) as Partial<GarminState>;
     return { ...EMPTY, ...parsed, activities: parsed.activities ?? [], syncing: false };
@@ -113,14 +114,14 @@ function readState(): GarminState {
   }
 }
 
-let state: GarminState = typeof localStorage === "undefined" ? EMPTY : readState();
+let state: GarminState = readState();
 const listeners = new Set<() => void>();
 
 function setState(patch: Partial<GarminState>): void {
   state = { ...state, ...patch };
   try {
     // `syncing` describes this run only; readState resets it anyway.
-    localStorage.setItem(STATE_KEY, JSON.stringify({ ...state, syncing: false }));
+    kvSet(STATE_KEY, JSON.stringify({ ...state, syncing: false }));
   } catch {
     // Storage full or blocked: the state still holds for this run.
   }
@@ -150,7 +151,7 @@ export function setFollowFtp(on: boolean): void {
 
 export function loadGarminKey(): string {
   try {
-    return localStorage.getItem(KEY_KEY) ?? "";
+    return kvGet(KEY_KEY) ?? "";
   } catch {
     return "";
   }
@@ -160,9 +161,9 @@ export function loadGarminKey(): string {
 export function saveGarminKey(key: string): void {
   const k = key.trim();
   try {
-    if (k) localStorage.setItem(KEY_KEY, k);
-    else localStorage.removeItem(KEY_KEY);
-    localStorage.removeItem(TOKEN_KEY);
+    if (k) kvSet(KEY_KEY, k);
+    else kvRemove(KEY_KEY);
+    kvRemove(TOKEN_KEY);
   } catch {
     // ignore
   }
@@ -185,7 +186,7 @@ function jwtExpiry(token: string): number {
 
 async function bearer(key: string): Promise<string> {
   try {
-    const cached = JSON.parse(localStorage.getItem(TOKEN_KEY) ?? "null") as CachedToken | null;
+    const cached = JSON.parse(kvGet(TOKEN_KEY) ?? "null") as CachedToken | null;
     // Same margin as Garmin's own client: renew with an hour to spare.
     if (cached?.key === key && cached.exp - Date.now() > 60 * 60 * 1000) return cached.token;
   } catch {
@@ -202,7 +203,7 @@ async function bearer(key: string): Promise<string> {
   const token = (await res.text()).trim();
   const exp = jwtExpiry(token);
   try {
-    localStorage.setItem(TOKEN_KEY, JSON.stringify({ token, exp, key } satisfies CachedToken));
+    kvSet(TOKEN_KEY, JSON.stringify({ token, exp, key } satisfies CachedToken));
   } catch {
     // ignore
   }
@@ -217,7 +218,7 @@ async function get<T>(token: string, path: string, params: Record<string, string
   const res = await httpFetch(url, { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } });
   if (res.status === 204 || res.status === 404) return undefined;
   if (res.status === 401) {
-    try { localStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ }
+    try { kvRemove(TOKEN_KEY); } catch { /* ignore */ }
     throw new Error("Garmin rejected the token. Sync again; if it persists, renew the API key.");
   }
   if (!res.ok) throw new Error(`Garmin ${path.split("/")[1] ?? path}: HTTP ${String(res.status)}`);

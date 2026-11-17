@@ -8,6 +8,7 @@ import { hrZoneRange } from "./hr";
 import type { HrZones } from "./hr";
 import { newSession, uid } from "./store";
 import { formatSeconds } from "./units";
+import { kvGet, kvSet } from "./kv";
 
 const FTP_KEY = "varg.ftp.v1";
 /** The owner's FTP when rides shipped (Garmin estimate). Changed in Settings. */
@@ -15,7 +16,7 @@ export const DEFAULT_FTP = 283;
 
 export function loadFtp(): number {
   try {
-    const v = Number(localStorage.getItem(FTP_KEY));
+    const v = Number(kvGet(FTP_KEY));
     return Number.isFinite(v) && v >= 50 && v <= 600 ? Math.round(v) : DEFAULT_FTP;
   } catch {
     return DEFAULT_FTP;
@@ -24,7 +25,7 @@ export function loadFtp(): number {
 
 export function saveFtp(ftp: number): void {
   try {
-    localStorage.setItem(FTP_KEY, String(Math.round(ftp)));
+    kvSet(FTP_KEY, String(Math.round(ftp)));
   } catch {
     // remembered for this session only
   }

@@ -1,9 +1,10 @@
 # Working on Varg
 
 Varg is a rugged, offline-first, military-style workout tracker. Tauri 2 ·
-Bun · TypeScript · React 18, targeting Android. Storage is on-device SQLite
-via `tauri-plugin-sql` with Drizzle on top (localStorage when run as a plain
-web page).
+Bun · TypeScript · React 18, targeting Android. All storage is one on-device
+SQLite file owned by Rust, through Diesel (`src-tauri/store`); the app reaches
+it over Tauri commands (localStorage and IndexedDB when run as a plain web
+page).
 
 Read [README.md](README.md) for what the app does. This file is about how to
 change it.
@@ -128,7 +129,7 @@ should shape what you build:
    multiple of 12 BPM), since any set can be picked for any adaptive
    ride. A song the beat model cannot loop is a red line in the player,
    never off-beat music.
-4. Run `bun run build && bun run db:smoke`. The smoke test is the only
+4. Run `bun run build && bun run check:content`. The content check is the only
    reviewer this content gets. It asserts that every built-in exercise has its
    own animation, that no template references an exercise that does
    not exist, that a template with an `interval` has a scheme written in the
@@ -142,7 +143,7 @@ should shape what you build:
    its real total, pose count and hold range, that every template has a level
    and a length (computed or estimated), and that every metric has a declared PR direction.
 5. Existing installs get *new* built-ins through `mergeBuiltIns`, which the
-   SQLite loader applies on every open. Without that they would never see
+   database loader (`src/db/rust.ts`) applies on every open. Without that they would never see
    them, because their database was seeded on first launch and never again.
    Read the next section before touching a built-in that already ships.
 
@@ -158,10 +159,10 @@ cards; saving a program is always the owner's tap.
 
 - **One rulebook.** Every template rule lives in
   [`src/lib/template-check.ts`](src/lib/template-check.ts) (`templateProblems`).
-  db:smoke runs it over the built-ins; Mímir runs it over every program it
+  check:content runs it over the built-ins; Mímir runs it over every program it
   proposes (problems go back to the model to fix, never to the owner); the
   Hunt runs it again before a saved program starts. Add a new rule there,
-  not in db:smoke, and both authors are held to it.
+  not in check:content, and both authors are held to it.
 - **Built-in exercises only.** Mímir's catalogue is the built-in,
   non-deprecated exercises, each with its own animation and cues. A program
   that needs a new exercise is still a code change.
@@ -169,9 +170,12 @@ cards; saving a program is always the owner's tap.
   JSON strictly (wrong types are named, nothing unknown is carried over) and
   writes the scheme of interval, EMOM and flow programs itself, so the
   arithmetic on the card is the player's, never the model's.
-- **Storage.** Saved programs are `Template`s in localStorage
-  ([`src/lib/programs.ts`](src/lib/programs.ts)), ids starting `mimir-`
-  (built-ins never do: db:smoke). Everything that looks a template up by id
+- **Storage.** Saved programs are `Template`s in the training data
+  (`AppData.programs`, the store's `programs` table, decoded strictly on
+  every load), ids starting `mimir-` (built-ins never do: check:content).
+  The chat is there too (`AppData.mimir`), so it survives a restart and its
+  writes fail in the same red banner as a logged set. See
+  [`src/lib/programs.ts`](src/lib/programs.ts). Everything that looks a template up by id
   goes through `allTemplates()` / `templateById()` there, not
   `seedTemplates()`, so a program gets its music, voice lines and session
   details like a built-in.
@@ -181,7 +185,7 @@ cards; saving a program is always the owner's tap.
 ### Built-ins are seeded once, never refreshed
 
 `mergeBuiltIns` ([`src/lib/store.ts`](src/lib/store.ts)) pushes only ids it has
-never seen, and the SQLite write-back only inserts rows the database does not
+never seen, and the write-back only inserts rows the database does not
 already hold. New exercises and templates therefore reach existing
 installs — **but edits to an already-seeded row do not.** Changing a shipped
 exercise's name, metric or muscles is a no-op on every device except a fresh
@@ -230,7 +234,7 @@ joints and makes limbs shrink in the intermediate frames.
 - `ExerciseAnim` caches solved frames and uses native SVG/SMIL playback.
   Keep the path command structures and equipment counts stable throughout
   each loop. Hide a thrown ball during reset instead of reversing its flight.
-- Run `bun run test`, `bun run build` and `bun run db:smoke`. The animation
+- Run `bun run test`, `bun run build` and `bun run check:content`. The animation
   tests cover lengths, contacts, clipping, continuous loops, joint flips,
   native interpolation, equipment release and built-in mappings. Also inspect
   full cycles at 62 px (library) and 170 px (player); geometry checks cannot
@@ -261,7 +265,7 @@ joints and makes limbs shrink in the intermediate frames.
   than one 16-bar loop playing for 18 minutes. Those blocks are the same
   `MusicPlan` a ride books, so the same mixer and native player
   (`useWorkoutMusic`) play them. A section boundary inside a workout must
-  sit on the 20 s bar grid (db:smoke checks EMOM warm-ups). Never follow
+  sit on the 20 s bar grid (check:content checks EMOM warm-ups). Never follow
   each station: a 10 s rest has no room for the 3-2-1 crossfade.
   Cues duck the music, and guided workouts cue every station: they duck
   lightly (`LIGHT_DUCK`, own track and songs alike), rides deep. At the
@@ -325,7 +329,7 @@ joints and makes limbs shrink in the intermediate frames.
   Watch activities are matched to Varg sessions by **overlapping time**,
   never start time: the watch and Varg are started by hand, independently
   (`matchSessions`, tested in `scripts/garmin.test.ts`). Everything fetched
-  is a re-fetchable cache in localStorage, not the training database. Sync
+  is a re-fetchable cache in the settings store, not the training data. Sync
   failures stay on screen in red (Skipan, the Den's "Last night" card).
 - **Heart rate.** The chest strap is its own plugin
   ([`src-tauri/plugins/varg-hr`](src-tauri/plugins/varg-hr)), built like the
@@ -379,8 +383,30 @@ joints and makes limbs shrink in the intermediate frames.
   composed, not at the ride; only the loudest 30 s window is read unless
   nothing there is steady. It needs real music: a bare synthetic click
   track can come back with almost no beats.
-- **Migrations.** Schema changes are `bun run db:generate`, then commit the
-  generated SQL in `/drizzle`. Never hand-edit an applied migration.
+- **Storage is Rust's.** One SQLite file (`varg.db`, where the old SQL
+  plugin kept it, so updates keep the history), owned by the Diesel store in
+  [`src-tauri/store`](src-tauri/store), a plain crate tested with
+  `bun run test:store`. Three parts, each behind one TS module:
+  the training data (`src/db/rust.ts`: exercises, sessions, records, Mímir's
+  programs and chat), settings and small state (`src/lib/kv.ts`: a key/value
+  table, loaded whole at boot so reads stay synchronous; `main.tsx` awaits it
+  before any module loads), and generated audio (`src/lib/blobs.ts`: raw
+  bytes over the bridge, never JSON arrays). Do not add `localStorage` or
+  IndexedDB anywhere else; use those three.
+- **Strict across the bridge.** Rust's types use `deny_unknown_fields` and no
+  coercion; the app sends exactly their fields (`exerciseWire`…) and decodes
+  everything that comes back with `Reader` ([`src/lib/decode.ts`](src/lib/decode.ts)):
+  no `as`, no `Number(x)` on unknown data. A row that does not decode is
+  named in the red banner and the rest loads. The two sides share a fixture
+  (`src-tauri/store/tests/fixtures/wire.json`) that `scripts/store.test.ts`
+  writes and the Rust tests decode; after a deliberate change to a stored
+  shape, regenerate it with `UPDATE_FIXTURES=1 bun test scripts/store.test.ts`.
+- **Migrations.** `diesel migration generate <name> --migration-dir
+  src-tauri/store/migrations`, write `up.sql` and `down.sql`, then update
+  `src/schema.rs` (`diesel print-schema`, keeping Bool and Double as its
+  comment explains) and the column list in `schema_matches_migrations`.
+  Never edit a migration that has shipped. The first three are the Drizzle
+  migrations, adopted on phones that ran them (`adopt_drizzle`).
 - **Metric only.** Kilograms and metres, always. No unit toggle.
 - **Labels, not prose.** It is a training app, not a reading app. Players
   and pre-workout sheets say what to do in a word or two ("Push", "Ease
@@ -392,8 +418,11 @@ joints and makes limbs shrink in the intermediate frames.
 ```bash
 # Kotlin (plugins' JVM tests): after `tauri android init`, in src-tauri/gen/android
 #   ./gradlew :tauri-plugin-varg-bike:testReleaseUnitTest
-bun run build      # tsc --noEmit && eslint src && vite build
-bun run db:smoke   # migrations (applied twice) + CRUD + built-in content guards
-bun run test       # recording semantics + animation geometry and choreography
-bun run dev        # browser at :1420, localStorage backend
+bun run build          # tsc --noEmit && eslint src && vite build
+bun run check:content  # built-in content guards (template-check.ts and more)
+bun run test           # recording semantics, animations, the store contract
+bun run test:store     # Rust: migrations, the Drizzle upgrade, every read and write
+# src-tauri: cargo clippy --all-targets -- -D warnings; cargo test --lib
+#   (the storage commands through Tauri's mock IPC; needs the WebKitGTK dev libs)
+bun run dev            # browser at :1420, localStorage backend
 ```

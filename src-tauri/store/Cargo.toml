@@ -1,0 +1,15 @@
+[package]
+name = "varg-store"
+version = "0.1.0"
+description = "Varg's on-device storage: SQLite through Diesel. Pure Rust, tested with cargo test."
+edition = "2021"
+rust-version = "1.77.2"
+
+[dependencies]
+diesel = { version = "2.2", features = ["sqlite", "returning_clauses_for_sqlite_3_35"] }
+diesel_migrations = { version = "2.2", features = ["sqlite"] }
+# Bundled: the phone's own SQLite varies by Android version, and the
+# migrations use DROP COLUMN (3.35+).
+libsqlite3-sys = { version = ">=0.30, <0.40", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

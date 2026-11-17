@@ -331,4 +331,52 @@ export interface AppData {
   exercises: Exercise[];
   sessions: Session[];
   prs: PersonalRecord[];
+  /** Programs Mímir wrote with the owner (lib/programs.ts). */
+  programs: SavedProgram[];
+  /** The conversation with Mímir. */
+  mimir: MimirChat;
+}
+
+/* ------------------------------ Mímir ------------------------------------ */
+
+/** A program the owner saved from Mímir. Its id is the template's (`mimir-…`). */
+export interface SavedProgram {
+  id: string;
+  template: Template;
+  /** ISO, when the owner saved it. */
+  savedAt: string;
+}
+
+/** One OpenAI-style tool call from the model. */
+export interface ToolCall {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+}
+
+/** The API history, as OpenRouter's chat completions take it. */
+export type ChatMessage =
+  | { role: "system"; content: string }
+  | { role: "user"; content: string }
+  | { role: "assistant"; content: string | null; tool_calls?: ToolCall[] | undefined }
+  | { role: "tool"; tool_call_id: string; content: string };
+
+/** What the owner sees in the chat. */
+export type ChatItem =
+  | { kind: "user"; text: string }
+  | { kind: "mimir"; text: string }
+  | { kind: "program"; template: Template; replaces?: string | undefined; saved?: boolean | undefined }
+  | { kind: "pick"; templateId: string; why: string }
+  | { kind: "error"; text: string };
+
+/** A stored chat row: its id, its place in the order, and what it holds. */
+export interface ChatEntry<T> {
+  id: string;
+  seq: number;
+  body: T;
+}
+
+export interface MimirChat {
+  items: ChatEntry<ChatItem>[];
+  messages: ChatEntry<ChatMessage>[];
 }

@@ -1,0 +1,1098 @@
+{
+  "exercises": [
+    {
+      "id": "ex-back-squat",
+      "name": "Back Squat",
+      "category": "strength",
+      "metric": "weight_reps",
+      "muscles": [
+        "quads",
+        "glutes"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-front-squat",
+      "name": "Front Squat",
+      "category": "strength",
+      "metric": "weight_reps",
+      "muscles": [
+        "quads",
+        "core"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-deadlift",
+      "name": "Deadlift",
+      "category": "strength",
+      "metric": "weight_reps",
+      "muscles": [
+        "posterior chain",
+        "back"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-bench-press",
+      "name": "Bench Press",
+      "category": "strength",
+      "metric": "weight_reps",
+      "muscles": [
+        "chest",
+        "triceps"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-overhead-press",
+      "name": "Overhead Press",
+      "category": "strength",
+      "metric": "weight_reps",
+      "muscles": [
+        "shoulders",
+        "triceps"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-barbell-row",
+      "name": "Barbell Row",
+      "category": "strength",
+      "metric": "weight_reps",
+      "muscles": [
+        "back",
+        "biceps"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-power-clean",
+      "name": "Power Clean",
+      "category": "strength",
+      "metric": "weight_reps",
+      "muscles": [
+        "full body"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-hang-power-clean",
+      "name": "Hang Power Clean",
+      "category": "strength",
+      "metric": "weight_reps",
+      "muscles": [
+        "full body",
+        "traps"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-push-press",
+      "name": "Push Press",
+      "category": "strength",
+      "metric": "weight_reps",
+      "muscles": [
+        "shoulders",
+        "triceps",
+        "legs"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-thruster",
+      "name": "Thruster",
+      "category": "conditioning",
+      "metric": "weight_reps",
+      "muscles": [
+        "full body"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-kb-swing",
+      "name": "Kettlebell Swing",
+      "category": "conditioning",
+      "metric": "weight_reps",
+      "muscles": [
+        "posterior chain"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-wall-ball",
+      "name": "Wall Ball",
+      "category": "conditioning",
+      "metric": "weight_reps",
+      "muscles": [
+        "legs",
+        "shoulders"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-farmer-carry-distance",
+      "name": "Farmer's Carry",
+      "category": "conditioning",
+      "metric": "distance_time",
+      "muscles": [
+        "grip",
+        "core"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-air-squat",
+      "name": "Air Squat",
+      "category": "bodyweight",
+      "metric": "reps",
+      "muscles": [
+        "quads",
+        "glutes"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-pull-up",
+      "name": "Pull-up",
+      "category": "bodyweight",
+      "metric": "reps",
+      "muscles": [
+        "back",
+        "biceps"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-chin-up",
+      "name": "Chin-up",
+      "category": "bodyweight",
+      "metric": "reps",
+      "muscles": [
+        "back",
+        "biceps"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-push-up",
+      "name": "Push-up",
+      "category": "bodyweight",
+      "metric": "reps",
+      "muscles": [
+        "chest",
+        "triceps"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-dip",
+      "name": "Dip",
+      "category": "bodyweight",
+      "metric": "reps",
+      "muscles": [
+        "chest",
+        "triceps"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-bench-dip",
+      "name": "Bench Dip",
+      "category": "bodyweight",
+      "metric": "reps",
+      "muscles": [
+        "triceps",
+        "chest"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-sit-up",
+      "name": "Sit-up",
+      "category": "core",
+      "metric": "reps",
+      "muscles": [
+        "core"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-back-lift",
+      "name": "Back Lift",
+      "category": "core",
+      "metric": "reps",
+      "muscles": [
+        "lower back",
+        "glutes"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-flutter-kick",
+      "name": "Flutter Kick",
+      "category": "core",
+      "metric": "reps",
+      "muscles": [
+        "core"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-hanging-leg-raise",
+      "name": "Hanging Leg Raise",
+      "category": "core",
+      "metric": "reps",
+      "muscles": [
+        "core"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-lunge",
+      "name": "Walking Lunge",
+      "category": "bodyweight",
+      "metric": "reps",
+      "muscles": [
+        "quads",
+        "glutes"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-reverse-lunge",
+      "name": "Reverse Lunge",
+      "category": "bodyweight",
+      "metric": "reps",
+      "muscles": [
+        "quads",
+        "glutes",
+        "hip flexors"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-knee-lift",
+      "name": "Standing Knee Lift",
+      "category": "bodyweight",
+      "metric": "reps",
+      "muscles": [
+        "hip flexors",
+        "core"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-arm-circles",
+      "name": "Arm Circles",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "shoulders",
+        "upper back"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-ankle-rock",
+      "name": "Ankle Rock",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "ankles",
+        "calves"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-cat-cow",
+      "name": "Cat-Cow",
+      "category": "core",
+      "metric": "time",
+      "muscles": [
+        "spine",
+        "core"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-hip-90-switch",
+      "name": "90/90 Hip Switch",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "hips",
+        "glutes"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-worlds-greatest-stretch",
+      "name": "World's Greatest Stretch",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "hips",
+        "spine",
+        "hamstrings"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-hip-flexor-stretch",
+      "name": "Kneeling Hip Flexor Stretch",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "hip flexors",
+        "quads"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-open-book",
+      "name": "Open Book",
+      "category": "core",
+      "metric": "time",
+      "muscles": [
+        "spine",
+        "shoulders"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-down-dog-cobra",
+      "name": "Down Dog to Cobra",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "shoulders",
+        "spine",
+        "calves"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-childs-pose",
+      "name": "Child's Pose",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "back",
+        "hips"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-downward-dog",
+      "name": "Downward Dog",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "hamstrings",
+        "calves",
+        "shoulders"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-upward-salute",
+      "name": "Upward Salute",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "shoulders",
+        "spine"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-standing-forward-fold",
+      "name": "Standing Forward Fold",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "hamstrings",
+        "back"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-chair-pose",
+      "name": "Chair Pose",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "quads",
+        "glutes",
+        "shoulders"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-warrior-two",
+      "name": "Warrior II",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "quads",
+        "hips",
+        "shoulders"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-triangle-pose",
+      "name": "Triangle Pose",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "hamstrings",
+        "hips",
+        "obliques"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-tree-pose",
+      "name": "Tree Pose",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "balance",
+        "ankles",
+        "hips"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-pigeon-pose",
+      "name": "Pigeon Pose",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "glutes",
+        "hips"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-boat-pose",
+      "name": "Boat Pose",
+      "category": "core",
+      "metric": "time",
+      "muscles": [
+        "core",
+        "hip flexors"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-bridge-pose",
+      "name": "Bridge Pose",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "glutes",
+        "hamstrings",
+        "spine"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-seated-forward-fold",
+      "name": "Seated Forward Fold",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "hamstrings",
+        "back"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-savasana",
+      "name": "Savasana",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "recovery"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-low-lunge",
+      "name": "Low Lunge",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "hip flexors",
+        "quads"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-ring-row",
+      "name": "Ring Row",
+      "category": "bodyweight",
+      "metric": "reps",
+      "muscles": [
+        "back",
+        "biceps"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-dead-hang",
+      "name": "Dead Hang",
+      "category": "bodyweight",
+      "metric": "time",
+      "muscles": [
+        "grip",
+        "shoulders"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-scap-pull-up",
+      "name": "Scapular Pull-up",
+      "category": "bodyweight",
+      "metric": "reps",
+      "muscles": [
+        "lats",
+        "shoulders"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-pull-up-negative",
+      "name": "Pull-up Negative",
+      "category": "bodyweight",
+      "metric": "reps",
+      "muscles": [
+        "lats",
+        "biceps"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-band-pull-up",
+      "name": "Band-Assisted Pull-up",
+      "category": "bodyweight",
+      "metric": "reps",
+      "muscles": [
+        "lats",
+        "biceps"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-single-under",
+      "name": "Single-Under",
+      "category": "conditioning",
+      "metric": "reps",
+      "muscles": [
+        "calves",
+        "coordination"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-double-under",
+      "name": "Double-Under",
+      "category": "conditioning",
+      "metric": "reps",
+      "muscles": [
+        "calves",
+        "coordination"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-spin-bike",
+      "name": "Spin Bike",
+      "category": "cardio",
+      "metric": "time",
+      "muscles": [
+        "legs",
+        "conditioning"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-burpee",
+      "name": "Burpee",
+      "category": "conditioning",
+      "metric": "reps",
+      "muscles": [
+        "full body"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-high-knees",
+      "name": "High Knees",
+      "category": "cardio",
+      "metric": "time",
+      "muscles": [
+        "hip flexors",
+        "conditioning"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-band-backpack-row",
+      "name": "Band or Backpack Row",
+      "category": "strength",
+      "metric": "reps",
+      "muscles": [
+        "back",
+        "biceps"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-dead-bug",
+      "name": "Dead Bug",
+      "category": "core",
+      "metric": "reps",
+      "muscles": [
+        "core",
+        "hip flexors"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-goblet-squat",
+      "name": "Goblet Squat",
+      "category": "strength",
+      "metric": "weight_reps",
+      "muscles": [
+        "quads",
+        "glutes",
+        "core"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-kb-clean-press",
+      "name": "Kettlebell Clean & Press",
+      "category": "strength",
+      "metric": "weight_reps",
+      "muscles": [
+        "shoulders",
+        "posterior chain",
+        "core"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-kb-row",
+      "name": "Single-Arm Kettlebell Row",
+      "category": "strength",
+      "metric": "weight_reps",
+      "muscles": [
+        "back",
+        "biceps"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-box-jump",
+      "name": "Box Jump",
+      "category": "conditioning",
+      "metric": "reps",
+      "muscles": [
+        "legs"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-box-step-up",
+      "name": "Box Step-up",
+      "category": "conditioning",
+      "metric": "reps",
+      "muscles": [
+        "legs",
+        "glutes"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-power-throw",
+      "name": "Standing Power Throw",
+      "category": "conditioning",
+      "metric": "distance_time",
+      "muscles": [
+        "full body"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-sprint-drag-carry",
+      "name": "Sprint-Drag-Carry",
+      "category": "conditioning",
+      "metric": "distance_time",
+      "muscles": [
+        "full body"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-plank",
+      "name": "Plank",
+      "category": "core",
+      "metric": "time",
+      "muscles": [
+        "core"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-run",
+      "name": "Run",
+      "category": "cardio",
+      "metric": "distance_time",
+      "muscles": [
+        "conditioning"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-run-in-place",
+      "name": "Run on the Spot",
+      "category": "cardio",
+      "metric": "time",
+      "muscles": [
+        "conditioning"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-air-boxing",
+      "name": "Air Boxing",
+      "category": "cardio",
+      "metric": "time",
+      "muscles": [
+        "conditioning",
+        "shoulders"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-ruck",
+      "name": "Ruck March",
+      "category": "ruck",
+      "metric": "distance_time",
+      "muscles": [
+        "conditioning",
+        "legs"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-row-erg",
+      "name": "Row (Erg)",
+      "category": "cardio",
+      "metric": "distance_time",
+      "muscles": [
+        "conditioning"
+      ],
+      "builtIn": true
+    },
+    {
+      "id": "ex-assault-bike",
+      "name": "Assault Bike",
+      "category": "cardio",
+      "metric": "distance_time",
+      "muscles": [
+        "conditioning"
+      ],
+      "builtIn": true
+    }
+  ],
+  "sessions": [
+    {
+      "id": "s1",
+      "name": "Varg 18",
+      "date": "2026-11-17T08:00:00.000Z",
+      "finishedAt": "2026-11-17T08:18:00.000Z",
+      "templateId": "tpl-varg-18",
+      "heartRate": {
+        "avg": 142,
+        "max": 171,
+        "every": 5,
+        "trace": [
+          120,
+          150
+        ]
+      },
+      "entries": [
+        {
+          "id": "e1",
+          "exerciseId": "ex-push-up",
+          "sets": [
+            {
+              "id": "w1",
+              "reps": 20,
+              "done": true
+            },
+            {
+              "id": "w2",
+              "weight": 60,
+              "reps": 5,
+              "rpe": 8,
+              "done": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "prs": [
+    {
+      "id": "p",
+      "exerciseId": "ex-push-up",
+      "kind": "1rm",
+      "value": 100.5,
+      "reps": 5,
+      "date": "2026-11-01",
+      "manual": true
+    }
+  ],
+  "programs": [
+    {
+      "id": "mimir-x",
+      "template": {
+        "id": "mimir-x",
+        "name": "Full Body EMOM - 20 Minutes",
+        "branch": "CrossFit",
+        "description": "Two minutes of warm-up, then 18 minutes on the minute: a new exercise at the top of every minute, whatever is left of the minute is rest. Six stations, three rounds, the reps climbing each round. A jump rope, and a resistance band or loaded backpack for the rows.",
+        "scheme": "20:00 · 2:00 warm-up · 18:00 EMOM · 3 rounds · 6 stations",
+        "level": "intermediate",
+        "exerciseIds": [
+          "ex-run-in-place",
+          "ex-arm-circles",
+          "ex-air-squat",
+          "ex-burpee",
+          "ex-reverse-lunge",
+          "ex-push-up",
+          "ex-single-under",
+          "ex-band-backpack-row",
+          "ex-dead-bug"
+        ],
+        "emom": {
+          "minute": 60,
+          "rounds": 3,
+          "warmup": [
+            {
+              "exerciseId": "ex-run-in-place",
+              "seconds": 40
+            },
+            {
+              "exerciseId": "ex-arm-circles",
+              "seconds": 40
+            },
+            {
+              "exerciseId": "ex-air-squat",
+              "seconds": 40
+            }
+          ],
+          "stations": [
+            {
+              "exerciseId": "ex-burpee",
+              "reps": [
+                8,
+                10,
+                12
+              ],
+              "focus": "Cardio, explosiveness"
+            },
+            {
+              "exerciseId": "ex-reverse-lunge",
+              "reps": [
+                16,
+                16,
+                16
+              ],
+              "perSide": "leg",
+              "focus": "Legs, glutes, balance"
+            },
+            {
+              "exerciseId": "ex-push-up",
+              "reps": [
+                10,
+                12,
+                15
+              ],
+              "focus": "Chest, shoulders, triceps"
+            },
+            {
+              "exerciseId": "ex-single-under",
+              "reps": [
+                50,
+                60,
+                70
+              ],
+              "focus": "Cardio, footwork"
+            },
+            {
+              "exerciseId": "ex-band-backpack-row",
+              "reps": [
+                12,
+                14,
+                15
+              ],
+              "focus": "Back, biceps"
+            },
+            {
+              "exerciseId": "ex-dead-bug",
+              "reps": [
+                10,
+                13,
+                16
+              ],
+              "focus": "Core, stability"
+            }
+          ]
+        },
+        "music": {
+          "bpm": 150,
+          "style": "driving hard electronic, heavy kick, gritty synth bass, no vocals",
+          "theme": "Every minute on the minute, attack the work, steal the rest, three rounds"
+        }
+      },
+      "savedAt": "2026-11-17"
+    }
+  ],
+  "mimirItems": [
+    {
+      "id": "i",
+      "seq": 1,
+      "body": {
+        "kind": "program",
+        "template": {
+          "id": "mimir-x",
+          "name": "Full Body EMOM - 20 Minutes",
+          "branch": "CrossFit",
+          "description": "Two minutes of warm-up, then 18 minutes on the minute: a new exercise at the top of every minute, whatever is left of the minute is rest. Six stations, three rounds, the reps climbing each round. A jump rope, and a resistance band or loaded backpack for the rows.",
+          "scheme": "20:00 · 2:00 warm-up · 18:00 EMOM · 3 rounds · 6 stations",
+          "level": "intermediate",
+          "exerciseIds": [
+            "ex-run-in-place",
+            "ex-arm-circles",
+            "ex-air-squat",
+            "ex-burpee",
+            "ex-reverse-lunge",
+            "ex-push-up",
+            "ex-single-under",
+            "ex-band-backpack-row",
+            "ex-dead-bug"
+          ],
+          "emom": {
+            "minute": 60,
+            "rounds": 3,
+            "warmup": [
+              {
+                "exerciseId": "ex-run-in-place",
+                "seconds": 40
+              },
+              {
+                "exerciseId": "ex-arm-circles",
+                "seconds": 40
+              },
+              {
+                "exerciseId": "ex-air-squat",
+                "seconds": 40
+              }
+            ],
+            "stations": [
+              {
+                "exerciseId": "ex-burpee",
+                "reps": [
+                  8,
+                  10,
+                  12
+                ],
+                "focus": "Cardio, explosiveness"
+              },
+              {
+                "exerciseId": "ex-reverse-lunge",
+                "reps": [
+                  16,
+                  16,
+                  16
+                ],
+                "perSide": "leg",
+                "focus": "Legs, glutes, balance"
+              },
+              {
+                "exerciseId": "ex-push-up",
+                "reps": [
+                  10,
+                  12,
+                  15
+                ],
+                "focus": "Chest, shoulders, triceps"
+              },
+              {
+                "exerciseId": "ex-single-under",
+                "reps": [
+                  50,
+                  60,
+                  70
+                ],
+                "focus": "Cardio, footwork"
+              },
+              {
+                "exerciseId": "ex-band-backpack-row",
+                "reps": [
+                  12,
+                  14,
+                  15
+                ],
+                "focus": "Back, biceps"
+              },
+              {
+                "exerciseId": "ex-dead-bug",
+                "reps": [
+                  10,
+                  13,
+                  16
+                ],
+                "focus": "Core, stability"
+              }
+            ]
+          },
+          "music": {
+            "bpm": 150,
+            "style": "driving hard electronic, heavy kick, gritty synth bass, no vocals",
+            "theme": "Every minute on the minute, attack the work, steal the rest, three rounds"
+          }
+        },
+        "saved": true
+      }
+    }
+  ],
+  "mimirMessages": [
+    {
+      "id": "m",
+      "seq": 1,
+      "body": {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "c1",
+            "type": "function",
+            "function": {
+              "name": "get_history",
+              "arguments": "{}"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "problems": []
+}

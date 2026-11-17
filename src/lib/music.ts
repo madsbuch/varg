@@ -18,6 +18,8 @@ import type { Song } from "./songs";
 import { formatSeconds } from "./units";
 import { errorText, httpFetch } from "./http";
 import { KieError, audioResults, createTask, download, getTask } from "./kie";
+import { kvGet, kvRemove, kvSet } from "./kv";
+import { blobDelete, blobGet, blobHas, blobPut } from "./blobs";
 
 export { errorText, httpFetch };
 
@@ -39,7 +41,7 @@ export interface MusicSettings {
 
 export function loadMusicSettings(): MusicSettings {
   try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
+    const raw = kvGet(SETTINGS_KEY);
     if (raw) {
       const p = JSON.parse(raw) as Partial<MusicSettings>;
       return {
@@ -58,7 +60,7 @@ export function loadMusicSettings(): MusicSettings {
 }
 
 export function saveMusicSettings(s: MusicSettings): void {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ apiKey: s.apiKey, model: s.model }));
+  kvSet(SETTINGS_KEY, JSON.stringify({ apiKey: s.apiKey, model: s.model }));
 }
 
 /** Profile for sessions that weren't started from a template. */
@@ -70,12 +72,12 @@ export const FREESTYLE_PROFILE: MusicProfile = {
 
 /* ---------------------- Per-workout profile overrides -------------------- */
 // The shipped profiles are defaults; the settings page lets the user tune
-// bpm/style/theme per workout. Overrides live in localStorage keyed like
+// bpm/style/theme per workout. Overrides live in the settings store keyed like
 // tracks: template id, or "freestyle".
 
 function loadProfileOverrides(): Record<string, MusicProfile> {
   try {
-    const raw = localStorage.getItem(PROFILES_KEY);
+    const raw = kvGet(PROFILES_KEY);
     if (raw) return JSON.parse(raw) as Record<string, MusicProfile>;
   } catch {
     // fall through
@@ -86,7 +88,7 @@ function loadProfileOverrides(): Record<string, MusicProfile> {
 export function saveProfileOverride(key: string, profile: MusicProfile): void {
   const all = loadProfileOverrides();
   all[key] = profile;
-  localStorage.setItem(PROFILES_KEY, JSON.stringify(all));
+  kvSet(PROFILES_KEY, JSON.stringify(all));
 }
 
 export function clearProfileOverride(key: string): void {
@@ -95,7 +97,7 @@ export function clearProfileOverride(key: string): void {
     const remaining = Object.fromEntries(
       Object.entries(all).filter(([k]) => k !== key),
     );
-    localStorage.setItem(PROFILES_KEY, JSON.stringify(remaining));
+    kvSet(PROFILES_KEY, JSON.stringify(remaining));
   }
 }
 
@@ -168,7 +170,7 @@ export interface EnsureStatus {
 /* ------------------------ In-flight (pending) tasks ---------------------- */
 // A generation request is fire-and-forget for kie.ai: once submitted,
 // it composes server-side whether or not the phone stays awake. Pending
-// taskIds live in localStorage so an interrupted run is resumed, not failed.
+// taskIds live in the settings store so an interrupted run is resumed, not failed.
 
 const PENDING_KEY = "varg.music.pending.v1";
 const POLL_INTERVAL_MS = 10_000;
@@ -190,7 +192,7 @@ interface PendingTask {
 
 function loadPendingTasks(): PendingTask[] {
   try {
-    const raw = localStorage.getItem(PENDING_KEY);
+    const raw = kvGet(PENDING_KEY);
     if (raw) return JSON.parse(raw) as PendingTask[];
   } catch {
     // fall through
@@ -199,7 +201,7 @@ function loadPendingTasks(): PendingTask[] {
 }
 
 function savePendingTasks(tasks: PendingTask[]): void {
-  localStorage.setItem(PENDING_KEY, JSON.stringify(tasks));
+  kvSet(PENDING_KEY, JSON.stringify(tasks));
 }
 
 function addPendingTask(task: PendingTask): void {
@@ -217,7 +219,7 @@ function removePendingTask(key: string): void {
 // Every step of every generation is recorded here — requests, response
 // codes, poll statuses, downloads, and full error bodies — so a failure on
 // a phone can be diagnosed from the Settings page instead of guessed at.
-// Ring buffer in localStorage; survives restarts.
+// Ring buffer in the settings store; survives restarts.
 
 const LOG_KEY = "varg.music.log.v1";
 const LOG_MAX = 250;
@@ -231,7 +233,7 @@ const logListeners = new Set<() => void>();
 
 export function readMusicLog(): MusicLogEntry[] {
   try {
-    const raw = localStorage.getItem(LOG_KEY);
+    const raw = kvGet(LOG_KEY);
     if (raw) return JSON.parse(raw) as MusicLogEntry[];
   } catch {
     // fall through
@@ -242,15 +244,15 @@ export function readMusicLog(): MusicLogEntry[] {
 export function musicLog(msg: string): void {
   try {
     const entries = [...readMusicLog(), { at: new Date().toISOString(), msg }];
-    localStorage.setItem(LOG_KEY, JSON.stringify(entries.slice(-LOG_MAX)));
+    kvSet(LOG_KEY, JSON.stringify(entries.slice(-LOG_MAX)));
   } catch {
-    // a full localStorage must never break generation itself
+    // a failed settings write must never break generation itself
   }
   logListeners.forEach((fn) => { fn(); });
 }
 
 export function clearMusicLog(): void {
-  localStorage.removeItem(LOG_KEY);
+  kvRemove(LOG_KEY);
   logListeners.forEach((fn) => { fn(); });
 }
 
@@ -293,7 +295,7 @@ export interface TrackFailure {
 
 export function loadTrackFailures(): Record<string, TrackFailure> {
   try {
-    const raw = localStorage.getItem(FAILED_KEY);
+    const raw = kvGet(FAILED_KEY);
     if (raw) return JSON.parse(raw) as Record<string, TrackFailure>;
   } catch {
     // fall through
@@ -302,7 +304,7 @@ export function loadTrackFailures(): Record<string, TrackFailure> {
 }
 
 function saveTrackFailures(all: Record<string, TrackFailure>): void {
-  localStorage.setItem(FAILED_KEY, JSON.stringify(all));
+  kvSet(FAILED_KEY, JSON.stringify(all));
 }
 
 /** Record one terminal failure for a workout, bumping its attempt count. */
@@ -398,7 +400,7 @@ export async function ensureAllTracks(): Promise<void> {
     for (const t of loadPendingTasks()) {
       if (
         !workouts.some((w) => w.key === t.key) ||
-        (await getCachedTrack(t.key))
+        (await hasCachedTrack(t.key))
       ) {
         removePendingTask(t.key);
       }
@@ -415,7 +417,7 @@ export async function ensureAllTracks(): Promise<void> {
     const failures = loadTrackFailures();
     const missing: WorkoutMusic[] = [];
     for (const w of workouts) {
-      if (await getCachedTrack(w.key)) {
+      if (await hasCachedTrack(w.key)) {
         ready++;
       } else if (!loadPendingTasks().some((t) => t.key === w.key)) {
         if (mayAttempt(w.key, failures)) missing.push(w);
@@ -442,7 +444,7 @@ export async function ensureAllTracks(): Promise<void> {
       // already put this key in flight. Submitting again charges a second
       // credit and orphans one of the two tasks.
       if (loadPendingTasks().some((t) => t.key === w.key)) continue;
-      if (await getCachedTrack(w.key)) {
+      if (await hasCachedTrack(w.key)) {
         ready++;
         continue;
       }
@@ -573,7 +575,7 @@ export async function ensureAllTracks(): Promise<void> {
     const list = workoutMusicList();
     let readyNow = 0;
     for (const w of list) {
-      if (await getCachedTrack(w.key)) readyNow++;
+      if (await hasCachedTrack(w.key)) readyNow++;
     }
     const pendingLeft = loadPendingTasks().length;
     emit({
@@ -598,35 +600,13 @@ export interface CachedTrack {
   createdAt: string;
 }
 
-const DB_NAME = "varg-music";
-const STORE = "tracks";
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () =>
-      req.result.createObjectStore(STORE, { keyPath: "key" });
-    req.onsuccess = () => { resolve(req.result); };
-    req.onerror = () => { reject(req.error ?? new Error("IndexedDB open failed")); };
-  });
-}
-
-function withStore<T>(
-  mode: IDBTransactionMode,
-  fn: (store: IDBObjectStore) => IDBRequest<T>,
-): Promise<T> {
-  return openDb().then(
-    (db) =>
-      new Promise<T>((resolve, reject) => {
-        const req = fn(db.transaction(STORE, mode).objectStore(STORE));
-        req.onsuccess = () => { resolve(req.result); };
-        req.onerror = () => { reject(req.error ?? new Error("IndexedDB request failed")); };
-      }),
-  );
-}
-
 export function getCachedTrack(key: string): Promise<CachedTrack | undefined> {
-  return withStore("readonly", (s) => s.get(key) as IDBRequest<CachedTrack>);
+  return blobGet("tracks", key);
+}
+
+/** Is the track cached? Without loading its audio. */
+export function hasCachedTrack(key: string): Promise<boolean> {
+  return blobHas("tracks", key);
 }
 
 const cachedListeners = new Set<(track: CachedTrack) => void>();
@@ -638,12 +618,12 @@ export function onTrackCached(fn: (track: CachedTrack) => void): () => void {
 }
 
 export async function putCachedTrack(track: CachedTrack): Promise<void> {
-  await withStore("readwrite", (s) => s.put(track));
+  await blobPut("tracks", { ...track, mime: track.blob.type });
   cachedListeners.forEach((fn) => { fn(track); });
 }
 
 export async function deleteCachedTrack(key: string): Promise<void> {
-  await withStore("readwrite", (s) => s.delete(key));
+  await blobDelete("tracks", key);
 }
 
 /* ------------------------------ HTTP layer ------------------------------- */

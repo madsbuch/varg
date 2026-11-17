@@ -7,7 +7,7 @@
  * list without anyone writing one, and cannot forget the bench its bench
  * dips need. A template adds only what no exercise implies (Murph's vest)
  * and the specifics of its own prescription (Helen's 24/16 kg bell) in
- * `Template.gear`; db:smoke rejects a detail for gear the workout does
+ * `Template.gear`; check:content rejects a detail for gear the workout does
  * not use.
  */
 import type { Template } from "../types";

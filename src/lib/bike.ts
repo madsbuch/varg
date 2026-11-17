@@ -17,6 +17,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "../db/persistence";
+import { kvGet, kvRemove, kvSet } from "./kv";
 
 /** One parsed measurement. Fields a packet does not carry are undefined. */
 export interface BikeSample {
@@ -186,7 +187,7 @@ export function bikeAvailable(): boolean {
 
 export function loadBike(): { address: string; name: string } | null {
   try {
-    const raw = localStorage.getItem(DEVICE_KEY);
+    const raw = kvGet(DEVICE_KEY);
     return raw ? (JSON.parse(raw) as { address: string; name: string }) : null;
   } catch {
     return null;
@@ -195,8 +196,8 @@ export function loadBike(): { address: string; name: string } | null {
 
 export function saveBike(b: { address: string; name: string } | null): void {
   try {
-    if (b) localStorage.setItem(DEVICE_KEY, JSON.stringify(b));
-    else localStorage.removeItem(DEVICE_KEY);
+    if (b) kvSet(DEVICE_KEY, JSON.stringify(b));
+    else kvRemove(DEVICE_KEY);
   } catch {
     // remembered for this session only
   }

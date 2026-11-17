@@ -18,6 +18,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "../db/persistence";
 import type { HeartRate, Session } from "../types";
+import { kvGet, kvRemove, kvSet } from "./kv";
 
 /** One parsed measurement. */
 export interface HrSample {
@@ -173,7 +174,7 @@ export function hrZonesProblem(z: HrZones): string | null {
 
 export function loadHrZones(): HrZones | null {
   try {
-    const raw = localStorage.getItem(ZONES_KEY);
+    const raw = kvGet(ZONES_KEY);
     if (!raw) return null;
     // Parsed as unknown: a stored value from an older shape must not pass.
     const z = JSON.parse(raw) as { floors?: unknown; max?: unknown };
@@ -187,8 +188,8 @@ export function loadHrZones(): HrZones | null {
 
 export function saveHrZones(z: HrZones | null): void {
   try {
-    if (z) localStorage.setItem(ZONES_KEY, JSON.stringify(z));
-    else localStorage.removeItem(ZONES_KEY);
+    if (z) kvSet(ZONES_KEY, JSON.stringify(z));
+    else kvRemove(ZONES_KEY);
   } catch {
     // remembered for this session only
   }
@@ -249,7 +250,7 @@ export function hrAvailable(): boolean {
 
 export function loadStrap(): { address: string; name: string } | null {
   try {
-    const raw = localStorage.getItem(DEVICE_KEY);
+    const raw = kvGet(DEVICE_KEY);
     return raw ? (JSON.parse(raw) as { address: string; name: string }) : null;
   } catch {
     return null;
@@ -258,8 +259,8 @@ export function loadStrap(): { address: string; name: string } | null {
 
 export function saveStrap(s: { address: string; name: string } | null): void {
   try {
-    if (s) localStorage.setItem(DEVICE_KEY, JSON.stringify(s));
-    else localStorage.removeItem(DEVICE_KEY);
+    if (s) kvSet(DEVICE_KEY, JSON.stringify(s));
+    else kvRemove(DEVICE_KEY);
   } catch {
     // remembered for this session only
   }

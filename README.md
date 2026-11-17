@@ -69,7 +69,7 @@ conventions are documented in [CLAUDE.md](CLAUDE.md).
   High. A default for every workout is set in Skipan → Music, and each
   workout's page can override it; the yoga flows get every
   pose name spoken in an ElevenLabs voice of your choice. Everything is
-  downloaded and cached in IndexedDB, so each track and line is generated
+  downloaded and kept in the on-device database, so each track and line is generated
   exactly once and workouts never need the network.
   Generation is standby-safe: requests are submitted up front and composed
   on kie.ai's servers, in-flight task ids are persisted, and finished
@@ -106,7 +106,7 @@ conventions are documented in [CLAUDE.md](CLAUDE.md).
   shown in red until it does. Rides can be steered by heart rate instead of watts:
   Zone 2 · 40 holds you in heart-rate zone 2, using the zones copied from
   Garmin Connect into Skipan, so Varg's zone 2 is the watch's.
-- **Offline-first** — all data lives in an on-device SQLite database.
+- **Offline-first** — all data lives in an on-device SQLite database, owned by Rust.
 - **Day and night themes**: woad blue on weathered stone by day, on cold iron
   by night, with carved Norse styling. Skipan picks one or follows the phone.
 - **Tablet layouts**: two-column libraries and set logging on smaller
@@ -115,26 +115,27 @@ conventions are documented in [CLAUDE.md](CLAUDE.md).
 
 ## Data & migrations
 
-Storage is SQLite via [tauri-plugin-sql], with [Drizzle ORM] on top:
+All storage lives in Rust: one SQLite file through [Diesel], in the
+[`src-tauri/store`](src-tauri/store) crate. Training data, Mímir's programs
+and chat, settings, and the generated audio are all in it.
 
-- The schema is code: [`src/db/schema.ts`](src/db/schema.ts).
-- Every schema change is a tracked SQL migration in [`/drizzle`](drizzle),
-  generated with `bun run db:generate` and committed — the full history of
-  the database lives in git.
-- Migrations are applied automatically on app startup (recorded in the
-  `__migrations` table on device).
-- `bun run db:smoke` applies all migrations to an in-memory SQLite and runs
-  representative CRUD through the real schema — CI runs it on every push.
-- Data previously stored in localStorage is imported into SQLite on first
-  launch, automatically.
-- In a plain browser (`bun run dev`), the app falls back to localStorage so
-  the UI stays fully usable during frontend development.
+- The schema is [`src-tauri/store/src/schema.rs`](src-tauri/store/src/schema.rs);
+  every change is a Diesel migration in
+  [`src-tauri/store/migrations`](src-tauri/store/migrations), embedded in the
+  app and applied on startup in a transaction.
+- Phones that ran the Drizzle-era app keep everything: the same file, the
+  same tables, and its migration history adopted by Diesel.
+- Settings and cached audio that lived in the WebView (localStorage,
+  IndexedDB) are copied into the store once, on the first launch.
+- Strict both ways: the Rust types refuse unknown fields and wrong types,
+  and the app decodes everything it reads back, field by field.
+- `bun run test:store` (Rust) tests the migrations, the upgrade, and every
+  read and write; `bun run test` pins what the app sends against the Rust
+  types. CI runs both.
+- In a plain browser (`bun run dev`), the app falls back to localStorage and
+  IndexedDB so the UI stays usable during frontend development.
 
-To change the schema: edit `src/db/schema.ts` → `bun run db:generate` →
-review the new SQL file in `/drizzle` → commit both.
-
-[tauri-plugin-sql]: https://v2.tauri.app/plugin/sql/
-[Drizzle ORM]: https://orm.drizzle.team/
+[Diesel]: https://diesel.rs/
 
 ## Stack
 
@@ -143,8 +144,8 @@ review the new SQL file in `/drizzle` → commit both.
 | Shell     | Tauri 2 (Rust)                      |
 | Frontend  | React 18 + Vite + TypeScript        |
 | Package   | Bun                                 |
-| Storage   | SQLite (tauri-plugin-sql) + Drizzle ORM |
-| Migrations | drizzle-kit, SQL files tracked in git |
+| Storage   | SQLite in Rust, Diesel ORM          |
+| Migrations | Diesel, SQL files tracked in git    |
 | Target    | Android (APK + AAB), desktop-capable |
 
 ## Development

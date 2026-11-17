@@ -12,12 +12,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "../db/persistence";
 import { duckMusic } from "./beep";
+import { kvGet, kvSet } from "./kv";
 
 const SETTING_KEY = "varg.voice.v1";
 
 export function loadVoiceOn(): boolean {
   try {
-    return localStorage.getItem(SETTING_KEY) !== "0";
+    return kvGet(SETTING_KEY) !== "0";
   } catch {
     return true;
   }
@@ -25,7 +26,7 @@ export function loadVoiceOn(): boolean {
 
 export function saveVoiceOn(on: boolean): void {
   try {
-    localStorage.setItem(SETTING_KEY, on ? "1" : "0");
+    kvSet(SETTING_KEY, on ? "1" : "0");
   } catch {
     // remembered for this session only
   }

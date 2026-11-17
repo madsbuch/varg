@@ -12,6 +12,7 @@ import type { AppData } from "../types";
 import type { Persistence } from "../db/persistence";
 import { createPersistence, persistDiff } from "../db/persistence";
 import { Mark } from "../components/icons";
+import { setLoadedPrograms } from "./programs";
 
 /**
  * Set while the athlete's most recent edits are NOT on disk.
@@ -33,6 +34,8 @@ interface AppContextValue {
   data: AppData;
   update: (fn: (data: AppData) => AppData) => void;
   saveFailure: SaveFailure | null;
+  /** Stored rows that could not be read at launch, each with why. */
+  loadProblems: string[];
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -66,6 +69,8 @@ const splashStyle = {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Rows the store could not read. The rest loaded; these stay on screen.
+  const [loadProblems, setLoadProblems] = useState<string[]>([]);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [failure, setFailure] = useState<{ message: string; attempts: number } | null>(null);
   const [slowStart, setSlowStart] = useState(false);
@@ -78,18 +83,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     latest.current = data;
   }, [data]);
+  // Keep the programs readable outside React (music, voice lines) current.
+  const programs = data?.programs;
+  useEffect(() => {
+    if (programs) setLoadedPrograms(programs);
+  }, [programs]);
 
-  // Open the backend (SQLite in Tauri, localStorage in a browser) and
+  // Open the backend (the Rust store in the app, localStorage in a browser) and
   // load. Re-runs when Retry bumps loadAttempt — a migration can fail
   // on a transient lock and succeed on the next try.
   useEffect(() => {
     let cancelled = false;
     createPersistence()
       .then(async (p) => {
-        const loaded = await p.load();
+        const { data: loaded, problems } = await p.load();
         if (cancelled) return;
         backend.current = p;
         lastPersisted.current = loaded;
+        // Before the first render: code outside React (music, voice lines)
+        // looks programs up by id as soon as the app mounts.
+        setLoadedPrograms(loaded.programs);
+        setLoadProblems(problems);
         setData(loaded);
       })
       .catch((err: unknown) => {
@@ -180,8 +194,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => (data ? { data, update, saveFailure } : null),
-    [data, update, saveFailure],
+    () => (data ? { data, update, saveFailure, loadProblems } : null),
+    [data, update, saveFailure, loadProblems],
   );
 
   // The database could not be opened. Say so — an infinite splash on a

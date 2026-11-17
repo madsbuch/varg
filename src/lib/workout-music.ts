@@ -31,7 +31,7 @@ export const CHUNK_S = 120;
 /**
  * Every set's tempos (144 and 156 BPM) fit a whole number of bars into a
  * multiple of 20 s (12 and 13 bars). A section boundary inside a workout
- * must lie on this grid, or a song change lands off the bar: db:smoke
+ * must lie on this grid, or a song change lands off the bar: check:content
  * checks the warm-ups.
  */
 export const BAR_GRID_S = 20;

@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import type { Template } from "../types";
+import type { ChatItem, Template } from "../types";
 import { useApp } from "../lib/app-context";
-import { chatSnapshot, clearChat, markSaved, send, stop, subscribeChat } from "../lib/mimir";
-import type { ChatItem } from "../lib/mimir";
+import { clearChat, saveFromChat, send, stop, subscribeTurn, turnSnapshot } from "../lib/mimir";
 import { loadMimirSettings } from "../lib/openrouter";
-import { deleteProgram, saveProgram, templateById, usePrograms } from "../lib/programs";
+import { templatesWith, withoutProgram } from "../lib/programs";
 import { templateLength, LEVEL_LABEL } from "../lib/catalog";
 import { formatSeconds } from "../lib/units";
-import { errorText } from "../lib/http";
 import { ConfirmSheet } from "../components/ui";
 import { IconTrash } from "../components/icons";
 
@@ -23,25 +21,25 @@ const STARTERS = [
  * recommends what to do from the history. See lib/mimir.ts.
  */
 export default function Mimir({ goto, openWorkout }: { goto: (t: "settings") => void; openWorkout: (id: string) => void }) {
-  const { data } = useApp();
-  const chat = useSyncExternalStore(subscribeChat, chatSnapshot);
-  const programs = usePrograms();
+  const { data, update } = useApp();
+  const turn = useSyncExternalStore(subscribeTurn, turnSnapshot);
+  const programs = data.programs;
+  const items = data.mimir.items;
   const [draft, setDraft] = useState("");
   const [showPrograms, setShowPrograms] = useState(false);
   const [deleting, setDeleting] = useState<Template | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const settings = loadMimirSettings();
+  const [settings] = useState(loadMimirSettings);
   const hasKey = settings.apiKey !== "";
   const end = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
-  }, [chat.items.length, chat.busy]);
+  }, [items.length, turn.busy]);
 
   const submit = (text: string) => {
-    if (!text.trim() || chat.busy !== null) return;
+    if (!text.trim() || turn.busy !== null) return;
     setDraft("");
-    void send(loadMimirSettings(), data, text);
+    void send(loadMimirSettings(), data, update, text);
   };
 
   return (
@@ -52,8 +50,8 @@ export default function Mimir({ goto, openWorkout }: { goto: (t: "settings") => 
         <button className={`filter-chip ${showPrograms ? "on" : ""}`} aria-pressed={showPrograms} onClick={() => { setShowPrograms((v) => !v); }}>
           My programs · {programs.length}
         </button>
-        {chat.items.length > 0 && (
-          <button className="filter-chip" disabled={chat.busy !== null} onClick={clearChat}>
+        {items.length > 0 && (
+          <button className="filter-chip" disabled={turn.busy !== null} onClick={() => { clearChat(update); }}>
             New chat
           </button>
         )}
@@ -63,8 +61,8 @@ export default function Mimir({ goto, openWorkout }: { goto: (t: "settings") => 
         <div className="card" style={{ marginTop: 10 }}>
           {programs.length === 0 && <div className="muted">None saved yet</div>}
           {programs.map((p) => (
-            <div key={p.template.id} className="row" style={{ alignItems: "center", padding: "6px 0" }}>
-              <button className="link" style={{ flex: 1, textAlign: "left" }} onClick={() => { openWorkout(p.template.id); }}>
+            <div key={p.id} className="row" style={{ alignItems: "center", padding: "6px 0" }}>
+              <button className="link" style={{ flex: 1, textAlign: "left" }} onClick={() => { openWorkout(p.id); }}>
                 {p.template.name}
               </button>
               <button className="btn ghost sm" style={{ width: "auto" }} aria-label={`Delete ${p.template.name}`} onClick={() => { setDeleting(p.template); }}>
@@ -85,48 +83,40 @@ export default function Mimir({ goto, openWorkout }: { goto: (t: "settings") => 
       )}
 
       <div className="mimir-chat">
-        {chat.items.length === 0 && hasKey && (
+        {items.length === 0 && hasKey && (
           <div className="filter-row" style={{ flexWrap: "wrap" }}>
             {STARTERS.map((s) => (
               <button key={s} className="filter-chip" onClick={() => { submit(s); }}>{s}</button>
             ))}
           </div>
         )}
-        {chat.items.map((item, i) => (
+        {items.map((row) => (
           <Item
-            key={i}
-            item={item}
-            onSave={(t) => {
-              try {
-                saveProgram(t);
-                markSaved(i);
-                setSaveError(null);
-              } catch (e) {
-                setSaveError(`Not saved: ${errorText(e)}`);
-              }
-            }}
+            key={row.id}
+            item={row.body}
+            find={(id) => templatesWith(programs).find((t) => t.id === id)}
+            onSave={(t) => { saveFromChat(update, row.id, t); }}
             onOpen={openWorkout}
           />
         ))}
-        {chat.busy !== null && (
+        {turn.busy !== null && (
           <div className="mimir-busy muted">
-            {chat.busy}…
+            {turn.busy}…
             <button className="link" style={{ marginLeft: 10 }} onClick={stop}>Stop</button>
           </div>
         )}
-        {chat.failure && (
+        {turn.failure && (
           <div className="persist-error" role="status">
-            <div style={{ flex: 1, minWidth: 0, wordBreak: "break-word" }}>{chat.failure.text}</div>
+            <div style={{ flex: 1, minWidth: 0, wordBreak: "break-word" }}>{turn.failure.text}</div>
             <button
               className="btn ghost sm"
               style={{ width: "auto" }}
-              onClick={() => { if (chat.failure) void send(loadMimirSettings(), data, chat.failure.message, true); }}
+              onClick={() => { if (turn.failure) void send(loadMimirSettings(), data, update, turn.failure.message, true); }}
             >
               Retry
             </button>
           </div>
         )}
-        {saveError && <div className="persist-error" role="status">{saveError}</div>}
         <div ref={end} />
       </div>
 
@@ -150,7 +140,7 @@ export default function Mimir({ goto, openWorkout }: { goto: (t: "settings") => 
             }
           }}
         />
-        <button className="btn primary" style={{ width: "auto" }} disabled={!hasKey || chat.busy !== null || !draft.trim()}>
+        <button className="btn primary" style={{ width: "auto" }} disabled={!hasKey || turn.busy !== null || !draft.trim()}>
           Send
         </button>
       </form>
@@ -160,7 +150,7 @@ export default function Mimir({ goto, openWorkout }: { goto: (t: "settings") => 
           title={`Delete ${deleting.name}?`}
           message="Sessions you logged with it stay in the Saga."
           confirmLabel="Delete"
-          onConfirm={() => { deleteProgram(deleting.id); }}
+          onConfirm={() => { update((d) => withoutProgram(d, deleting.id)); }}
           onClose={() => { setDeleting(null); }}
         />
       )}
@@ -168,7 +158,12 @@ export default function Mimir({ goto, openWorkout }: { goto: (t: "settings") => 
   );
 }
 
-function Item({ item, onSave, onOpen }: { item: ChatItem; onSave: (t: Template) => void; onOpen: (id: string) => void }) {
+function Item({ item, find, onSave, onOpen }: {
+  item: ChatItem;
+  find: (id: string) => Template | undefined;
+  onSave: (t: Template) => void;
+  onOpen: (id: string) => void;
+}) {
   switch (item.kind) {
     case "user":
       return <div className="mimir-msg user">{item.text}</div>;
@@ -189,7 +184,7 @@ function Item({ item, onSave, onOpen }: { item: ChatItem; onSave: (t: Template) 
         </ProgramCard>
       );
     case "pick": {
-      const t = templateById(item.templateId);
+      const t = find(item.templateId);
       if (!t) return <div className="mimir-msg" style={{ color: "var(--danger)" }}>Workout gone · {item.templateId}</div>;
       return (
         <ProgramCard template={t} why={item.why}>

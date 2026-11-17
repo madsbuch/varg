@@ -746,7 +746,7 @@ const CATEGORY_FALLBACK: Record<Category, LibraryEntry> = {
   },
 };
 
-/** An exercise's declared gear; [] for one with no entry (db:smoke forbids that for built-ins). */
+/** An exercise's declared gear; [] for one with no entry (check:content forbids that for built-ins). */
 export function exerciseGear(exerciseId: string): readonly GearId[] {
   return LIB[exerciseId]?.gear ?? [];
 }
@@ -758,7 +758,7 @@ export function libraryFor(ex: Exercise): LibraryEntry {
 /**
  * Does this exercise have its own animation and cues, rather than the
  * category archetype? Built-ins must — a fallback demonstrates the wrong
- * movement. `bun run db:smoke` asserts full coverage.
+ * movement. `bun run check:content` asserts full coverage.
  */
 export function hasLibraryEntry(exerciseId: string): boolean {
   return exerciseId in LIB;

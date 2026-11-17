@@ -84,7 +84,7 @@ describe("reading a program", () => {
     const r = readProgram({ name: "X", description: "x", level: "expert", exerciseIds: [EX.pushUp], interval: { work: "20", rest: 10, rounds: 3 } }, "mimir-x");
     expect(r.template).toBeUndefined();
     expect(r.problems).toContain("interval.work must be a whole number");
-    expect(r.problems).toContain("level must be beginner, intermediate or advanced");
+    expect(r.problems).toContain('level must be one of "beginner", "intermediate", "advanced"');
   });
 
   test("only one player", () => {

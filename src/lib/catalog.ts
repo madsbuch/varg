@@ -31,7 +31,7 @@ export function emomSeconds(plan: EmomPlan): number {
 /**
  * How long a workout takes: exact for interval, flow and EMOM workouts, the
  * authored typical time for everything else. Undefined only for a template
- * missing its estimate — db:smoke makes that a build failure.
+ * missing its estimate — check:content makes that a build failure.
  */
 export function templateLength(t: Template): { seconds: number; exact: boolean } | undefined {
   if (t.interval) return { seconds: intervalSeconds(t.exerciseIds.length, t.interval), exact: true };

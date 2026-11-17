@@ -15,6 +15,7 @@
  * kick on every beat with no intro (music.ts buildSongStyle).
  */
 import type { Intensity } from "../types";
+import { kvGet, kvSet } from "./kv";
 
 export type SetId = "techno" | "jazz-house" | "anthems";
 
@@ -153,7 +154,7 @@ export function onSongsChange(fn: () => void): () => void {
 
 function userSongs(): Song[] {
   try {
-    const raw = JSON.parse(localStorage.getItem(USER_KEY) ?? "[]") as Song[];
+    const raw = JSON.parse(kvGet(USER_KEY) ?? "[]") as Song[];
     // Tempo always follows the set: re-derive rather than trust storage.
     return raw.map((s) => ({ ...s, bpm: setById(s.set)?.bpm[s.intensity] ?? s.bpm, user: true as const }));
   } catch {
@@ -219,14 +220,14 @@ export function addUserSong(s: NewSong): Song {
     ...(lyrics ? { lyrics } : {}),
     user: true,
   };
-  localStorage.setItem(USER_KEY, JSON.stringify([...userSongs(), created]));
+  kvSet(USER_KEY, JSON.stringify([...userSongs(), created]));
   listeners.forEach((fn) => { fn(); });
   return created;
 }
 
 /** Remove one of the owner's songs. Built-in songs cannot be deleted. */
 export function deleteUserSong(id: string): void {
-  localStorage.setItem(USER_KEY, JSON.stringify(userSongs().filter((s) => s.id !== id)));
+  kvSet(USER_KEY, JSON.stringify(userSongs().filter((s) => s.id !== id)));
   listeners.forEach((fn) => { fn(); });
 }
 

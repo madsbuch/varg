@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "./lib/app-context";
+import { useKvFailure } from "./lib/kv";
 import { installBackButton, useBackHandler } from "./lib/back";
 import { ensureAllTracks } from "./lib/music";
 import { ensureSongLoops } from "./lib/song-loops";
@@ -66,24 +67,51 @@ async function exitApp(): Promise<void> {
  * change and cannot be scrolled away.
  */
 function SaveFailureBanner() {
-  const { saveFailure } = useApp();
-  if (!saveFailure) return null;
+  const { saveFailure, loadProblems } = useApp();
+  const kvFailure = useKvFailure();
+  const [dismissed, setDismissed] = useState(false);
   return (
-    <div className="save-failure">
-      <div className="persist-error" role="status">
-        <IconFlag />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          Not saved, retrying
-          <div style={{ fontWeight: 400, wordBreak: "break-word" }}>
-            {saveFailure.message}
-            {saveFailure.attempts > 1 && ` · ${String(saveFailure.attempts)} attempts`}
+    <>
+      {saveFailure && (
+        <div className="save-failure">
+          <div className="persist-error" role="status">
+            <IconFlag />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              Not saved, retrying
+              <div style={{ fontWeight: 400, wordBreak: "break-word" }}>
+                {saveFailure.message}
+                {saveFailure.attempts > 1 && ` · ${String(saveFailure.attempts)} attempts`}
+              </div>
+            </div>
+            <button className="btn ghost sm" onClick={saveFailure.retry}>
+              Retry
+            </button>
           </div>
         </div>
-        <button className="btn ghost sm" onClick={saveFailure.retry}>
-          Retry
-        </button>
-      </div>
-    </div>
+      )}
+      {kvFailure && (
+        <div className="save-failure">
+          <div className="persist-error" role="status">
+            <IconFlag />
+            <div style={{ flex: 1, minWidth: 0, wordBreak: "break-word" }}>{kvFailure} · retrying</div>
+          </div>
+        </div>
+      )}
+      {loadProblems.length > 0 && !dismissed && (
+        <div className="save-failure">
+          <div className="persist-error" role="status">
+            <IconFlag />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {loadProblems.length} stored {loadProblems.length === 1 ? "row" : "rows"} unreadable
+              <div style={{ fontWeight: 400, wordBreak: "break-word" }}>{loadProblems.slice(0, 3).join(" · ")}</div>
+            </div>
+            <button className="btn ghost sm" onClick={() => { setDismissed(true); }}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

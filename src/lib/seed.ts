@@ -16,7 +16,7 @@
  *    and its own cues in library.ts. The category fallback in library.ts is
  *    for user-created exercises; a built-in that falls back demonstrates the
  *    wrong movement, which is how Air Squat once showed a push-up.
- *  - `bun run db:smoke` asserts both of the above, plus that no template
+ *  - `bun run check:content` asserts both of the above, plus that no template
  *    references an exercise that does not exist. Run it.
  *  - Existing installs pick new built-ins up via mergeBuiltIns() on load;
  *    their database was seeded on first launch and is never re-seeded.

@@ -2,7 +2,7 @@
  * Every rule a workout template must keep, as a list of problems: empty
  * means the template runs exactly as its card says.
  *
- * One source of truth for two authors. db:smoke runs it over every built-in
+ * One source of truth for two authors. check:content runs it over every built-in
  * (the coding agent's programs, see CLAUDE.md), and Mímir, the in-app
  * trainer, runs it over every program it proposes before the owner can save
  * it, and the Hunt runs it again before a saved program starts. A program
@@ -284,9 +284,9 @@ export function templateProblems(tpl: Template, exercises: readonly Exercise[]):
       fail(id in GEAR, `${where}: unknown gear "${id}"`);
       fail(!derived.has(id), `${where}: "${id}" comes from its exercises already; drop it from extra`);
     }
-    const listed = new Set(templateGear(tpl, exerciseGear).map((g) => g.id));
+    const listed = new Set<string>(templateGear(tpl, exerciseGear).map((g) => g.id));
     for (const id of Object.keys(tpl.gear?.detail ?? {})) {
-      fail(listed.has(id as GearId), `${where}: detail for "${id}", which the workout does not use`);
+      fail(listed.has(id), `${where}: detail for "${id}", which the workout does not use`);
     }
   }
 

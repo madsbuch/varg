@@ -2,12 +2,13 @@
  * Light, dark, or whatever the phone says.
  *
  * The choice is resolved to an explicit `data-theme` on <html>, which is
- * the only thing the stylesheet keys on. Kept in localStorage rather than
- * the database: it has to be applied before the first paint, and the
- * database opens asynchronously.
+ * the only thing the stylesheet keys on. Kept in the settings store (kv.ts) rather than
+ * the training data: it is applied as soon as the settings are read, before the
+ * app renders.
  */
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "../db/persistence";
+import { kvGet, kvRemove, kvSet } from "./kv";
 
 export type ThemeChoice = "system" | "light" | "dark";
 
@@ -18,7 +19,7 @@ const CHROME = { light: "#e3e5e3", dark: "#0f1317" } as const;
 
 export function loadTheme(): ThemeChoice {
   try {
-    const v = localStorage.getItem(KEY);
+    const v = kvGet(KEY);
     return v === "light" || v === "dark" ? v : "system";
   } catch {
     return "system";
@@ -43,8 +44,8 @@ function apply(choice: ThemeChoice): void {
 
 export function saveTheme(choice: ThemeChoice): void {
   try {
-    if (choice === "system") localStorage.removeItem(KEY);
-    else localStorage.setItem(KEY, choice);
+    if (choice === "system") kvRemove(KEY);
+    else kvSet(KEY, choice);
   } catch {
     // Storage unavailable: the theme still applies for this run.
   }

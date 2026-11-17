@@ -1,0 +1,9 @@
+DROP TABLE workout_sets;
+DROP TABLE split_day_exercises;
+DROP TABLE split_days;
+DROP TABLE splits;
+DROP TABLE settings;
+DROP TABLE session_entries;
+DROP TABLE sessions;
+DROP TABLE personal_records;
+DROP TABLE exercises;

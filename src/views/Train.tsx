@@ -15,8 +15,7 @@ import {
   newSession,
   upsertSession,
 } from "../lib/store";
-import { seedTemplates } from "../lib/seed";
-import { isProgram, templateById, usePrograms } from "../lib/programs";
+import { isProgram, templatesWith } from "../lib/programs";
 import { templateProblems } from "../lib/template-check";
 import { bestPRFor } from "../lib/prs";
 import { musicProfileFor } from "../lib/music";
@@ -55,9 +54,11 @@ import {
   kmFromMeters,
   metersFromKm,
   parseDecimal,
+  parseWhole,
   parseTime,
   roundW,
 } from "../lib/units";
+import { kvGet, kvSet } from "../lib/kv";
 
 /** A set counts as "filled" when the athlete entered any data for it. */
 function setHasData(s: WorkoutSet): boolean {
@@ -92,7 +93,7 @@ const LEVELS: Level[] = ["beginner", "intermediate", "advanced"];
 /** A remembered library choice, or the default when storage has none (or no storage). */
 function loadChoice<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
-    const v = localStorage.getItem(key);
+    const v = kvGet(key);
     return allowed.includes(v as T) ? (v as T) : fallback;
   } catch {
     return fallback;
@@ -100,7 +101,7 @@ function loadChoice<T extends string>(key: string, allowed: readonly T[], fallba
 }
 function saveChoice(key: string, value: string): void {
   try {
-    localStorage.setItem(key, value);
+    kvSet(key, value);
   } catch {
     // remembered for this session only
   }
@@ -128,7 +129,9 @@ export default function Train({ openId }: { openId?: string | null }) {
 function StartScreen({ openId }: { openId: string | null }) {
   const { data, update } = useApp();
   // Opened from Mímir: straight to that workout's details.
-  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(() => templateById(openId ?? undefined) ?? null);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(
+    () => templatesWith(data.programs).find((t) => t.id === openId) ?? null,
+  );
   const [runningWod, setRunningWod] = useState<WodConfig | null>(null);
   const [runningForTime, setRunningForTime] = useState<ForTimeConfig | null>(null);
   const [runningRide, setRunningRide] = useState<RideConfig | null>(null);
@@ -141,9 +144,9 @@ function StartScreen({ openId }: { openId: string | null }) {
   // Alphabetical, Danish collation so æ/ø/å sort where a Dane expects, and
   // numeric so "Mobility 5" comes before "Mobility 20".
   // Mímir's saved programs sit beside the built-ins and run the same way.
-  const programs = usePrograms();
+  const programs = data.programs;
   const templates = useMemo(
-    () => [...seedTemplates(), ...programs.map((p) => p.template)].sort((a, b) => a.name.localeCompare(b.name, "da", { numeric: true })),
+    () => templatesWith(programs).sort((a, b) => a.name.localeCompare(b.name, "da", { numeric: true })),
     [programs],
   );
   const [favorites, setFavorites] = useState(loadFavorites);
@@ -801,6 +804,7 @@ function EntryCard({
                     initial={c.get(s)}
                     placeholder={hint === "" ? c.placeholder : hint}
                     isTime={c.isTime ?? false}
+                    whole={c.whole ?? false}
                     onChange={(v) => { setField(s.id, c.set(v)); }}
                   />
                 );
@@ -872,6 +876,8 @@ interface Col {
   placeholder: string;
   /** Takes mm:ss rather than a decimal. */
   isTime?: boolean;
+  /** Whole numbers only: "5.5" reps is shown red and never logged. */
+  whole?: boolean;
   get: (s: WorkoutSet) => string;
   set: (v: number | undefined) => Partial<WorkoutSet>;
 }
@@ -888,6 +894,7 @@ const repsCol: Col = {
   key: "r",
   label: "reps",
   placeholder: "0",
+  whole: true,
   get: (s) => (s.reps == null ? "" : String(s.reps)),
   set: (v) => ({ reps: v }),
 };
@@ -942,15 +949,17 @@ function NumInput({
   initial,
   placeholder,
   isTime,
+  whole,
   onChange,
 }: {
   initial: string;
   placeholder: string;
   isTime: boolean;
+  whole: boolean;
   onChange: (v: number | undefined) => void;
 }) {
   const [text, setText] = useState(initial);
-  const parse = isTime ? parseTime : parseDecimal;
+  const parse = isTime ? parseTime : whole ? parseWhole : parseDecimal;
   // "1:" is halfway to "1:30", not a mistake — judge a settled buffer only.
   const invalid =
     text.trim() !== "" && !/[.,:]$/.test(text) && parse(text) === undefined;
@@ -958,7 +967,7 @@ function NumInput({
   return (
     <input
       className={invalid ? "invalid" : undefined}
-      inputMode={isTime ? "text" : "decimal"}
+      inputMode={isTime ? "text" : whole ? "numeric" : "decimal"}
       placeholder={placeholder}
       value={text}
       onChange={(e) => {

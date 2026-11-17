@@ -206,7 +206,7 @@ function MimirSetting() {
               {!known && <option value="">Pick a model</option>}
               {models.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.id} · ${m.promptPerM.toFixed(2)}/M
+                  {m.id}{m.promptPerM === undefined ? "" : ` · $${m.promptPerM.toFixed(2)}/M`}
                 </option>
               ))}
             </select>

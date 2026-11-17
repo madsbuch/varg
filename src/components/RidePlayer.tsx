@@ -45,6 +45,7 @@ import { useHeartRate } from "./HeartRate";
 import { Slot, TopTitle } from "./TopBar";
 import { HR_ZONE_NAMES, hrZoneOf, hrZoneRange, loadHrZones } from "../lib/hr";
 import "./WodPlayer.css";
+import { kvGet, kvSet } from "../lib/kv";
 
 const LEAD_IN = 10;
 
@@ -892,7 +893,7 @@ function Stat({ value, unit }: { value: string | number; unit: string }) {
 const DECK_KEY = "varg.rideDeck.v1";
 function loadDeckPage(): number {
   try {
-    return Number(localStorage.getItem(DECK_KEY)) || 0;
+    return Number(kvGet(DECK_KEY)) || 0;
   } catch {
     return 0;
   }
@@ -917,7 +918,7 @@ function RideDeck({ pages }: { pages: { title: string; body: React.ReactNode }[]
     const p = Math.round(el.scrollLeft / el.clientWidth);
     if (p === page) return;
     setPage(p);
-    try { localStorage.setItem(DECK_KEY, String(p)); } catch { /* this ride only */ }
+    try { kvSet(DECK_KEY, String(p)); } catch { /* this ride only */ }
   };
   const go = (p: number) => {
     const el = strip.current;

@@ -16,6 +16,7 @@ import type { Loop } from "./beatgrid";
 import { analyzeTrack, LayerError } from "./mixer";
 import { getCachedTrack, musicLog, onTrackCached } from "./music";
 import { allSongs, songById, songForKey, songKey } from "./songs";
+import { kvGet, kvSet } from "./kv";
 
 const KEY = "varg.songs.meta.v1";
 export const BEAT_MODEL = "Beat This! small0";
@@ -46,7 +47,7 @@ export interface SongMeta {
 
 function all(): Record<string, SongMeta | undefined> {
   try {
-    return JSON.parse(localStorage.getItem(KEY) ?? "{}") as Record<string, SongMeta | undefined>;
+    return JSON.parse(kvGet(KEY) ?? "{}") as Record<string, SongMeta | undefined>;
   } catch {
     return {};
   }
@@ -74,9 +75,9 @@ export function isAnalysing(songId: string): boolean {
 
 function keep(songId: string, meta: SongMeta): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ ...all(), [songId]: meta }));
+    kvSet(KEY, JSON.stringify({ ...all(), [songId]: meta }));
   } catch {
-    // A full localStorage only costs the analysis again next time.
+    // A lost write only costs the analysis again next time.
   }
 }
 

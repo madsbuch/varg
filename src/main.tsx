@@ -1,13 +1,11 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { AppProvider } from "./lib/app-context";
-import App from "./App";
 import "@fontsource/cinzel/latin-700.css";
 import "@fontsource/cinzel/latin-900.css";
 import "./styles.css";
-import { initTheme } from "./lib/theme";
-
-initTheme();
+import { initKv } from "./lib/kv";
+import { importWebViewAudio } from "./lib/blobs";
+import { errorText } from "./lib/http";
 
 /**
  * Android webviews draw edge-to-edge under the system status bar but
@@ -31,10 +29,49 @@ applyAndroidInsetFallback();
 
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Missing #root element");
-ReactDOM.createRoot(rootEl).render(
-  <React.StrictMode>
-    <AppProvider>
-      <App />
-    </AppProvider>
-  </React.StrictMode>,
-);
+const root = ReactDOM.createRoot(rootEl);
+
+/**
+ * The store opens and every setting is read BEFORE the app's modules load:
+ * many of them read a setting as they load (the Garmin cache, the theme),
+ * and must see the stored value, never a default. Hence the dynamic
+ * imports. A store that will not open says so, with Retry, rather than an
+ * endless splash.
+ */
+async function boot(): Promise<void> {
+  try {
+    await initKv();
+    await importWebViewAudio();
+  } catch (e) {
+    root.render(<BootFailure reason={errorText(e)} />);
+    return;
+  }
+  const [{ initTheme }, { AppProvider }, { default: App }] = await Promise.all([
+    import("./lib/theme"),
+    import("./lib/app-context"),
+    import("./App"),
+  ]);
+  initTheme();
+  root.render(
+    <React.StrictMode>
+      <AppProvider>
+        <App />
+      </AppProvider>
+    </React.StrictMode>,
+  );
+}
+
+function BootFailure({ reason }: { reason: string }) {
+  return (
+    <div style={{ minHeight: "100dvh", display: "grid", placeItems: "center", padding: 16, background: "var(--bg)" }}>
+      <div className="card" style={{ maxWidth: 340 }}>
+        <div className="section-label" style={{ margin: "0 0 10px" }}>Varg could not start</div>
+        <p style={{ marginBottom: 10 }}>The database did not open. Nothing has been deleted.</p>
+        <p className="faint" style={{ marginBottom: 16, wordBreak: "break-word" }}>{reason}</p>
+        <button className="btn primary" onClick={() => { window.location.reload(); }}>Retry</button>
+      </div>
+    </div>
+  );
+}
+
+void boot();

@@ -8,75 +8,79 @@
  *    as CLAUDE.md asks of the coding agent: station order, work and rest,
  *    rounds. Mímir writes a `Template` from built-in exercises only (each
  *    has its own animation and cues), it is checked by `templateProblems`
- *    (the same rules db:smoke holds the built-ins to), and only a program
+ *    (the same rules check:content holds the built-ins to), and only a program
  *    with no problems reaches the owner, as a card with Save.
  *  - Recommend what to do next from the history, records, the watch's
  *    readiness and the library, as a card that opens the workout.
  *
  * The model never writes to anything itself: saving is the owner's tap.
+ * Everything it sends is read strictly (decode.ts): wrong types and unknown
+ * fields come back to it as problems to fix, never coerced into a program.
+ *
+ * The chat lives in the training database (AppData.mimir), so it survives a
+ * restart; only the turn in flight (busy, failure) is module state, so it
+ * keeps running when the owner switches tabs.
  */
-import type { AppData, EmomStation, Exercise, FlowStep, ForTimeStage, Level, RideSegment, Template } from "../types";
-import type { ChatMessage, MimirSettings, ToolSpec } from "./openrouter";
+import type { AppData, ChatEntry, ChatItem, ChatMessage, Exercise, MusicProfile, Template } from "../types";
+import type { MimirSettings, ToolSpec } from "./openrouter";
 import { complete } from "./openrouter";
-import { allTemplates, loadPrograms, PROGRAM_PREFIX, templateById } from "./programs";
+import { PROGRAM_PREFIX, templatesWith, withProgram } from "./programs";
 import { templateProblems } from "./template-check";
 import { exerciseGear, libraryFor } from "./library";
-import { GEAR, type GearId } from "./gear";
+import { GEAR } from "./gear";
 import { templateLength } from "./catalog";
 import { collapsePRs, formatPR, prKindLabel } from "./prs";
 import { garminSnapshot, matchSessions, typeLabel } from "./garmin";
 import { loadFtp } from "./ride";
 import { loadHrZones } from "./hr";
-import { SETS } from "./songs";
 import { errorText } from "./http";
+import { EX } from "./seed";
+import { uid } from "./store";
+import {
+  INTENSITIES,
+  LEVELS,
+  parseJson,
+  Reader,
+  readEmom,
+  readFlow,
+  readForTime,
+  readGear,
+  readInterval,
+  readRide,
+  SET_IDS,
+} from "./decode";
+import type { Fields } from "./decode";
 
 /* ------------------------------ The chat --------------------------------- */
 
-export type ChatItem =
-  | { kind: "user"; text: string }
-  | { kind: "mimir"; text: string }
-  | { kind: "program"; template: Template; replaces?: string | undefined; saved?: boolean | undefined }
-  | { kind: "pick"; templateId: string; why: string }
-  | { kind: "error"; text: string };
-
-export interface Chat {
-  /** What the owner sees. */
-  items: ChatItem[];
-  /** What the model sees: the API history, tool calls and results included. */
-  messages: ChatMessage[];
-}
-
-const CHAT_KEY = "varg.mimir.chat.v1";
 /** Old turns fall off the front; the model needs the thread, not the archive. */
 const MAX_MESSAGES = 80;
+/** What the owner can scroll back through. */
+const MAX_ITEMS = 200;
 
-export function loadChat(): Chat {
-  try {
-    const raw = localStorage.getItem(CHAT_KEY);
-    if (raw) {
-      const c = JSON.parse(raw) as Partial<Chat>;
-      if (Array.isArray(c.items) && Array.isArray(c.messages)) return { items: c.items, messages: c.messages };
-    }
-  } catch {
-    // a fresh chat
-  }
-  return { items: [], messages: [] };
-}
-
-export function saveChat(chat: Chat): void {
-  try {
-    localStorage.setItem(CHAT_KEY, JSON.stringify(chat));
-  } catch {
-    // kept in memory for this run
-  }
-}
-
-/** Drop the oldest turns, never splitting a tool call from its results. */
-function trim(messages: ChatMessage[]): ChatMessage[] {
-  if (messages.length <= MAX_MESSAGES) return messages;
-  let start = messages.length - MAX_MESSAGES;
-  while (start < messages.length && messages[start]?.role !== "user") start++;
+/** Drop the oldest messages, never splitting a tool call from its results. */
+function trim<T extends { body: ChatMessage }>(messages: readonly T[], max: number): T[] {
+  if (messages.length <= max) return [...messages];
+  let start = messages.length - max;
+  while (start < messages.length && messages[start]?.body.role !== "user") start++;
   return messages.slice(start);
+}
+
+function nextSeq(rows: readonly { seq: number }[]): number {
+  return rows.reduce((m, r) => Math.max(m, r.seq), 0) + 1;
+}
+
+function entries<T>(rows: readonly ChatEntry<T>[], bodies: readonly T[]): ChatEntry<T>[] {
+  const seq = nextSeq(rows);
+  return [...rows, ...bodies.map((body, i) => ({ id: uid("chat"), seq: seq + i, body }))];
+}
+
+function withItems(data: AppData, items: readonly ChatItem[]): AppData {
+  return { ...data, mimir: { ...data.mimir, items: entries(data.mimir.items, items).slice(-MAX_ITEMS) } };
+}
+
+function withMessages(data: AppData, messages: readonly ChatMessage[]): AppData {
+  return { ...data, mimir: { ...data.mimir, messages: trim(entries(data.mimir.messages, messages), MAX_MESSAGES) } };
 }
 
 /* ---------------------------- The catalogue ------------------------------ */
@@ -199,8 +203,9 @@ const TOOLS: ToolSpec[] = [
 
 const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
-function getHistory(data: AppData, args: Obj): string {
-  const days = Math.min(365, Math.max(1, Math.round(Number(args.days) || 42)));
+function getHistory(data: AppData, args: Fields): string {
+  const asked = args.get("days");
+  const days = typeof asked === "number" && Number.isInteger(asked) ? Math.min(365, Math.max(1, asked)) : 42;
   const since = Date.now() - days * 86400_000;
   const exName = new Map(data.exercises.map((e) => [e.id, e.name]));
   const finished = data.sessions
@@ -215,17 +220,17 @@ function getHistory(data: AppData, args: Obj): string {
     const entries = s.entries.map((e) => {
       const sets = e.sets.filter((x) => x.done).map((x) =>
         [
-          x.weight != null ? `${String(x.weight)}kg` : "",
-          x.reps != null ? `×${String(x.reps)}` : "",
-          x.seconds != null ? `${String(Math.round(x.seconds))}s` : "",
-          x.meters != null ? `${String(x.meters)}m` : "",
-          x.rpe != null ? `@RPE${String(x.rpe)}` : "",
+          x.weight != null ? `${x.weight}kg` : "",
+          x.reps != null ? `×${x.reps}` : "",
+          x.seconds != null ? `${Math.round(x.seconds)}s` : "",
+          x.meters != null ? `${x.meters}m` : "",
+          x.rpe != null ? `@RPE${x.rpe}` : "",
         ].join(""));
       return `${exName.get(e.exerciseId) ?? e.exerciseId}: ${sets.join(", ") || "no sets done"}`;
     });
     const watch = matches.get(s.id);
-    const hr = watch?.avgHr ? `HR avg ${String(watch.avgHr)} max ${String(watch.maxHr ?? "?")} (watch)`
-      : s.heartRate ? `HR avg ${String(s.heartRate.avg)} max ${String(s.heartRate.max)} (strap)` : "";
+    const hr = watch?.avgHr ? `HR avg ${watch.avgHr} max ${watch.maxHr ?? "?"} (watch)`
+      : s.heartRate ? `HR avg ${s.heartRate.avg} max ${s.heartRate.max} (strap)` : "";
     return { date: s.date.slice(0, 16), name: s.name, templateId: s.templateId, minutes, hr: hr || undefined, kcal: watch?.kcal, note: s.note, entries };
   });
   const other = garmin.activities
@@ -264,10 +269,10 @@ function getReadiness(): string {
   });
 }
 
-function listWorkouts(): string {
-  const saved = new Set(loadPrograms().map((p) => p.template.id));
+function listWorkouts(data: AppData): string {
+  const saved = new Set(data.programs.map((p) => p.id));
   return JSON.stringify(
-    allTemplates().map((t) => {
+    templatesWith(data.programs).map((t) => {
       const len = templateLength(t);
       return {
         id: t.id,
@@ -285,246 +290,129 @@ function listWorkouts(): string {
 
 /* ------------------------ Reading the model's program ---------------------- */
 
-/** The fields Mímir's JSON may carry, every one unchecked until read. */
-type Key = "cadence"
-  | "days"
-  | "description"
-  | "detail"
-  | "emom"
-  | "energy"
-  | "estimateMinutes"
-  | "exerciseId"
-  | "exerciseIds"
-  | "extra"
-  | "flow"
-  | "focus"
-  | "forTime"
-  | "ftp"
-  | "gear"
-  | "hrZone"
-  | "interval"
-  | "kcal"
-  | "label"
-  | "level"
-  | "meters"
-  | "minute"
-  | "music"
-  | "name"
-  | "perSide"
-  | "program"
-  | "race"
-  | "replaces"
-  | "reps"
-  | "rest"
-  | "ride"
-  | "rounds"
-  | "scheme"
-  | "seconds"
-  | "segments"
-  | "set"
-  | "side"
-  | "stages"
-  | "stations"
-  | "steps"
-  | "style"
-  | "templateId"
-  | "theme"
-  | "transition"
-  | "warmup"
-  | "why"
-  | "work";
-type Obj = Partial<Record<Key, unknown>>;
-const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
+/** Every field a program may carry. Anything else is named back to the model. */
+const PROGRAM_FIELDS: readonly string[] = [
+  "name", "description", "level", "scheme", "exerciseIds", "estimateMinutes",
+  "interval", "emom", "flow", "forTime", "ride", "gear", "music",
+];
+const KINDS: readonly ("interval" | "emom" | "flow" | "forTime" | "ride")[] = ["interval", "emom", "flow", "forTime", "ride"];
+
+const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+const unique = (xs: readonly string[]) => [...new Set(xs)];
 
 /**
  * Turn the model's JSON into a Template, strictly: every field is checked for
- * its type and nothing unknown is carried over. Problems come back as text
- * the model can act on. Ids, and the schemes the guided players compute,
- * are written here rather than trusted to the model's arithmetic.
+ * its type, nothing is coerced, and unknown fields are refused. Problems come
+ * back as text the model can act on. The id, and the schemes the guided
+ * players compute, are written here rather than trusted to the model's
+ * arithmetic.
  */
 export function readProgram(raw: unknown, id: string): { template?: Template; problems: string[] } {
-  const problems: string[] = [];
+  let value = raw;
   if (typeof raw === "string") {
-    try {
-      raw = JSON.parse(raw);
-    } catch {
-      return { problems: ["program is not valid JSON"] };
-    }
+    const parsed = parseJson(raw);
+    if (!parsed.ok) return { problems: [`program is not valid JSON: ${parsed.error}`] };
+    value = parsed.value;
   }
-  if (!isObj(raw)) return { problems: ["program must be an object"] };
-  const p = raw;
+  const r = new Reader();
+  const p = r.obj(value, "program");
+  if (!r.ok()) return { problems: r.problems };
+  for (const key of p.keys()) {
+    if (!PROGRAM_FIELDS.includes(key)) r.fail(`program.${key} is not a field a program has`);
+  }
+  const present = (k: string) => {
+    const v = p.get(k);
+    return v !== undefined && v !== null;
+  };
+  const kinds = KINDS.filter(present);
+  if (kinds.length > 1) r.fail(`set only one of interval, emom, flow, forTime, ride (got ${kinds.join(", ")})`);
 
-  const str = (v: unknown, what: string, max = 400): string => {
-    if (typeof v === "string" && v.trim() && v.length <= max) return v.trim();
-    problems.push(`${what} must be a non-empty string of at most ${String(max)} characters`);
-    return "";
-  };
-  const int = (v: unknown, what: string): number => {
-    if (typeof v === "number" && Number.isInteger(v)) return v;
-    problems.push(`${what} must be a whole number`);
-    return 0;
-  };
-  const ints = (v: unknown, what: string): number[] => {
-    if (Array.isArray(v) && v.every((n) => typeof n === "number" && Number.isInteger(n))) return v as number[];
-    problems.push(`${what} must be an array of whole numbers, one per round`);
-    return [];
-  };
-  const pair = (v: unknown, what: string): [number, number] => {
-    if (Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === "number")) return [Number(v[0]), Number(v[1])];
-    problems.push(`${what} must be [low, high]`);
-    return [0, 0];
-  };
-  const list = (v: unknown, what: string): unknown[] => {
-    if (Array.isArray(v)) return v;
-    problems.push(`${what} must be an array`);
-    return [];
-  };
-  const optInt = (v: unknown, what: string): number | undefined => (v === undefined || v === null ? undefined : int(v, what));
-
-  const name = str(p.name, "name", 60);
-  const description = str(p.description, "description", 600);
-  const level = p.level as Level;
-  if (!["beginner", "intermediate", "advanced"].includes(level)) problems.push("level must be beginner, intermediate or advanced");
-
-  const kinds = (["interval", "emom", "flow", "forTime", "ride"] as const).filter((k) => p[k] !== undefined && p[k] !== null);
-  if (kinds.length > 1) problems.push(`set only one of interval, emom, flow, forTime, ride (got ${kinds.join(", ")})`);
-
+  const description = r.str(p.get("description"), "description", 600);
   const t: Template = {
     id,
-    name,
+    name: r.str(p.get("name"), "name", 60),
     branch: "Mímir",
     description,
     scheme: "",
-    level,
+    level: r.oneOf(p.get("level"), LEVELS, "level"),
     exerciseIds: [],
     music: { bpm: 140, style: "", theme: "" },
   };
-  const ids = (v: unknown, what: string): string[] => {
-    const xs = list(v, what);
-    if (!xs.every((x) => typeof x === "string")) problems.push(`${what} must be exercise ids`);
-    return xs.filter((x): x is string => typeof x === "string");
-  };
-  const unique = (xs: string[]) => [...new Set(xs)];
-  const fmt = (s: number) => `${String(Math.floor(s / 60))}:${String(s % 60).padStart(2, "0")}`;
 
-  const kind = kinds[0];
-  if (kind === "interval") {
-    const iv = isObj(p.interval) ? p.interval : {};
-    t.exerciseIds = ids(p.exerciseIds, "exerciseIds (the stations in order)");
-    t.interval = { work: int(iv.work, "interval.work"), rest: int(iv.rest, "interval.rest"), rounds: int(iv.rounds, "interval.rounds") };
-    t.scheme = `${String(t.interval.rounds)} rounds · ${String(t.exerciseIds.length)} stations · ${String(t.interval.work)} s work / ${String(t.interval.rest)} s rest`;
-  } else if (kind === "emom") {
-    const em = isObj(p.emom) ? p.emom : {};
-    const stations: EmomStation[] = list(em.stations, "emom.stations").map((x, i) => {
-      const s = isObj(x) ? x : {};
-      const at = `emom.stations[${String(i)}]`;
-      const st: EmomStation = { exerciseId: str(s.exerciseId, `${at}.exerciseId`) };
-      if (s.reps !== undefined) st.reps = ints(s.reps, `${at}.reps`);
-      if (s.seconds !== undefined) st.seconds = ints(s.seconds, `${at}.seconds`);
-      if (s.perSide === "leg" || s.perSide === "arm") st.perSide = s.perSide;
-      else if (s.perSide !== undefined) problems.push(`${at}.perSide must be "leg" or "arm"`);
-      if (typeof s.focus === "string" && s.focus.trim()) st.focus = s.focus.trim();
-      return st;
-    });
-    const warmup = em.warmup === undefined ? [] : list(em.warmup, "emom.warmup").map((x, i) => {
-      const w = isObj(x) ? x : {};
-      return { exerciseId: str(w.exerciseId, `emom.warmup[${String(i)}].exerciseId`), seconds: int(w.seconds, `emom.warmup[${String(i)}].seconds`) };
-    });
-    t.emom = { minute: em.minute === undefined ? 60 : int(em.minute, "emom.minute"), rounds: int(em.rounds, "emom.rounds"), stations, ...(warmup.length ? { warmup } : {}) };
-    t.exerciseIds = unique([...warmup.map((w) => w.exerciseId), ...stations.map((s) => s.exerciseId)]);
-    const warm = warmup.reduce((a, w) => a + w.seconds, 0);
-    const main = t.emom.rounds * stations.length * t.emom.minute;
-    t.scheme = [fmt(warm + main), ...(warm > 0 ? [`${fmt(warm)} warm-up`] : []), `${fmt(main)} EMOM`, `${String(t.emom.rounds)} rounds`, `${String(stations.length)} stations`].join(" · ");
-  } else if (kind === "flow") {
-    const fl = isObj(p.flow) ? p.flow : {};
-    const steps: FlowStep[] = list(fl.steps, "flow.steps").map((x, i) => {
-      const s = isObj(x) ? x : {};
-      const at = `flow.steps[${String(i)}]`;
-      const st: FlowStep = { exerciseId: str(s.exerciseId, `${at}.exerciseId`), seconds: int(s.seconds, `${at}.seconds`) };
-      if (s.side === "left" || s.side === "right") st.side = s.side;
-      else if (s.side !== undefined && s.side !== null) problems.push(`${at}.side must be "left" or "right"`);
-      return st;
-    });
-    t.flow = { steps, transition: int(fl.transition, "flow.transition") };
-    t.exerciseIds = unique(steps.map((s) => s.exerciseId));
-    if (steps.length > 0) {
-      const total = steps.reduce((a, s) => a + s.seconds, 0) + (steps.length - 1) * t.flow.transition;
-      const holds = steps.map((s) => s.seconds);
-      t.scheme = [
-        `${fmt(total)} flow`,
-        `${String(steps.length)} poses`,
-        `holds of ${String(Math.min(...holds))}–${String(Math.max(...holds))} s`,
-        ...(t.flow.transition > 0 ? [`${String(t.flow.transition)} s to move between poses`] : []),
-      ].join(" · ");
+  switch (kinds[0]) {
+    case "interval": {
+      t.exerciseIds = r.strs(p.get("exerciseIds"), "exerciseIds");
+      const iv = readInterval(r, r.obj(p.get("interval"), "interval"), "interval");
+      t.interval = iv;
+      t.scheme = `${iv.rounds} rounds · ${t.exerciseIds.length} stations · ${iv.work} s work / ${iv.rest} s rest`;
+      break;
     }
-    t.music.energy = 1;
-  } else if (kind === "forTime") {
-    const ft = isObj(p.forTime) ? p.forTime : {};
-    const stages: ForTimeStage[] = list(ft.stages, "forTime.stages").map((x, i) => {
-      const s = isObj(x) ? x : {};
-      const at = `forTime.stages[${String(i)}]`;
-      const st: ForTimeStage = { exerciseId: str(s.exerciseId, `${at}.exerciseId`), label: str(s.label, `${at}.label`, 60) };
-      const reps = optInt(s.reps, `${at}.reps`);
-      const meters = optInt(s.meters, `${at}.meters`);
-      if (reps !== undefined) st.reps = reps;
-      if (meters !== undefined) st.meters = meters;
-      return st;
-    });
-    t.forTime = { stages };
-    t.exerciseIds = unique(stages.map((s) => s.exerciseId));
-    t.scheme = str(p.scheme, "scheme", 200);
-  } else if (kind === "ride") {
-    const r = isObj(p.ride) ? p.ride : {};
-    const segments: RideSegment[] = list(r.segments, "ride.segments").map((x, i) => {
-      const s = isObj(x) ? x : {};
-      const at = `ride.segments[${String(i)}]`;
-      const sg: RideSegment = { label: str(s.label, `${at}.label`, 40), ftp: pair(s.ftp, `${at}.ftp`) };
-      const seconds = optInt(s.seconds, `${at}.seconds`);
-      const kcal = optInt(s.kcal, `${at}.kcal`);
-      const hrZone = optInt(s.hrZone, `${at}.hrZone`);
-      if (seconds !== undefined) sg.seconds = seconds;
-      if (kcal !== undefined) sg.kcal = kcal;
-      if (hrZone !== undefined) sg.hrZone = hrZone;
-      if (s.cadence !== undefined && s.cadence !== null) sg.cadence = pair(s.cadence, `${at}.cadence`);
-      return sg;
-    });
-    t.ride = { segments, ...(p.ride && isObj(p.ride) && p.ride.race === true ? { race: true } : {}) };
-    t.exerciseIds = ids(p.exerciseIds ?? ["ex-spin-bike"], "exerciseIds");
-    t.scheme = str(p.scheme, "scheme", 200);
-  } else {
-    t.exerciseIds = ids(p.exerciseIds, "exerciseIds");
-    if (t.exerciseIds.length === 0) problems.push("a logged session needs exerciseIds");
-    t.scheme = str(p.scheme, "scheme", 200);
-  }
-
-  if (p.estimateMinutes !== undefined && p.estimateMinutes !== null) t.estimateMinutes = int(p.estimateMinutes, "estimateMinutes");
-
-  if (p.gear !== undefined && p.gear !== null) {
-    const g = isObj(p.gear) ? p.gear : {};
-    const extra = g.extra === undefined ? [] : list(g.extra, "gear.extra").filter((x): x is GearId => typeof x === "string" && x in GEAR);
-    const detail: Partial<Record<GearId, string>> = {};
-    if (isObj(g.detail)) {
-      for (const [k, v] of Object.entries(g.detail)) {
-        if (!(k in GEAR)) problems.push(`gear.detail: unknown gear "${k}"`);
-        else if (typeof v === "string") detail[k as GearId] = v;
+    case "emom": {
+      const em = readEmom(r, r.obj(p.get("emom"), "emom"), "emom", 60);
+      t.emom = em;
+      const warmup = em.warmup ?? [];
+      t.exerciseIds = unique([...warmup.map((w) => w.exerciseId), ...em.stations.map((s) => s.exerciseId)]);
+      const warm = warmup.reduce((a, w) => a + w.seconds, 0);
+      const main = em.rounds * em.stations.length * em.minute;
+      t.scheme = [fmt(warm + main), ...(warm > 0 ? [`${fmt(warm)} warm-up`] : []), `${fmt(main)} EMOM`, `${em.rounds} rounds`, `${em.stations.length} stations`].join(" · ");
+      break;
+    }
+    case "flow": {
+      const fl = readFlow(r, r.obj(p.get("flow"), "flow"), "flow");
+      t.flow = fl;
+      t.exerciseIds = unique(fl.steps.map((s) => s.exerciseId));
+      if (fl.steps.length > 0) {
+        const total = fl.steps.reduce((a, s) => a + s.seconds, 0) + (fl.steps.length - 1) * fl.transition;
+        const holds = fl.steps.map((s) => s.seconds);
+        t.scheme = [
+          `${fmt(total)} flow`,
+          `${fl.steps.length} poses`,
+          `holds of ${Math.min(...holds)}–${Math.max(...holds)} s`,
+          ...(fl.transition > 0 ? [`${fl.transition} s to move between poses`] : []),
+        ].join(" · ");
       }
+      t.music.energy = 1;
+      break;
     }
-    t.gear = { ...(extra.length ? { extra } : {}), ...(Object.keys(detail).length ? { detail } : {}) };
+    case "forTime": {
+      const ft = readForTime(r, r.obj(p.get("forTime"), "forTime"), "forTime");
+      t.forTime = ft;
+      t.exerciseIds = unique(ft.stages.map((s) => s.exerciseId));
+      t.scheme = r.str(p.get("scheme"), "scheme", 200);
+      break;
+    }
+    case "ride": {
+      t.ride = readRide(r, r.obj(p.get("ride"), "ride"), "ride");
+      t.exerciseIds = present("exerciseIds") ? r.strs(p.get("exerciseIds"), "exerciseIds") : [EX.spinBike];
+      t.scheme = r.str(p.get("scheme"), "scheme", 200);
+      break;
+    }
+    case undefined: {
+      t.exerciseIds = r.strs(p.get("exerciseIds"), "exerciseIds");
+      if (t.exerciseIds.length === 0) r.fail("a logged session needs exerciseIds");
+      t.scheme = r.str(p.get("scheme"), "scheme", 200);
+      break;
+    }
   }
 
-  const m = isObj(p.music) ? p.music : {};
-  const energy = m.energy ?? t.music.energy;
-  if (energy !== undefined) {
-    if (energy === 1 || energy === 2 || energy === 3) t.music.energy = energy;
-    else problems.push("music.energy must be 1, 2 or 3");
-  }
-  t.music.style = typeof m.style === "string" && m.style.trim() ? m.style.trim().slice(0, 200)
-    : t.flow ? "calm ambient, soft pads, slow and spacious, no vocals" : "hard electronic, heavy drums, dark synth bass, no vocals";
-  t.music.theme = typeof m.theme === "string" && m.theme.trim() ? m.theme.trim().slice(0, 200) : description;
-  t.music.bpm = t.flow ? 70 : 140;
-  if (typeof m.set === "string" && SETS.some((s) => s.id === m.set)) t.music.set = m.set as NonNullable<Template["music"]["set"]>;
+  const estimate = r.optInt(p.get("estimateMinutes"), "estimateMinutes");
+  if (estimate !== undefined) t.estimateMinutes = estimate;
+  const gear = r.optObj(p.get("gear"), "gear");
+  if (gear) t.gear = readGear(r, gear, "gear");
 
-  return problems.length ? { problems } : { template: t, problems };
+  const m = r.optObj(p.get("music"), "music");
+  const music: MusicProfile = {
+    bpm: t.flow ? 70 : 140,
+    style: (m && r.optStr(m.get("style"), "music.style", 200)) ?? (t.flow ? "calm ambient, soft pads, slow and spacious, no vocals" : "hard electronic, heavy drums, dark synth bass, no vocals"),
+    theme: (m && r.optStr(m.get("theme"), "music.theme", 200)) ?? description,
+  };
+  const energy = (m && r.optOneOf(m.get("energy"), INTENSITIES, "music.energy")) ?? t.music.energy;
+  const set = m && r.optOneOf(m.get("set"), SET_IDS, "music.set");
+  if (energy !== undefined) music.energy = energy;
+  if (set !== undefined) music.set = set;
+  t.music = music;
+
+  return r.ok() ? { template: t, problems: [] } : { problems: r.problems };
 }
 
 function newProgramId(name: string): string {
@@ -532,17 +420,20 @@ function newProgramId(name: string): string {
   return `${PROGRAM_PREFIX}${slug}-${Date.now().toString(36)}`;
 }
 
-function proposeProgram(data: AppData, args: Obj, emit: (item: ChatItem) => void): string {
-  const replaces = typeof args.replaces === "string" && args.replaces ? args.replaces : undefined;
-  if (replaces && !loadPrograms().some((p) => p.template.id === replaces)) {
+function proposeProgram(data: AppData, args: Fields, emit: (item: ChatItem) => void): string {
+  const asked = args.get("replaces");
+  const replaces = typeof asked === "string" && asked !== "" ? asked : undefined;
+  if (replaces !== undefined && !data.programs.some((p) => p.id === replaces)) {
     return JSON.stringify({ ok: false, problems: [`replaces: "${replaces}" is not one of the owner's saved programs`] });
   }
-  const name = isObj(args.program) && typeof args.program.name === "string" ? args.program.name : "program";
-  const read = readProgram(args.program, replaces ?? newProgramId(name));
+  const program = args.get("program");
+  const r = new Reader();
+  const name = typeof program === "object" && program !== null ? r.obj(program, "program").get("name") : undefined;
+  const read = readProgram(program, replaces ?? newProgramId(typeof name === "string" ? name : "program"));
   const template = read.template;
   const problems = template ? templateProblems(template, usableExercises(data)) : read.problems;
   if (!template || problems.length > 0) return JSON.stringify({ ok: false, problems });
-  emit({ kind: "program", template, replaces });
+  emit(replaces === undefined ? { kind: "program", template } : { kind: "program", template, replaces });
   const len = templateLength(template);
   return JSON.stringify({
     ok: true,
@@ -552,11 +443,12 @@ function proposeProgram(data: AppData, args: Obj, emit: (item: ChatItem) => void
   });
 }
 
-function recommend(args: Obj, emit: (item: ChatItem) => void): string {
-  const id = typeof args.templateId === "string" ? args.templateId : "";
-  const t = templateById(id);
-  if (!t) return JSON.stringify({ ok: false, problem: `no workout with id "${id}"; call list_workouts` });
-  emit({ kind: "pick", templateId: id, why: typeof args.why === "string" ? args.why : "" });
+function recommend(data: AppData, args: Fields, emit: (item: ChatItem) => void): string {
+  const id = args.get("templateId");
+  const why = args.get("why");
+  const t = typeof id === "string" ? templatesWith(data.programs).find((x) => x.id === id) : undefined;
+  if (!t) return JSON.stringify({ ok: false, problem: `no workout with id ${JSON.stringify(id)}; call list_workouts` });
+  emit({ kind: "pick", templateId: t.id, why: typeof why === "string" ? why : "" });
   return JSON.stringify({ ok: true, shown: `A card for ${t.name}.` });
 }
 
@@ -567,56 +459,61 @@ const MAX_STEPS = 10;
 
 /**
  * Answer one owner message. Calls `emit` for every item the owner should
- * see as it happens, and returns the model's history to keep. Throws on a
- * gateway failure; the caller shows it in red.
+ * see as it happens, and returns the messages this turn added to the
+ * model's history. Throws on a gateway failure; the caller shows it in red.
  */
 export async function runTurn(
   settings: MimirSettings,
   data: AppData,
-  history: ChatMessage[],
+  history: readonly ChatMessage[],
   text: string,
   emit: (item: ChatItem) => void,
   onTool?: (name: string) => void,
   signal?: AbortSignal,
 ): Promise<ChatMessage[]> {
-  let messages: ChatMessage[] = [...trim(history), { role: "user", content: text }];
+  const added: ChatMessage[] = [{ role: "user", content: text }];
   for (let step = 0; step < MAX_STEPS; step++) {
-    const reply = await complete(settings, [{ role: "system", content: systemPrompt(data) }, ...messages], TOOLS, signal);
-    messages = [...messages, reply];
-    if (reply.content?.trim()) emit({ kind: "mimir", text: reply.content.trim() });
-    if (!reply.tool_calls?.length) return messages;
+    const reply = await complete(settings, [{ role: "system", content: systemPrompt(data) }, ...history, ...added], TOOLS, signal);
+    added.push(reply);
+    const said = reply.content?.trim();
+    if (said) emit({ kind: "mimir", text: said });
+    if (!reply.tool_calls?.length) return added;
     for (const call of reply.tool_calls) {
       onTool?.(call.function.name);
-      let args: Obj = {};
       let result: string;
-      try {
-        const parsed: unknown = call.function.arguments ? JSON.parse(call.function.arguments) : {};
-        if (isObj(parsed)) args = parsed;
-        result = runTool(call.function.name, args, data, emit);
-      } catch (e) {
-        result = JSON.stringify({ ok: false, problem: `tool failed: ${errorText(e)}` });
+      const parsed = parseJson(call.function.arguments.trim() === "" ? "{}" : call.function.arguments);
+      if (!parsed.ok) {
+        result = JSON.stringify({ ok: false, problem: `arguments are not valid JSON: ${parsed.error}` });
+      } else {
+        const r = new Reader();
+        const args = r.obj(parsed.value, "arguments");
+        try {
+          result = r.ok() ? runTool(call.function.name, args, data, emit) : JSON.stringify({ ok: false, problems: r.problems });
+        } catch (e) {
+          result = JSON.stringify({ ok: false, problem: `tool failed: ${errorText(e)}` });
+        }
       }
-      messages = [...messages, { role: "tool", tool_call_id: call.id, content: result }];
+      added.push({ role: "tool", tool_call_id: call.id, content: result });
     }
   }
-  emit({ kind: "error", text: `Stopped after ${String(MAX_STEPS)} steps` });
-  return messages;
+  emit({ kind: "error", text: `Stopped after ${MAX_STEPS} steps` });
+  return added;
 }
 
-function runTool(name: string, args: Obj, data: AppData, emit: (item: ChatItem) => void): string {
+function runTool(name: string, args: Fields, data: AppData, emit: (item: ChatItem) => void): string {
   switch (name) {
     case "get_history": return getHistory(data, args);
     case "get_records": return getRecords(data);
     case "get_readiness": return getReadiness();
-    case "list_workouts": return listWorkouts();
+    case "list_workouts": return listWorkouts(data);
     case "propose_program": return proposeProgram(data, args, emit);
-    case "recommend_workout": return recommend(args, emit);
+    case "recommend_workout": return recommend(data, args, emit);
     default: return JSON.stringify({ ok: false, problem: `no tool "${name}"` });
   }
 }
 
 /** What each tool is doing, as a status label. */
-export const TOOL_LABEL: Record<string, string> = {
+export const TOOL_LABEL: Readonly<Partial<Record<string, string>>> = {
   get_history: "Reading the Saga",
   get_records: "Reading records",
   get_readiness: "Reading the watch",
@@ -626,55 +523,59 @@ export const TOOL_LABEL: Record<string, string> = {
 };
 
 /* ------------------------------ The live chat ------------------------------ */
-// Module state, not component state: a turn keeps running when the owner
-// switches tabs, and its answer is waiting when they come back.
+// Only the turn in flight is module state: the chat itself is AppData,
+// written through `update` like a logged set, so it reaches the database
+// and its failures show in the same red banner.
 
-export interface ChatState extends Chat {
+export interface TurnState {
   /** Set while a turn runs: what Mímir is doing, as a label. */
   busy: string | null;
   /** The last turn failed: the reason, and the message to send again. */
   failure: { text: string; message: string } | null;
 }
 
-let live: ChatState = { ...(typeof localStorage === "undefined" ? { items: [], messages: [] } : loadChat()), busy: null, failure: null };
-const chatListeners = new Set<() => void>();
+let turn: TurnState = { busy: null, failure: null };
+const turnListeners = new Set<() => void>();
 let abort: AbortController | null = null;
 
-function setLive(patch: Partial<ChatState>): void {
-  live = { ...live, ...patch };
-  saveChat({ items: live.items, messages: live.messages });
-  for (const l of chatListeners) l();
+function setTurn(patch: Partial<TurnState>): void {
+  turn = { ...turn, ...patch };
+  for (const l of turnListeners) l();
 }
 
-export function subscribeChat(l: () => void): () => void {
-  chatListeners.add(l);
-  return () => { chatListeners.delete(l); };
+export function subscribeTurn(l: () => void): () => void {
+  turnListeners.add(l);
+  return () => { turnListeners.delete(l); };
 }
 
-export function chatSnapshot(): ChatState {
-  return live;
+export function turnSnapshot(): TurnState {
+  return turn;
 }
+
+type Update = (fn: (data: AppData) => AppData) => void;
 
 /** Send the owner's message. Failures land in `failure`, in red, with Retry. */
-export async function send(settings: MimirSettings, data: AppData, text: string, retry = false): Promise<void> {
-  if (live.busy !== null || !text.trim()) return;
-  abort = new AbortController();
-  const items = retry ? live.items : [...live.items, { kind: "user" as const, text: text.trim() }];
-  setLive({ items, busy: "Thinking", failure: null });
+export async function send(settings: MimirSettings, data: AppData, update: Update, text: string, retry = false): Promise<void> {
+  const message = text.trim();
+  if (turn.busy !== null || message === "") return;
+  const controller = new AbortController();
+  abort = controller;
+  if (!retry) update((d) => withItems(d, [{ kind: "user", text: message }]));
+  setTurn({ busy: "Thinking", failure: null });
   try {
-    const messages = await runTurn(
+    const added = await runTurn(
       settings,
       data,
-      live.messages,
-      text.trim(),
-      (item) => { setLive({ items: [...live.items, item] }); },
-      (tool) => { setLive({ busy: TOOL_LABEL[tool] ?? "Thinking" }); },
-      abort.signal,
+      data.mimir.messages.map((m) => m.body),
+      message,
+      (item) => { update((d) => withItems(d, [item])); },
+      (tool) => { setTurn({ busy: TOOL_LABEL[tool] ?? "Thinking" }); },
+      controller.signal,
     );
-    setLive({ messages, busy: null });
+    update((d) => withMessages(d, added));
+    setTurn({ busy: null });
   } catch (e) {
-    const stopped = abort.signal.aborted;
-    setLive({ busy: null, failure: stopped ? null : { text: errorText(e), message: text.trim() } });
+    setTurn({ busy: null, failure: controller.signal.aborted ? null : { text: errorText(e), message } });
   } finally {
     abort = null;
   }
@@ -684,11 +585,21 @@ export function stop(): void {
   abort?.abort();
 }
 
-export function markSaved(index: number): void {
-  setLive({ items: live.items.map((it, i) => (i === index && it.kind === "program" ? { ...it, saved: true } : it)) });
+/** Save a proposed program and mark its card saved, in one update. */
+export function saveFromChat(update: Update, itemId: string, template: Template): void {
+  update((d) => {
+    const next = withProgram(d, template, new Date().toISOString());
+    return {
+      ...next,
+      mimir: {
+        ...next.mimir,
+        items: next.mimir.items.map((it) => (it.id === itemId && it.body.kind === "program" ? { ...it, body: { ...it.body, saved: true } } : it)),
+      },
+    };
+  });
 }
 
-export function clearChat(): void {
-  if (live.busy !== null) return;
-  setLive({ items: [], messages: [], failure: null });
+export function clearChat(update: Update): void {
+  if (turn.busy !== null) return;
+  update((d) => ({ ...d, mimir: { items: [], messages: [] } }));
 }

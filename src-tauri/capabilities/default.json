@@ -7,9 +7,6 @@
   ],
   "permissions": [
     "core:default",
-    "sql:default",
-    "sql:allow-execute",
-    "sql:allow-select",
     "process:allow-exit",
     "varg-gps:default",
     "varg-voice:default",

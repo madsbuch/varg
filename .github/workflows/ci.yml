@@ -16,7 +16,21 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Type-check & build
         run: bun run build
-      - name: DB migrations smoke test
-        run: bun run db:smoke
-      - name: Workout recording and animation tests
+      - name: Built-in content check
+        run: bun run check:content
+      - name: Workout recording, animation and store-contract tests
         run: bun run test
+
+  store:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Storage (Diesel) tests
+        working-directory: src-tauri/store
+        run: cargo test
+      - name: Storage lint
+        working-directory: src-tauri/store
+        run: cargo clippy --all-targets -- -D warnings

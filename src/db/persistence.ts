@@ -2,7 +2,7 @@
  * Persistence abstraction. The app keeps working state in memory
  * (AppData in React context) and writes through to a backend:
  *
- *  - SQLite via tauri-plugin-sql + Drizzle when running inside Tauri
+ *  - the Rust store (SQLite through Diesel, src-tauri/store) in the app
  *  - localStorage when running as a plain web page (vite dev in a browser)
  *
  * Writes are derived by diffing successive AppData snapshots. Store
@@ -10,24 +10,40 @@
  */
 import type {
   AppData,
+  ChatEntry,
+  ChatItem,
+  ChatMessage,
   Exercise,
   PersonalRecord,
+  SavedProgram,
   Session,
 } from "../types";
+
+/** What a backend loaded, and every row it could not read (shown in red). */
+export interface Loaded {
+  data: AppData;
+  problems: string[];
+}
 
 /**
  * Backends must implement every write non-destructively: upsert what is
  * there, delete only what disappeared. A backend that empties a table
  * before refilling it loses the difference whenever the refill rejects,
- * and there is no transaction to fall back on (see sqlite.ts).
+ * and a backend need not offer a transaction around the pair.
  */
 export interface Persistence {
-  load(): Promise<AppData>;
+  load(): Promise<Loaded>;
   saveExercise(ex: Exercise): Promise<void>;
   deleteExercise(id: string): Promise<void>;
   saveSession(session: Session): Promise<void>;
   deleteSession(id: string): Promise<void>;
   replacePRs(prs: PersonalRecord[]): Promise<void>;
+  saveProgram(p: SavedProgram): Promise<void>;
+  deleteProgram(id: string): Promise<void>;
+  saveChatItem(row: ChatEntry<ChatItem>): Promise<void>;
+  deleteChatItem(id: string): Promise<void>;
+  saveChatMessage(row: ChatEntry<ChatMessage>): Promise<void>;
+  deleteChatMessage(id: string): Promise<void>;
 }
 
 export function isTauri(): boolean {
@@ -36,8 +52,8 @@ export function isTauri(): boolean {
 
 export async function createPersistence(): Promise<Persistence> {
   if (isTauri()) {
-    const { SqlitePersistence } = await import("./sqlite");
-    return SqlitePersistence.open();
+    const { RustPersistence } = await import("./rust");
+    return RustPersistence.open();
   }
   const { LocalStoragePersistence } = await import("./local");
   return new LocalStoragePersistence();
@@ -105,4 +121,7 @@ export async function persistDiff(
   await diffById(prev.exercises, next.exercises, (e) => p.saveExercise(e), (id) => p.deleteExercise(id));
   await diffById(prev.sessions, next.sessions, (s) => p.saveSession(s), (id) => p.deleteSession(id));
   if (prev.prs !== next.prs && !samePRs(prev.prs, next.prs)) await p.replacePRs(next.prs);
+  await diffById(prev.programs, next.programs, (x) => p.saveProgram(x), (id) => p.deleteProgram(id));
+  await diffById(prev.mimir.items, next.mimir.items, (x) => p.saveChatItem(x), (id) => p.deleteChatItem(id));
+  await diffById(prev.mimir.messages, next.mimir.messages, (x) => p.saveChatMessage(x), (id) => p.deleteChatMessage(id));
 }
